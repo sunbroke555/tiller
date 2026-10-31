@@ -129,9 +129,15 @@ export function PruneDialog({ node, storage, backups, group, open, onOpenChange 
       </FormField>
 
       <div className="grid gap-2">
-        <FormRow cols={3} className="grid-cols-2 gap-3">
+        <div className="text-sm font-medium text-foreground">保留数量</div>
+        <FormRow cols={3} className="grid-cols-3 gap-x-2.5 gap-y-3 sm:gap-x-4">
           {PRUNE_KEYS.map((k) => (
-            <FormField key={k} label={`保留${PRUNE_LABEL[k]}`} name={k}>
+            <FormField key={k} label={
+                <span className="text-xs font-normal text-muted-foreground">
+                  <span className="sr-only">保留</span>
+                  {PRUNE_LABEL[k]}
+                </span>
+              } name={k} className="gap-1.5">
               <NumberInput
                 value={keep[k]}
                 onChange={(v) => setKeep((prev) => ({ ...prev, [k]: v && v > 0 ? v : undefined }))}
@@ -144,7 +150,7 @@ export function PruneDialog({ node, storage, backups, group, open, onOpenChange 
           ))}
         </FormRow>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          按顺序应用：先保留最近 N 个，再按小时、天、周、月、年各保留最新的一个。都不填表示全部保留。受保护的备份永远不会删除。
+          先保留最近 N 个，再按每小时、天、周、月、年各保留最新的一个。都不填则全部保留；受保护的备份不会删除。
         </p>
       </div>
 

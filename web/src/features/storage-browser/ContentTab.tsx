@@ -335,7 +335,8 @@ function VolumeRow({
   const title = isBackup && owner ? owner : name
   const meta = [
     isBackup ? null : isDisk ? (owner ? `${owner}${ownerMissing ? '（不存在）' : ''}` : null) : null,
-    time ? formatDateTime(time) : null,
+    // Disks: the owner matters more than the date (in the details).
+    time && !isDisk ? formatDateTime(time) : null,
     v.format,
   ].filter(Boolean)
 

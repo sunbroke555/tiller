@@ -44,7 +44,7 @@ export default function SummaryTab({ node, storage, resource }: StorageTabProps)
   const total = s?.total ?? resource.maxdisk
   const avail = s?.avail ?? (total !== undefined && used !== undefined ? total - used : undefined)
   const usage = ratio(used, total)
-  const contents = storageContents(s?.content ?? resource.content)
+  const contents = CONTENT_ORDER.filter((c) => storageContents(s?.content ?? resource.content).includes(c))
   const active = s ? s.active === 1 : resource.status === 'available'
   const enabled = s ? s.enabled !== 0 : config.data ? config.data.disable !== 1 : true
   const shared = (s?.shared ?? resource.shared) === 1
@@ -128,7 +128,7 @@ export default function SummaryTab({ node, storage, resource }: StorageTabProps)
         <section aria-labelledby="storage-contents">
           <SectionHeader title={<span id="storage-contents">内容</span>} />
           <div className="grid grid-cols-2 gap-(--row-gap) sm:grid-cols-3 xl:grid-cols-4">
-            {CONTENT_ORDER.filter((c) => contents.includes(c)).map((c) => {
+            {contents.map((c) => {
               const Icon = CONTENT_ICON[c]
               const b = breakdown.get(c)
               return (
