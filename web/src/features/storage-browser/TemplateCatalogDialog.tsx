@@ -176,7 +176,7 @@ export function TemplateCatalogDialog({ node, storage, open, onOpenChange }: Tem
                   variant={present || state === 'started' ? 'ghost' : 'outline'}
                   disabled={!!state || present}
                   onClick={() => void download(t)}
-                  aria-label={`下载 ${t.package}`}
+                  aria-label={`下载 ${t.package} ${t.version}`}
                   className={cn('shrink-0 pointer-coarse:h-10', (present || state === 'started') && 'text-success')}
                 >
                   {state === 'starting' ? (

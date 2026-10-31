@@ -72,9 +72,11 @@ export function VolumeDetailsDialog({ volume: v, owner, actions, open, onOpenCha
                 {a.label}
               </Button>
             ))}
-            {actions.find((a) => a.disabled) && (
-              <p className="col-span-2 text-xs text-muted-foreground">{actions.find((a) => a.disabled)?.disabled}</p>
-            )}
+            {[...new Set(actions.map((a) => a.disabled).filter(Boolean))].map((reason) => (
+              <p key={reason} className="col-span-2 text-xs text-muted-foreground">
+                {reason}
+              </p>
+            ))}
           </div>
         )}
       </div>

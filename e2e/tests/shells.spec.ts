@@ -74,7 +74,7 @@ test.describe('page shells', () => {
     const card = page.getByRole('link', { name: /local/ }).first()
     await card.click()
     await expect(page).toHaveURL(new RegExp(`/storage/${pve.node}/local`))
-    await expect(page.getByRole('tabpanel', { name: '概要' })).toContainText('storage-browser')
+    await expect(page.getByRole('tabpanel', { name: '概要' })).toContainText('已用空间')
   })
 
   test('area routes render', async ({ page }) => {

@@ -2,6 +2,7 @@ import {
   ExternalLink,
   FileInput,
   FileText,
+  FolderSearch,
   History,
   Scissors,
   Shield,
@@ -33,6 +34,8 @@ export interface VolumeActionEnv {
   /** Navigate to the owning guest, when it exists. */
   openGuest?: (() => void) | undefined
   deleteBlocked: string | null
+  /** Backups on Proxmox Backup Server (file restore). */
+  isPbs?: boolean
 }
 
 /** Actions for one volume, by content type (official storage views' toolbars). */
@@ -43,6 +46,10 @@ export function volumeActions(v: StorageVolume, env: VolumeActionEnv): VolumeAct
     const vmid = volumeVmid(v)
     if (type) out.push({ id: 'restore', label: '恢复', icon: History, run: () => env.open('restore', v) })
     out.push({ id: 'config', label: '查看配置', icon: FileText, run: () => env.open('config', v) })
+    if (env.isPbs) {
+      // PBS file-level restore (file-restore/list|download) is not built yet.
+      out.push({ id: 'file-restore', label: '文件级恢复', icon: FolderSearch, disabled: '文件级恢复即将推出', run: () => {} })
+    }
     out.push({ id: 'notes', label: '编辑备注', icon: StickyNote, run: () => env.open('notes', v) })
     out.push(
       v.protected === 1

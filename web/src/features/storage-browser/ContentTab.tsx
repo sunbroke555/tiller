@@ -129,6 +129,7 @@ export default function ContentTab({ node, storage, resource, content }: Storage
       },
       openGuest: g && id !== undefined ? () => navigate(guestPath({ node: g.node, type: g.type, vmid: id })) : undefined,
       deleteBlocked: deleteBlockedReason(v, { guests: guestNodes, node, shared }),
+      isPbs,
     })
   }
 
@@ -354,7 +355,7 @@ function VolumeRow({
         </span>
         <span className="grid min-w-0 flex-1 gap-0.5">
           <span className="flex min-w-0 items-center gap-2">
-            <span className={cn('truncate font-medium text-foreground', !isBackup && 'break-all')} title={name}>
+            <span className="truncate font-medium text-foreground" title={name}>
               {title}
             </span>
             <VolumeBadges volume={v} className="hidden flex-nowrap sm:inline-flex" />
