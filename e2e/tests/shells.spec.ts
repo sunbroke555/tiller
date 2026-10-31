@@ -34,7 +34,7 @@ test.describe('page shells', () => {
     const ct = (await pve.guests()).find((g) => g.type === 'lxc' && g.template !== 1)
     test.skip(!ct, '实验机里没有容器')
     await page.goto(`/guest/${ct!.node}/lxc/${ct!.vmid}/dns`)
-    await expect(page.getByRole('tabpanel', { name: 'DNS' })).toContainText('lxc-config')
+    await expect(page.getByRole('tabpanel', { name: 'DNS' })).toContainText('主机名')
     const tabs = page.getByRole('navigation', { name: '页面标签' })
     await expect(tabs.getByRole('link', { name: '资源' })).toBeAttached()
     await expect(tabs.getByRole('link', { name: '硬件' })).toHaveCount(0)
