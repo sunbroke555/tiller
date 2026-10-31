@@ -1,0 +1,2835 @@
+{
+  "meta": {
+    "source": "pve-manager 9.2.21 (pvemanagerlib.js, proxmoxlib.js, api-viewer apidoc.js) on 192.168.0.6",
+    "generated": "2026-11-01",
+    "apiEndpointsTotal": 680,
+    "apiEndpointsMapped": 661,
+    "unmappedEndpoints": [
+      "GET /access/openid",
+      "GET /access/ticket",
+      "GET /nodes/{node}/apt",
+      "GET /nodes/{node}/certificates",
+      "GET /nodes/{node}/certificates/acme",
+      "GET /nodes/{node}/disks",
+      "POST /nodes/{node}/execute",
+      "POST /nodes/{node}/lxc/{vmid}/mtunnel",
+      "GET /nodes/{node}/lxc/{vmid}/mtunnelwebsocket",
+      "POST /nodes/{node}/lxc/{vmid}/remote_migrate",
+      "GET /nodes/{node}/lxc/{vmid}/rrd",
+      "GET /nodes/{node}/netstat",
+      "POST /nodes/{node}/qemu/{vmid}/dbus-vmstate",
+      "POST /nodes/{node}/qemu/{vmid}/mtunnel",
+      "GET /nodes/{node}/qemu/{vmid}/mtunnelwebsocket",
+      "POST /nodes/{node}/qemu/{vmid}/remote_migrate",
+      "GET /nodes/{node}/qemu/{vmid}/rrd",
+      "GET /nodes/{node}/rrd",
+      "GET /nodes/{node}/storage/{storage}/rrd"
+    ]
+  },
+  "areas": [
+    {
+      "id": "auth",
+      "title": "登录与会话（含 TFA / OpenID）",
+      "phase": 1,
+      "route": "/login",
+      "summary": "登录页、两步验证、OpenID 回调、ticket 续签、登出、改密码、自助管理自己的 TFA、能力表(caps)获取。",
+      "features": [
+        {
+          "id": "realm-list",
+          "title": "认证域下拉",
+          "endpoints": [
+            "GET /access/domains"
+          ]
+        },
+        {
+          "id": "login",
+          "title": "用户名密码登录",
+          "endpoints": [
+            "POST /access/ticket"
+          ]
+        },
+        {
+          "id": "tfa-login",
+          "title": "两步验证登录",
+          "endpoints": [
+            "POST /access/ticket"
+          ]
+        },
+        {
+          "id": "openid-login",
+          "title": "OpenID Connect 登录",
+          "endpoints": [
+            "POST /access/openid/auth-url",
+            "POST /access/openid/login"
+          ]
+        },
+        {
+          "id": "consent-banner",
+          "title": "登录前同意横幅",
+          "endpoints": [
+            "GET /cluster/options"
+          ]
+        },
+        {
+          "id": "ticket-renew",
+          "title": "会话续签",
+          "endpoints": [
+            "POST /access/ticket"
+          ]
+        },
+        {
+          "id": "logout",
+          "title": "登出",
+          "endpoints": []
+        },
+        {
+          "id": "change-password",
+          "title": "修改自己的密码",
+          "endpoints": [
+            "PUT /access/password"
+          ]
+        },
+        {
+          "id": "my-tfa",
+          "title": "管理自己的 TFA",
+          "endpoints": [
+            "GET /access/tfa/{userid}",
+            "POST /access/tfa/{userid}",
+            "GET /access/tfa/{userid}/{id}",
+            "PUT /access/tfa/{userid}/{id}",
+            "DELETE /access/tfa/{userid}/{id}"
+          ]
+        },
+        {
+          "id": "own-permissions",
+          "title": "我的有效权限",
+          "endpoints": [
+            "GET /access/permissions"
+          ]
+        },
+        {
+          "id": "version",
+          "title": "版本信息",
+          "endpoints": [
+            "GET /version"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "app-shell",
+      "title": "应用框架（导航 / 资源树 / 搜索 / 任务条 / 偏好）",
+      "phase": 1,
+      "route": "/",
+      "summary": "全局布局、资源树、命令面板搜索、底部任务进度条、主题与个人偏好、标签样式渲染、权限门控。",
+      "features": [
+        {
+          "id": "resource-tree",
+          "title": "资源树 / 资源列表",
+          "endpoints": [
+            "GET /cluster/resources"
+          ]
+        },
+        {
+          "id": "global-search",
+          "title": "全局搜索 / 命令面板",
+          "endpoints": [
+            "GET /cluster/resources"
+          ]
+        },
+        {
+          "id": "task-bar",
+          "title": "运行中任务条",
+          "endpoints": [
+            "GET /cluster/tasks"
+          ]
+        },
+        {
+          "id": "cluster-status",
+          "title": "集群状态（法定人数/在线节点）",
+          "endpoints": [
+            "GET /cluster/status"
+          ]
+        },
+        {
+          "id": "ui-options",
+          "title": "全局 UI 选项",
+          "endpoints": [
+            "GET /cluster/options"
+          ]
+        },
+        {
+          "id": "my-settings",
+          "title": "我的设置（本地）",
+          "endpoints": []
+        },
+        {
+          "id": "language",
+          "title": "界面语言",
+          "endpoints": []
+        },
+        {
+          "id": "markdown-notes",
+          "title": "Markdown 备注渲染",
+          "endpoints": []
+        },
+        {
+          "id": "cluster-index",
+          "title": "集群目录索引",
+          "endpoints": [
+            "GET /cluster",
+            "GET /nodes/{node}",
+            "GET /nodes/{node}/qemu/{vmid}",
+            "GET /nodes/{node}/lxc/{vmid}",
+            "GET /nodes/{node}/qemu/{vmid}/status",
+            "GET /nodes/{node}/lxc/{vmid}/status",
+            "GET /nodes/{node}/qemu/{vmid}/firewall",
+            "GET /nodes/{node}/services/{service}"
+          ]
+        },
+        {
+          "id": "nextid",
+          "title": "下一个可用 VMID",
+          "endpoints": [
+            "GET /cluster/nextid"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "overview",
+      "title": "总览（数据中心摘要 / 列表 / 池浏览）",
+      "phase": 1,
+      "route": "/overview",
+      "summary": "数据中心 Summary（健康、客户机计数、资源、节点、订阅）、节点/客户机/存储列表、数据中心备注、资源池浏览。",
+      "features": [
+        {
+          "id": "dc-health",
+          "title": "数据中心健康",
+          "endpoints": [
+            "GET /cluster/status",
+            "GET /cluster/ceph/status"
+          ]
+        },
+        {
+          "id": "dc-guests",
+          "title": "客户机统计",
+          "endpoints": [
+            "GET /cluster/resources"
+          ]
+        },
+        {
+          "id": "dc-resources",
+          "title": "集群资源用量",
+          "endpoints": [
+            "GET /cluster/resources"
+          ]
+        },
+        {
+          "id": "dc-nodes",
+          "title": "节点列表",
+          "endpoints": [
+            "GET /nodes",
+            "GET /cluster/status"
+          ]
+        },
+        {
+          "id": "dc-subscriptions",
+          "title": "订阅概览",
+          "endpoints": [
+            "GET /cluster/status"
+          ]
+        },
+        {
+          "id": "dc-notes",
+          "title": "数据中心备注",
+          "endpoints": [
+            "GET /cluster/options",
+            "PUT /cluster/options"
+          ]
+        },
+        {
+          "id": "guest-list",
+          "title": "客户机列表",
+          "endpoints": [
+            "GET /cluster/resources"
+          ]
+        },
+        {
+          "id": "storage-list",
+          "title": "存储列表",
+          "endpoints": [
+            "GET /cluster/resources"
+          ]
+        },
+        {
+          "id": "pool-summary",
+          "title": "资源池 Summary",
+          "endpoints": [
+            "GET /pools"
+          ]
+        },
+        {
+          "id": "guest-index",
+          "title": "节点客户机列表接口",
+          "endpoints": [
+            "GET /nodes/{node}/qemu",
+            "GET /nodes/{node}/lxc"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tasks-logs",
+      "title": "任务与日志",
+      "phase": 1,
+      "route": "/tasks",
+      "summary": "集群任务列表、节点任务历史、任务详情（实时日志/停止/下载）、集群日志。",
+      "features": [
+        {
+          "id": "cluster-tasks",
+          "title": "集群任务列表",
+          "endpoints": [
+            "GET /cluster/tasks"
+          ]
+        },
+        {
+          "id": "task-viewer",
+          "title": "任务详情 / 实时日志",
+          "endpoints": [
+            "GET /nodes/{node}/tasks/{upid}",
+            "GET /nodes/{node}/tasks/{upid}/status",
+            "GET /nodes/{node}/tasks/{upid}/log",
+            "DELETE /nodes/{node}/tasks/{upid}"
+          ]
+        },
+        {
+          "id": "node-tasks",
+          "title": "节点/客户机任务历史",
+          "endpoints": [
+            "GET /nodes/{node}/tasks"
+          ]
+        },
+        {
+          "id": "cluster-log",
+          "title": "集群日志",
+          "endpoints": [
+            "GET /cluster/log"
+          ]
+        },
+        {
+          "id": "task-type-names",
+          "title": "任务类型中文描述",
+          "endpoints": []
+        }
+      ]
+    },
+    {
+      "id": "node-summary",
+      "title": "节点摘要 / 服务 / 系统日志",
+      "phase": 1,
+      "route": "/nodes/:node",
+      "summary": "节点状态与 RRD 图、重启关机、备注、服务管理、journal、包版本、系统报告、WOL。",
+      "features": [
+        {
+          "id": "node-status",
+          "title": "节点状态",
+          "endpoints": [
+            "GET /nodes/{node}/status"
+          ]
+        },
+        {
+          "id": "node-rrd",
+          "title": "节点 RRD 图",
+          "endpoints": [
+            "GET /nodes/{node}/rrddata"
+          ]
+        },
+        {
+          "id": "node-power",
+          "title": "节点重启 / 关机",
+          "endpoints": [
+            "POST /nodes/{node}/status"
+          ]
+        },
+        {
+          "id": "node-notes",
+          "title": "节点备注",
+          "endpoints": [
+            "GET /nodes/{node}/config",
+            "PUT /nodes/{node}/config"
+          ]
+        },
+        {
+          "id": "node-services",
+          "title": "服务管理",
+          "endpoints": [
+            "GET /nodes/{node}/services",
+            "GET /nodes/{node}/services/{service}",
+            "GET /nodes/{node}/services/{service}/state",
+            "POST /nodes/{node}/services/{service}/start",
+            "POST /nodes/{node}/services/{service}/stop",
+            "POST /nodes/{node}/services/{service}/restart",
+            "POST /nodes/{node}/services/{service}/reload",
+            "GET /nodes/{node}/syslog"
+          ]
+        },
+        {
+          "id": "node-journal",
+          "title": "系统日志（journal）",
+          "endpoints": [
+            "GET /nodes/{node}/journal",
+            "GET /nodes/{node}/syslog"
+          ]
+        },
+        {
+          "id": "package-versions",
+          "title": "包版本",
+          "endpoints": [
+            "GET /nodes/{node}/apt/versions"
+          ]
+        },
+        {
+          "id": "node-repo-status",
+          "title": "软件源状态提示",
+          "endpoints": [
+            "GET /nodes/{node}/apt/repositories",
+            "GET /nodes/{node}/subscription"
+          ]
+        },
+        {
+          "id": "node-report",
+          "title": "系统报告",
+          "endpoints": [
+            "GET /nodes/{node}/report"
+          ]
+        },
+        {
+          "id": "node-wol",
+          "title": "网络唤醒",
+          "endpoints": [
+            "POST /nodes/{node}/wakeonlan"
+          ]
+        },
+        {
+          "id": "node-version",
+          "title": "节点版本",
+          "endpoints": [
+            "GET /nodes/{node}/version"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "console",
+      "title": "控制台（noVNC / xterm.js / SPICE）",
+      "phase": 1,
+      "route": "/console",
+      "summary": "VM/CT 控制台、节点 Shell、串口终端、SPICE .vv 下载、发送按键。依赖 Go 反代 websocket。",
+      "features": [
+        {
+          "id": "node-shell",
+          "title": "节点 Shell",
+          "endpoints": [
+            "POST /nodes/{node}/termproxy",
+            "POST /nodes/{node}/vncshell",
+            "GET /nodes/{node}/vncwebsocket"
+          ]
+        },
+        {
+          "id": "node-spice-shell",
+          "title": "节点 SPICE Shell",
+          "endpoints": [
+            "POST /nodes/{node}/spiceshell"
+          ]
+        },
+        {
+          "id": "vm-novnc",
+          "title": "VM noVNC 控制台",
+          "endpoints": [
+            "POST /nodes/{node}/qemu/{vmid}/vncproxy",
+            "GET /nodes/{node}/qemu/{vmid}/vncwebsocket"
+          ]
+        },
+        {
+          "id": "vm-xterm-serial",
+          "title": "VM 串口终端（xterm.js）",
+          "endpoints": [
+            "POST /nodes/{node}/qemu/{vmid}/termproxy",
+            "GET /nodes/{node}/qemu/{vmid}/vncwebsocket"
+          ]
+        },
+        {
+          "id": "vm-spice",
+          "title": "VM SPICE",
+          "endpoints": [
+            "POST /nodes/{node}/qemu/{vmid}/spiceproxy"
+          ]
+        },
+        {
+          "id": "vm-sendkey",
+          "title": "发送按键",
+          "endpoints": [
+            "PUT /nodes/{node}/qemu/{vmid}/sendkey"
+          ]
+        },
+        {
+          "id": "ct-console",
+          "title": "CT 控制台",
+          "endpoints": [
+            "POST /nodes/{node}/lxc/{vmid}/termproxy",
+            "POST /nodes/{node}/lxc/{vmid}/vncproxy",
+            "GET /nodes/{node}/lxc/{vmid}/vncwebsocket",
+            "POST /nodes/{node}/lxc/{vmid}/spiceproxy"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "guest-summary-power",
+      "title": "客户机摘要与电源",
+      "phase": 1,
+      "route": "/nodes/:node/:type/:vmid",
+      "summary": "VM/CT Summary：状态、RRD 图、IP、备注、标签；电源操作 start/shutdown/stop/reboot/reset/suspend/hibernate/resume。",
+      "features": [
+        {
+          "id": "vm-status",
+          "title": "VM 状态",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/status/current"
+          ]
+        },
+        {
+          "id": "vm-rrd",
+          "title": "VM RRD 图",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/rrddata"
+          ]
+        },
+        {
+          "id": "vm-ips",
+          "title": "VM IP 地址",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/agent/network-get-interfaces"
+          ]
+        },
+        {
+          "id": "vm-notes",
+          "title": "VM 备注",
+          "endpoints": [
+            "PUT /nodes/{node}/qemu/{vmid}/config"
+          ]
+        },
+        {
+          "id": "vm-tags",
+          "title": "VM 标签",
+          "endpoints": [
+            "PUT /nodes/{node}/qemu/{vmid}/config"
+          ]
+        },
+        {
+          "id": "vm-power",
+          "title": "VM 电源操作",
+          "endpoints": [
+            "POST /nodes/{node}/qemu/{vmid}/status/start",
+            "POST /nodes/{node}/qemu/{vmid}/status/shutdown",
+            "POST /nodes/{node}/qemu/{vmid}/status/stop",
+            "POST /nodes/{node}/qemu/{vmid}/status/reboot",
+            "POST /nodes/{node}/qemu/{vmid}/status/reset",
+            "POST /nodes/{node}/qemu/{vmid}/status/suspend",
+            "POST /nodes/{node}/qemu/{vmid}/status/resume"
+          ]
+        },
+        {
+          "id": "vm-template-summary",
+          "title": "模板 Summary",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config"
+          ]
+        },
+        {
+          "id": "vm-agent-extra",
+          "title": "Guest Agent 信息（官方 UI 未用，可选）",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/agent/info",
+            "GET /nodes/{node}/qemu/{vmid}/agent/get-osinfo",
+            "GET /nodes/{node}/qemu/{vmid}/agent/get-host-name",
+            "GET /nodes/{node}/qemu/{vmid}/agent/get-fsinfo",
+            "GET /nodes/{node}/qemu/{vmid}/agent/get-time",
+            "GET /nodes/{node}/qemu/{vmid}/agent/get-timezone",
+            "GET /nodes/{node}/qemu/{vmid}/agent/get-users",
+            "GET /nodes/{node}/qemu/{vmid}/agent/get-vcpus",
+            "GET /nodes/{node}/qemu/{vmid}/agent/get-memory-blocks",
+            "GET /nodes/{node}/qemu/{vmid}/agent/get-memory-block-info",
+            "POST /nodes/{node}/qemu/{vmid}/agent/ping",
+            "POST /nodes/{node}/qemu/{vmid}/agent/fstrim",
+            "POST /nodes/{node}/qemu/{vmid}/agent/fsfreeze-freeze",
+            "POST /nodes/{node}/qemu/{vmid}/agent/fsfreeze-thaw",
+            "POST /nodes/{node}/qemu/{vmid}/agent/fsfreeze-status",
+            "POST /nodes/{node}/qemu/{vmid}/agent/set-user-password",
+            "POST /nodes/{node}/qemu/{vmid}/agent/exec",
+            "GET /nodes/{node}/qemu/{vmid}/agent/exec-status",
+            "GET /nodes/{node}/qemu/{vmid}/agent/file-read",
+            "POST /nodes/{node}/qemu/{vmid}/agent/file-write",
+            "POST /nodes/{node}/qemu/{vmid}/agent/shutdown",
+            "POST /nodes/{node}/qemu/{vmid}/agent/suspend-disk",
+            "POST /nodes/{node}/qemu/{vmid}/agent/suspend-ram",
+            "POST /nodes/{node}/qemu/{vmid}/agent/suspend-hybrid",
+            "GET /nodes/{node}/qemu/{vmid}/agent",
+            "POST /nodes/{node}/qemu/{vmid}/agent"
+          ]
+        },
+        {
+          "id": "ct-status",
+          "title": "CT 状态",
+          "endpoints": [
+            "GET /nodes/{node}/lxc/{vmid}/status/current"
+          ]
+        },
+        {
+          "id": "ct-rrd",
+          "title": "CT RRD 图",
+          "endpoints": [
+            "GET /nodes/{node}/lxc/{vmid}/rrddata"
+          ]
+        },
+        {
+          "id": "ct-ips",
+          "title": "CT IP 地址",
+          "endpoints": [
+            "GET /nodes/{node}/lxc/{vmid}/interfaces"
+          ]
+        },
+        {
+          "id": "ct-notes-tags",
+          "title": "CT 备注与标签",
+          "endpoints": [
+            "PUT /nodes/{node}/lxc/{vmid}/config"
+          ]
+        },
+        {
+          "id": "ct-power",
+          "title": "CT 电源操作",
+          "endpoints": [
+            "POST /nodes/{node}/lxc/{vmid}/status/start",
+            "POST /nodes/{node}/lxc/{vmid}/status/shutdown",
+            "POST /nodes/{node}/lxc/{vmid}/status/stop",
+            "POST /nodes/{node}/lxc/{vmid}/status/reboot",
+            "POST /nodes/{node}/lxc/{vmid}/status/suspend",
+            "POST /nodes/{node}/lxc/{vmid}/status/resume"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "qemu-config",
+      "title": "VM 配置（硬件 / Cloud-Init / 选项 / Monitor）",
+      "phase": 1,
+      "route": "/nodes/:node/qemu/:vmid/hardware",
+      "summary": "QEMU 硬件全部设备类型的增删改、磁盘动作、pending/revert、Cloud-Init、Options、Monitor。",
+      "features": [
+        {
+          "id": "vm-hw-view",
+          "title": "硬件列表 + pending",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/pending",
+            "PUT /nodes/{node}/qemu/{vmid}/config"
+          ]
+        },
+        {
+          "id": "vm-hw-memory",
+          "title": "内存",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config"
+          ]
+        },
+        {
+          "id": "vm-hw-cpu",
+          "title": "处理器",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config",
+            "GET /nodes/{node}/capabilities/qemu/cpu",
+            "GET /nodes/{node}/capabilities/qemu/cpu-flags",
+            "GET /cluster/qemu/cpu-flags",
+            "GET /cluster/qemu/custom-cpu-models"
+          ]
+        },
+        {
+          "id": "vm-hw-arch",
+          "title": "vCPU 架构",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config"
+          ]
+        },
+        {
+          "id": "vm-hw-bios",
+          "title": "BIOS",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config"
+          ]
+        },
+        {
+          "id": "vm-hw-display",
+          "title": "显示",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config"
+          ]
+        },
+        {
+          "id": "vm-hw-machine",
+          "title": "机器类型",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config",
+            "GET /nodes/{node}/capabilities/qemu/machines"
+          ]
+        },
+        {
+          "id": "vm-hw-scsihw",
+          "title": "SCSI 控制器",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config"
+          ]
+        },
+        {
+          "id": "vm-hw-disk",
+          "title": "硬盘（添加/编辑）",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config",
+            "GET /nodes/{node}/storage"
+          ]
+        },
+        {
+          "id": "vm-hw-import-disk",
+          "title": "导入硬盘",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config",
+            "GET /nodes/{node}/storage/{storage}/content"
+          ]
+        },
+        {
+          "id": "vm-hw-disk-actions",
+          "title": "磁盘动作：迁移存储 / 转移给其他客户机 / 扩容 / 分离 / 删除",
+          "endpoints": [
+            "POST /nodes/{node}/qemu/{vmid}/move_disk",
+            "PUT /nodes/{node}/qemu/{vmid}/resize",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/unlink"
+          ]
+        },
+        {
+          "id": "vm-hw-cdrom",
+          "title": "CD/DVD 光驱",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config",
+            "GET /nodes/{node}/storage/{storage}/content"
+          ]
+        },
+        {
+          "id": "vm-hw-cloudinit-drive",
+          "title": "CloudInit 驱动器",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config"
+          ]
+        },
+        {
+          "id": "vm-hw-net",
+          "title": "网络设备",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config",
+            "GET /nodes/{node}/network"
+          ]
+        },
+        {
+          "id": "vm-hw-efidisk",
+          "title": "EFI 磁盘",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config"
+          ]
+        },
+        {
+          "id": "vm-hw-tpm",
+          "title": "TPM 状态",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config"
+          ]
+        },
+        {
+          "id": "vm-hw-usb",
+          "title": "USB 设备",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config",
+            "GET /nodes/{node}/hardware/usb",
+            "GET /cluster/mapping/usb"
+          ]
+        },
+        {
+          "id": "vm-hw-pci",
+          "title": "PCI 设备",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config",
+            "GET /nodes/{node}/hardware/pci",
+            "GET /nodes/{node}/hardware/pci/{pci-id-or-mapping}",
+            "GET /nodes/{node}/hardware/pci/{pci-id-or-mapping}/mdev",
+            "GET /cluster/mapping/pci"
+          ]
+        },
+        {
+          "id": "vm-hw-serial",
+          "title": "串口",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config"
+          ]
+        },
+        {
+          "id": "vm-hw-audio",
+          "title": "音频设备",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config"
+          ]
+        },
+        {
+          "id": "vm-hw-rng",
+          "title": "VirtIO RNG",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config"
+          ]
+        },
+        {
+          "id": "vm-hw-virtiofs",
+          "title": "Virtiofs 共享目录",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config",
+            "GET /cluster/mapping/dir"
+          ]
+        },
+        {
+          "id": "vm-hw-sev-tdx",
+          "title": "AMD SEV / Intel TDX",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config"
+          ]
+        },
+        {
+          "id": "vm-hw-keyboard",
+          "title": "键盘布局（VNC）",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config"
+          ]
+        },
+        {
+          "id": "vm-hw-unused",
+          "title": "未使用磁盘",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config"
+          ]
+        },
+        {
+          "id": "vm-cloudinit",
+          "title": "Cloud-Init 配置",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/cloudinit",
+            "PUT /nodes/{node}/qemu/{vmid}/cloudinit",
+            "GET /nodes/{node}/qemu/{vmid}/cloudinit/dump",
+            "PUT /nodes/{node}/qemu/{vmid}/config"
+          ]
+        },
+        {
+          "id": "vm-options",
+          "title": "VM 选项",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/config",
+            "POST /nodes/{node}/qemu/{vmid}/config"
+          ]
+        },
+        {
+          "id": "vm-monitor",
+          "title": "QEMU Monitor",
+          "endpoints": [
+            "POST /nodes/{node}/qemu/{vmid}/monitor"
+          ]
+        },
+        {
+          "id": "node-hw-scan",
+          "title": "主机硬件与能力查询（选择器用）",
+          "endpoints": [
+            "GET /nodes/{node}/hardware",
+            "GET /nodes/{node}/hardware/pci",
+            "GET /nodes/{node}/hardware/usb",
+            "GET /nodes/{node}/capabilities",
+            "GET /nodes/{node}/capabilities/qemu",
+            "GET /nodes/{node}/capabilities/qemu/cpu",
+            "GET /nodes/{node}/capabilities/qemu/cpu-flags",
+            "GET /nodes/{node}/capabilities/qemu/machines",
+            "GET /nodes/{node}/capabilities/qemu/migration"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lxc-config",
+      "title": "CT 配置（资源 / 网络 / DNS / 选项）",
+      "phase": 1,
+      "route": "/nodes/:node/lxc/:vmid/resources",
+      "summary": "LXC Resources（内存/交换/CPU/根盘/挂载点/设备直通）、Network、DNS、Options。",
+      "features": [
+        {
+          "id": "ct-memory",
+          "title": "内存与交换",
+          "endpoints": [
+            "GET /nodes/{node}/lxc/{vmid}/config",
+            "PUT /nodes/{node}/lxc/{vmid}/config"
+          ]
+        },
+        {
+          "id": "ct-cpu",
+          "title": "CPU",
+          "endpoints": [
+            "GET /nodes/{node}/lxc/{vmid}/config",
+            "PUT /nodes/{node}/lxc/{vmid}/config"
+          ]
+        },
+        {
+          "id": "ct-rootfs",
+          "title": "根磁盘",
+          "endpoints": [
+            "GET /nodes/{node}/lxc/{vmid}/config",
+            "PUT /nodes/{node}/lxc/{vmid}/config"
+          ]
+        },
+        {
+          "id": "ct-mountpoint",
+          "title": "挂载点",
+          "endpoints": [
+            "GET /nodes/{node}/lxc/{vmid}/config",
+            "PUT /nodes/{node}/lxc/{vmid}/config",
+            "GET /nodes/{node}/storage"
+          ]
+        },
+        {
+          "id": "ct-volume-actions",
+          "title": "卷动作：迁移存储 / 转移所有者 / 扩容 / 分离 / 删除",
+          "endpoints": [
+            "POST /nodes/{node}/lxc/{vmid}/move_volume",
+            "PUT /nodes/{node}/lxc/{vmid}/resize",
+            "PUT /nodes/{node}/lxc/{vmid}/config"
+          ]
+        },
+        {
+          "id": "ct-device",
+          "title": "设备直通",
+          "endpoints": [
+            "GET /nodes/{node}/lxc/{vmid}/config",
+            "PUT /nodes/{node}/lxc/{vmid}/config"
+          ]
+        },
+        {
+          "id": "ct-pending",
+          "title": "资源 pending/撤销",
+          "endpoints": [
+            "GET /nodes/{node}/lxc/{vmid}/pending",
+            "PUT /nodes/{node}/lxc/{vmid}/config"
+          ]
+        },
+        {
+          "id": "ct-network",
+          "title": "CT 网络",
+          "endpoints": [
+            "GET /nodes/{node}/lxc/{vmid}/config",
+            "PUT /nodes/{node}/lxc/{vmid}/config",
+            "GET /nodes/{node}/lxc/{vmid}/interfaces",
+            "GET /nodes/{node}/network"
+          ]
+        },
+        {
+          "id": "ct-dns",
+          "title": "CT DNS",
+          "endpoints": [
+            "GET /nodes/{node}/lxc/{vmid}/config",
+            "PUT /nodes/{node}/lxc/{vmid}/config"
+          ]
+        },
+        {
+          "id": "ct-options",
+          "title": "CT 选项",
+          "endpoints": [
+            "GET /nodes/{node}/lxc/{vmid}/config",
+            "PUT /nodes/{node}/lxc/{vmid}/config"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "guest-snapshots-backup",
+      "title": "快照、立即备份与恢复",
+      "phase": 1,
+      "route": "/nodes/:node/:type/:vmid/snapshots",
+      "summary": "快照树（创建/回滚/删除/编辑描述）、客户机 Backup 页（立即备份、备份列表、恢复、显示配置）、从备份恢复窗口。",
+      "features": [
+        {
+          "id": "vm-snapshots",
+          "title": "VM 快照",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/snapshot",
+            "POST /nodes/{node}/qemu/{vmid}/snapshot",
+            "GET /nodes/{node}/qemu/{vmid}/snapshot/{snapname}",
+            "GET /nodes/{node}/qemu/{vmid}/snapshot/{snapname}/config",
+            "PUT /nodes/{node}/qemu/{vmid}/snapshot/{snapname}/config",
+            "POST /nodes/{node}/qemu/{vmid}/snapshot/{snapname}/rollback",
+            "DELETE /nodes/{node}/qemu/{vmid}/snapshot/{snapname}",
+            "GET /nodes/{node}/qemu/{vmid}/feature"
+          ]
+        },
+        {
+          "id": "vm-backup-tab",
+          "title": "VM Backup 页",
+          "endpoints": [
+            "GET /nodes/{node}/storage",
+            "GET /nodes/{node}/storage/{storage}/content",
+            "GET /nodes/{node}/vzdump/extractconfig",
+            "PUT /nodes/{node}/storage/{storage}/content/{volume}",
+            "DELETE /nodes/{node}/storage/{storage}/content/{volume}"
+          ]
+        },
+        {
+          "id": "vm-backup-now",
+          "title": "立即备份",
+          "endpoints": [
+            "GET /nodes/{node}/vzdump/defaults",
+            "POST /nodes/{node}/vzdump"
+          ]
+        },
+        {
+          "id": "vm-restore",
+          "title": "从备份恢复 VM",
+          "endpoints": [
+            "POST /nodes/{node}/qemu",
+            "GET /nodes/{node}/vzdump/extractconfig",
+            "GET /cluster/nextid"
+          ]
+        },
+        {
+          "id": "ct-snapshots",
+          "title": "CT 快照",
+          "endpoints": [
+            "GET /nodes/{node}/lxc/{vmid}/snapshot",
+            "POST /nodes/{node}/lxc/{vmid}/snapshot",
+            "GET /nodes/{node}/lxc/{vmid}/snapshot/{snapname}",
+            "GET /nodes/{node}/lxc/{vmid}/snapshot/{snapname}/config",
+            "PUT /nodes/{node}/lxc/{vmid}/snapshot/{snapname}/config",
+            "POST /nodes/{node}/lxc/{vmid}/snapshot/{snapname}/rollback",
+            "DELETE /nodes/{node}/lxc/{vmid}/snapshot/{snapname}",
+            "GET /nodes/{node}/lxc/{vmid}/feature"
+          ]
+        },
+        {
+          "id": "ct-backup-tab",
+          "title": "CT Backup 页与立即备份",
+          "endpoints": [
+            "GET /nodes/{node}/storage/{storage}/content",
+            "POST /nodes/{node}/vzdump",
+            "GET /nodes/{node}/vzdump/defaults",
+            "GET /nodes/{node}/vzdump/extractconfig"
+          ]
+        },
+        {
+          "id": "ct-restore",
+          "title": "从备份恢复 CT",
+          "endpoints": [
+            "POST /nodes/{node}/lxc",
+            "GET /nodes/{node}/vzdump/extractconfig"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "guest-create",
+      "title": "创建向导（VM / CT）",
+      "phase": 1,
+      "route": "/create/:type",
+      "summary": "QEMU 创建向导全部步骤、LXC 创建向导全部步骤、VMID 建议。",
+      "features": [
+        {
+          "id": "vm-create-general",
+          "title": "创建 VM：常规",
+          "endpoints": [
+            "GET /cluster/nextid",
+            "GET /pools",
+            "GET /nodes"
+          ]
+        },
+        {
+          "id": "vm-create-os",
+          "title": "创建 VM：操作系统",
+          "endpoints": [
+            "GET /nodes/{node}/storage",
+            "GET /nodes/{node}/storage/{storage}/content"
+          ]
+        },
+        {
+          "id": "vm-create-system",
+          "title": "创建 VM：系统",
+          "endpoints": [
+            "GET /nodes/{node}/capabilities/qemu/machines"
+          ]
+        },
+        {
+          "id": "vm-create-disks",
+          "title": "创建 VM：磁盘",
+          "endpoints": [
+            "GET /nodes/{node}/storage"
+          ]
+        },
+        {
+          "id": "vm-create-cpu",
+          "title": "创建 VM：CPU",
+          "endpoints": [
+            "GET /nodes/{node}/capabilities/qemu/cpu"
+          ]
+        },
+        {
+          "id": "vm-create-memory",
+          "title": "创建 VM：内存",
+          "endpoints": []
+        },
+        {
+          "id": "vm-create-network",
+          "title": "创建 VM：网络",
+          "endpoints": [
+            "GET /nodes/{node}/network"
+          ]
+        },
+        {
+          "id": "vm-create-confirm",
+          "title": "创建 VM：确认并创建",
+          "endpoints": [
+            "POST /nodes/{node}/qemu"
+          ]
+        },
+        {
+          "id": "ct-create-general",
+          "title": "创建 CT：常规",
+          "endpoints": [
+            "GET /cluster/nextid",
+            "GET /pools"
+          ]
+        },
+        {
+          "id": "ct-create-template",
+          "title": "创建 CT：模板",
+          "endpoints": [
+            "GET /nodes/{node}/storage",
+            "GET /nodes/{node}/storage/{storage}/content"
+          ]
+        },
+        {
+          "id": "ct-create-disks",
+          "title": "创建 CT：磁盘",
+          "endpoints": [
+            "GET /nodes/{node}/storage"
+          ]
+        },
+        {
+          "id": "ct-create-cpu-mem",
+          "title": "创建 CT：CPU 与内存",
+          "endpoints": []
+        },
+        {
+          "id": "ct-create-network",
+          "title": "创建 CT：网络",
+          "endpoints": [
+            "GET /nodes/{node}/network"
+          ]
+        },
+        {
+          "id": "ct-create-dns",
+          "title": "创建 CT：DNS",
+          "endpoints": []
+        },
+        {
+          "id": "ct-create-confirm",
+          "title": "创建 CT：确认并创建",
+          "endpoints": [
+            "POST /nodes/{node}/lxc"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "guest-lifecycle",
+      "title": "客户机生命周期与批量操作",
+      "phase": 1,
+      "route": "/nodes/:node/:type/:vmid",
+      "summary": "迁移、克隆、转模板、删除、保护、HA 快捷加入；数据中心/节点批量启动/关机/挂起/迁移。",
+      "features": [
+        {
+          "id": "vm-migrate",
+          "title": "迁移 VM",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/migrate",
+            "POST /nodes/{node}/qemu/{vmid}/migrate",
+            "GET /nodes/{node}/capabilities/qemu/migration"
+          ]
+        },
+        {
+          "id": "vm-clone",
+          "title": "克隆 VM",
+          "endpoints": [
+            "POST /nodes/{node}/qemu/{vmid}/clone",
+            "GET /nodes/{node}/qemu/{vmid}/feature",
+            "GET /nodes/{node}/qemu/{vmid}/snapshot",
+            "GET /cluster/nextid"
+          ]
+        },
+        {
+          "id": "vm-template",
+          "title": "转换为模板",
+          "endpoints": [
+            "POST /nodes/{node}/qemu/{vmid}/template"
+          ]
+        },
+        {
+          "id": "vm-remove",
+          "title": "删除 VM",
+          "endpoints": [
+            "DELETE /nodes/{node}/qemu/{vmid}"
+          ]
+        },
+        {
+          "id": "vm-ha-quick",
+          "title": "加入/管理 HA",
+          "endpoints": [
+            "GET /cluster/ha/resources/{sid}",
+            "POST /cluster/ha/resources",
+            "PUT /cluster/ha/resources/{sid}"
+          ]
+        },
+        {
+          "id": "ct-migrate",
+          "title": "迁移 CT",
+          "endpoints": [
+            "GET /nodes/{node}/lxc/{vmid}/migrate",
+            "POST /nodes/{node}/lxc/{vmid}/migrate"
+          ]
+        },
+        {
+          "id": "ct-clone",
+          "title": "克隆 CT",
+          "endpoints": [
+            "POST /nodes/{node}/lxc/{vmid}/clone",
+            "GET /nodes/{node}/lxc/{vmid}/feature",
+            "GET /nodes/{node}/lxc/{vmid}/snapshot"
+          ]
+        },
+        {
+          "id": "ct-template",
+          "title": "转换为模板",
+          "endpoints": [
+            "POST /nodes/{node}/lxc/{vmid}/template"
+          ]
+        },
+        {
+          "id": "ct-remove",
+          "title": "删除 CT",
+          "endpoints": [
+            "DELETE /nodes/{node}/lxc/{vmid}"
+          ]
+        },
+        {
+          "id": "ct-ha-quick",
+          "title": "加入/管理 HA",
+          "endpoints": [
+            "POST /cluster/ha/resources",
+            "PUT /cluster/ha/resources/{sid}"
+          ]
+        },
+        {
+          "id": "node-bulk",
+          "title": "节点批量操作",
+          "endpoints": [
+            "POST /nodes/{node}/startall",
+            "POST /nodes/{node}/stopall",
+            "POST /nodes/{node}/suspendall",
+            "POST /nodes/{node}/migrateall"
+          ]
+        },
+        {
+          "id": "dc-bulk",
+          "title": "数据中心批量操作",
+          "endpoints": [
+            "GET /cluster/bulk-action",
+            "GET /cluster/bulk-action/guest",
+            "POST /cluster/bulk-action/guest/start",
+            "POST /cluster/bulk-action/guest/shutdown",
+            "POST /cluster/bulk-action/guest/suspend",
+            "POST /cluster/bulk-action/guest/migrate"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "storage-browser",
+      "title": "存储浏览（内容 / 上传 / 下载 / 模板 / 导入）",
+      "phase": 1,
+      "route": "/nodes/:node/storage/:storage",
+      "summary": "存储 Summary 与 RRD、按类型浏览内容、上传、URL 下载、CT 模板目录、OCI 拉取、删除/备注/保护、Prune、文件级恢复、Import 向导。",
+      "features": [
+        {
+          "id": "storage-summary",
+          "title": "存储 Summary",
+          "endpoints": [
+            "GET /nodes/{node}/storage/{storage}/status",
+            "GET /nodes/{node}/storage/{storage}/rrddata",
+            "GET /storage/{storage}"
+          ]
+        },
+        {
+          "id": "storage-content-list",
+          "title": "内容浏览（按类型）",
+          "endpoints": [
+            "GET /nodes/{node}/storage/{storage}/content"
+          ]
+        },
+        {
+          "id": "storage-upload",
+          "title": "上传文件",
+          "endpoints": [
+            "POST /nodes/{node}/storage/{storage}/upload"
+          ]
+        },
+        {
+          "id": "storage-download-url",
+          "title": "从 URL 下载",
+          "endpoints": [
+            "GET /nodes/{node}/query-url-metadata",
+            "POST /nodes/{node}/storage/{storage}/download-url"
+          ]
+        },
+        {
+          "id": "storage-templates",
+          "title": "CT 模板目录（appliance）",
+          "endpoints": [
+            "GET /nodes/{node}/aplinfo",
+            "POST /nodes/{node}/aplinfo"
+          ]
+        },
+        {
+          "id": "storage-oci-pull",
+          "title": "拉取 OCI 镜像（应用容器）",
+          "endpoints": [
+            "GET /nodes/{node}/query-oci-repo-tags",
+            "POST /nodes/{node}/storage/{storage}/oci-registry-pull"
+          ]
+        },
+        {
+          "id": "storage-delete-volume",
+          "title": "删除内容",
+          "endpoints": [
+            "DELETE /nodes/{node}/storage/{storage}/content/{volume}"
+          ]
+        },
+        {
+          "id": "storage-volume-attrs",
+          "title": "备注与保护",
+          "endpoints": [
+            "GET /nodes/{node}/storage/{storage}/content/{volume}",
+            "PUT /nodes/{node}/storage/{storage}/content/{volume}"
+          ]
+        },
+        {
+          "id": "storage-restore",
+          "title": "从存储恢复备份",
+          "endpoints": [
+            "POST /nodes/{node}/qemu",
+            "POST /nodes/{node}/lxc",
+            "GET /nodes/{node}/vzdump/extractconfig",
+            "GET /cluster/nextid"
+          ]
+        },
+        {
+          "id": "storage-prune",
+          "title": "清理备份（Prune）",
+          "endpoints": [
+            "GET /nodes/{node}/storage/{storage}/prunebackups",
+            "DELETE /nodes/{node}/storage/{storage}/prunebackups"
+          ]
+        },
+        {
+          "id": "storage-file-restore",
+          "title": "文件级恢复（PBS）",
+          "endpoints": [
+            "GET /nodes/{node}/storage/{storage}/file-restore/list",
+            "GET /nodes/{node}/storage/{storage}/file-restore/download"
+          ]
+        },
+        {
+          "id": "storage-guest-import",
+          "title": "导入客户机（ESXi / OVA）",
+          "endpoints": [
+            "GET /nodes/{node}/storage/{storage}/import-metadata",
+            "POST /nodes/{node}/qemu"
+          ]
+        },
+        {
+          "id": "storage-orphan-images",
+          "title": "VM 磁盘 / CT 卷",
+          "endpoints": [
+            "GET /nodes/{node}/storage/{storage}/content",
+            "DELETE /nodes/{node}/storage/{storage}/content/{volume}"
+          ]
+        },
+        {
+          "id": "storage-alloc-volume",
+          "title": "分配卷（官方 UI 未用）",
+          "endpoints": [
+            "POST /nodes/{node}/storage/{storage}/content",
+            "POST /nodes/{node}/storage/{storage}/content/{volume}"
+          ]
+        },
+        {
+          "id": "storage-node-list",
+          "title": "节点存储列表 / 选择器",
+          "endpoints": [
+            "GET /nodes/{node}/storage",
+            "GET /nodes/{node}/storage/{storage}"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "node-network",
+      "title": "节点网络",
+      "phase": 2,
+      "route": "/nodes/:node/network",
+      "summary": "网卡/网桥/Bond/VLAN/OVS 增删改，待应用差异、应用（ifreload）与还原。",
+      "features": [
+        {
+          "id": "net-list",
+          "title": "网络接口列表",
+          "endpoints": [
+            "GET /nodes/{node}/network",
+            "GET /nodes/{node}/network/{iface}"
+          ]
+        },
+        {
+          "id": "net-create-edit",
+          "title": "创建/编辑接口",
+          "endpoints": [
+            "POST /nodes/{node}/network",
+            "PUT /nodes/{node}/network/{iface}"
+          ]
+        },
+        {
+          "id": "net-delete",
+          "title": "删除接口",
+          "endpoints": [
+            "DELETE /nodes/{node}/network/{iface}"
+          ]
+        },
+        {
+          "id": "net-apply",
+          "title": "应用配置",
+          "endpoints": [
+            "PUT /nodes/{node}/network"
+          ]
+        },
+        {
+          "id": "net-revert",
+          "title": "还原待应用更改",
+          "endpoints": [
+            "DELETE /nodes/{node}/network"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "node-system",
+      "title": "节点系统设置（DNS / Hosts / 时间 / 选项）",
+      "phase": 2,
+      "route": "/nodes/:node/system",
+      "summary": "DNS、/etc/hosts、时区、节点 Options（WOL、开机启动延迟、balloon 目标、位置）。",
+      "features": [
+        {
+          "id": "node-dns",
+          "title": "DNS",
+          "endpoints": [
+            "GET /nodes/{node}/dns",
+            "PUT /nodes/{node}/dns"
+          ]
+        },
+        {
+          "id": "node-hosts",
+          "title": "Hosts",
+          "endpoints": [
+            "GET /nodes/{node}/hosts",
+            "POST /nodes/{node}/hosts"
+          ]
+        },
+        {
+          "id": "node-time",
+          "title": "时间",
+          "endpoints": [
+            "GET /nodes/{node}/time",
+            "PUT /nodes/{node}/time"
+          ]
+        },
+        {
+          "id": "node-options",
+          "title": "节点选项",
+          "endpoints": [
+            "GET /nodes/{node}/config",
+            "PUT /nodes/{node}/config"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "certificates-acme",
+      "title": "证书与 ACME",
+      "phase": 2,
+      "route": "/nodes/:node/certificates",
+      "summary": "节点证书查看、上传自定义证书、ACME 域名配置与申请/续期/吊销；数据中心 ACME 账户与插件（DNS challenge）。",
+      "features": [
+        {
+          "id": "cert-info",
+          "title": "证书列表",
+          "endpoints": [
+            "GET /nodes/{node}/certificates/info"
+          ]
+        },
+        {
+          "id": "cert-custom",
+          "title": "上传/删除自定义证书",
+          "endpoints": [
+            "POST /nodes/{node}/certificates/custom",
+            "DELETE /nodes/{node}/certificates/custom"
+          ]
+        },
+        {
+          "id": "acme-domains",
+          "title": "ACME 域名配置",
+          "endpoints": [
+            "GET /nodes/{node}/config",
+            "PUT /nodes/{node}/config",
+            "GET /cluster/acme/account",
+            "GET /cluster/acme/plugins"
+          ]
+        },
+        {
+          "id": "acme-order",
+          "title": "申请/续期/吊销证书",
+          "endpoints": [
+            "POST /nodes/{node}/certificates/acme/certificate",
+            "PUT /nodes/{node}/certificates/acme/certificate",
+            "DELETE /nodes/{node}/certificates/acme/certificate"
+          ]
+        },
+        {
+          "id": "acme-accounts",
+          "title": "ACME 账户",
+          "endpoints": [
+            "GET /cluster/acme",
+            "GET /cluster/acme/account",
+            "POST /cluster/acme/account",
+            "GET /cluster/acme/account/{name}",
+            "PUT /cluster/acme/account/{name}",
+            "DELETE /cluster/acme/account/{name}",
+            "GET /cluster/acme/directories",
+            "GET /cluster/acme/meta",
+            "GET /cluster/acme/tos"
+          ]
+        },
+        {
+          "id": "acme-plugins",
+          "title": "ACME 插件（DNS challenge）",
+          "endpoints": [
+            "GET /cluster/acme/plugins",
+            "POST /cluster/acme/plugins",
+            "GET /cluster/acme/plugins/{id}",
+            "PUT /cluster/acme/plugins/{id}",
+            "DELETE /cluster/acme/plugins/{id}",
+            "GET /cluster/acme/challenge-schema"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "node-updates",
+      "title": "更新与软件源",
+      "phase": 2,
+      "route": "/nodes/:node/updates",
+      "summary": "apt 刷新、可升级包列表、changelog、通过 Shell 升级、软件源启用/禁用/添加标准源。",
+      "features": [
+        {
+          "id": "apt-list",
+          "title": "可升级包列表",
+          "endpoints": [
+            "GET /nodes/{node}/apt/update",
+            "POST /nodes/{node}/apt/update"
+          ]
+        },
+        {
+          "id": "apt-changelog",
+          "title": "查看 changelog",
+          "endpoints": [
+            "GET /nodes/{node}/apt/changelog"
+          ]
+        },
+        {
+          "id": "apt-upgrade",
+          "title": "升级（通过 Shell）",
+          "endpoints": [
+            "POST /nodes/{node}/termproxy"
+          ]
+        },
+        {
+          "id": "apt-repos",
+          "title": "软件源",
+          "endpoints": [
+            "GET /nodes/{node}/apt/repositories",
+            "POST /nodes/{node}/apt/repositories",
+            "PUT /nodes/{node}/apt/repositories"
+          ]
+        },
+        {
+          "id": "apt-versions",
+          "title": "包版本",
+          "endpoints": [
+            "GET /nodes/{node}/apt/versions"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "node-disks",
+      "title": "磁盘管理",
+      "phase": 2,
+      "route": "/nodes/:node/disks",
+      "summary": "磁盘列表、SMART、初始化 GPT、擦除、LVM / LVM-Thin / Directory / ZFS 创建与删除。",
+      "features": [
+        {
+          "id": "disk-list",
+          "title": "磁盘列表",
+          "endpoints": [
+            "GET /nodes/{node}/disks/list"
+          ]
+        },
+        {
+          "id": "disk-smart",
+          "title": "S.M.A.R.T. 详情",
+          "endpoints": [
+            "GET /nodes/{node}/disks/smart"
+          ]
+        },
+        {
+          "id": "disk-initgpt",
+          "title": "初始化 GPT",
+          "endpoints": [
+            "POST /nodes/{node}/disks/initgpt"
+          ]
+        },
+        {
+          "id": "disk-wipe",
+          "title": "擦除磁盘/分区",
+          "endpoints": [
+            "PUT /nodes/{node}/disks/wipedisk"
+          ]
+        },
+        {
+          "id": "disk-lvm",
+          "title": "LVM 卷组",
+          "endpoints": [
+            "GET /nodes/{node}/disks/lvm",
+            "POST /nodes/{node}/disks/lvm",
+            "DELETE /nodes/{node}/disks/lvm/{name}"
+          ]
+        },
+        {
+          "id": "disk-lvmthin",
+          "title": "LVM-Thin 池",
+          "endpoints": [
+            "GET /nodes/{node}/disks/lvmthin",
+            "POST /nodes/{node}/disks/lvmthin",
+            "DELETE /nodes/{node}/disks/lvmthin/{name}"
+          ]
+        },
+        {
+          "id": "disk-directory",
+          "title": "目录（文件系统）",
+          "endpoints": [
+            "GET /nodes/{node}/disks/directory",
+            "POST /nodes/{node}/disks/directory",
+            "DELETE /nodes/{node}/disks/directory/{name}"
+          ]
+        },
+        {
+          "id": "disk-zfs",
+          "title": "ZFS 池",
+          "endpoints": [
+            "GET /nodes/{node}/disks/zfs",
+            "GET /nodes/{node}/disks/zfs/{name}",
+            "POST /nodes/{node}/disks/zfs",
+            "DELETE /nodes/{node}/disks/zfs/{name}"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "storage-config",
+      "title": "存储配置（数据中心 Storage）",
+      "phase": 2,
+      "route": "/datacenter/storage",
+      "summary": "存储定义的增删改（全部 14 种类型）及其扫描辅助（NFS/CIFS/iSCSI/LVM/ZFS/PBS）。",
+      "features": [
+        {
+          "id": "storage-defs",
+          "title": "存储列表",
+          "endpoints": [
+            "GET /storage",
+            "GET /storage/{storage}"
+          ]
+        },
+        {
+          "id": "storage-add-edit",
+          "title": "添加/编辑存储",
+          "endpoints": [
+            "POST /storage",
+            "PUT /storage/{storage}"
+          ]
+        },
+        {
+          "id": "storage-remove",
+          "title": "删除存储定义",
+          "endpoints": [
+            "DELETE /storage/{storage}"
+          ]
+        },
+        {
+          "id": "storage-scan",
+          "title": "扫描辅助",
+          "endpoints": [
+            "GET /nodes/{node}/scan",
+            "GET /nodes/{node}/scan/nfs",
+            "GET /nodes/{node}/scan/cifs",
+            "GET /nodes/{node}/scan/iscsi",
+            "GET /nodes/{node}/scan/lvm",
+            "GET /nodes/{node}/scan/lvmthin",
+            "GET /nodes/{node}/scan/zfs",
+            "GET /nodes/{node}/scan/pbs",
+            "GET /nodes/{node}/storage/{storage}/identity"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "firewall",
+      "title": "防火墙（数据中心 / 节点 / 客户机 / VNet）",
+      "phase": 2,
+      "route": "/datacenter/firewall",
+      "summary": "通用规则编辑器、选项、安全组、别名、IPSet、日志；同一组件复用于四个层级。",
+      "features": [
+        {
+          "id": "vm-firewall",
+          "title": "VM 防火墙",
+          "endpoints": [
+            "GET /nodes/{node}/qemu/{vmid}/firewall",
+            "GET /nodes/{node}/qemu/{vmid}/firewall/rules",
+            "POST /nodes/{node}/qemu/{vmid}/firewall/rules",
+            "GET /nodes/{node}/qemu/{vmid}/firewall/rules/{pos}",
+            "PUT /nodes/{node}/qemu/{vmid}/firewall/rules/{pos}",
+            "DELETE /nodes/{node}/qemu/{vmid}/firewall/rules/{pos}",
+            "GET /nodes/{node}/qemu/{vmid}/firewall/options",
+            "PUT /nodes/{node}/qemu/{vmid}/firewall/options",
+            "GET /nodes/{node}/qemu/{vmid}/firewall/aliases",
+            "POST /nodes/{node}/qemu/{vmid}/firewall/aliases",
+            "GET /nodes/{node}/qemu/{vmid}/firewall/aliases/{name}",
+            "PUT /nodes/{node}/qemu/{vmid}/firewall/aliases/{name}",
+            "DELETE /nodes/{node}/qemu/{vmid}/firewall/aliases/{name}",
+            "GET /nodes/{node}/qemu/{vmid}/firewall/ipset",
+            "POST /nodes/{node}/qemu/{vmid}/firewall/ipset",
+            "GET /nodes/{node}/qemu/{vmid}/firewall/ipset/{name}",
+            "POST /nodes/{node}/qemu/{vmid}/firewall/ipset/{name}",
+            "DELETE /nodes/{node}/qemu/{vmid}/firewall/ipset/{name}",
+            "GET /nodes/{node}/qemu/{vmid}/firewall/ipset/{name}/{cidr}",
+            "PUT /nodes/{node}/qemu/{vmid}/firewall/ipset/{name}/{cidr}",
+            "DELETE /nodes/{node}/qemu/{vmid}/firewall/ipset/{name}/{cidr}",
+            "GET /nodes/{node}/qemu/{vmid}/firewall/log",
+            "GET /nodes/{node}/qemu/{vmid}/firewall/refs"
+          ]
+        },
+        {
+          "id": "ct-firewall",
+          "title": "CT 防火墙",
+          "endpoints": [
+            "GET /nodes/{node}/lxc/{vmid}/firewall",
+            "GET /nodes/{node}/lxc/{vmid}/firewall/rules",
+            "POST /nodes/{node}/lxc/{vmid}/firewall/rules",
+            "GET /nodes/{node}/lxc/{vmid}/firewall/rules/{pos}",
+            "PUT /nodes/{node}/lxc/{vmid}/firewall/rules/{pos}",
+            "DELETE /nodes/{node}/lxc/{vmid}/firewall/rules/{pos}",
+            "GET /nodes/{node}/lxc/{vmid}/firewall/options",
+            "PUT /nodes/{node}/lxc/{vmid}/firewall/options",
+            "GET /nodes/{node}/lxc/{vmid}/firewall/aliases",
+            "POST /nodes/{node}/lxc/{vmid}/firewall/aliases",
+            "GET /nodes/{node}/lxc/{vmid}/firewall/aliases/{name}",
+            "PUT /nodes/{node}/lxc/{vmid}/firewall/aliases/{name}",
+            "DELETE /nodes/{node}/lxc/{vmid}/firewall/aliases/{name}",
+            "GET /nodes/{node}/lxc/{vmid}/firewall/ipset",
+            "POST /nodes/{node}/lxc/{vmid}/firewall/ipset",
+            "GET /nodes/{node}/lxc/{vmid}/firewall/ipset/{name}",
+            "POST /nodes/{node}/lxc/{vmid}/firewall/ipset/{name}",
+            "DELETE /nodes/{node}/lxc/{vmid}/firewall/ipset/{name}",
+            "GET /nodes/{node}/lxc/{vmid}/firewall/ipset/{name}/{cidr}",
+            "PUT /nodes/{node}/lxc/{vmid}/firewall/ipset/{name}/{cidr}",
+            "DELETE /nodes/{node}/lxc/{vmid}/firewall/ipset/{name}/{cidr}",
+            "GET /nodes/{node}/lxc/{vmid}/firewall/log",
+            "GET /nodes/{node}/lxc/{vmid}/firewall/refs"
+          ]
+        },
+        {
+          "id": "node-firewall",
+          "title": "节点防火墙",
+          "endpoints": [
+            "GET /nodes/{node}/firewall",
+            "GET /nodes/{node}/firewall/rules",
+            "POST /nodes/{node}/firewall/rules",
+            "GET /nodes/{node}/firewall/rules/{pos}",
+            "PUT /nodes/{node}/firewall/rules/{pos}",
+            "DELETE /nodes/{node}/firewall/rules/{pos}",
+            "GET /nodes/{node}/firewall/options",
+            "PUT /nodes/{node}/firewall/options",
+            "GET /nodes/{node}/firewall/log"
+          ]
+        },
+        {
+          "id": "fw-dc-rules",
+          "title": "集群防火墙规则",
+          "endpoints": [
+            "GET /cluster/firewall",
+            "GET /cluster/firewall/rules",
+            "POST /cluster/firewall/rules",
+            "GET /cluster/firewall/rules/{pos}",
+            "PUT /cluster/firewall/rules/{pos}",
+            "DELETE /cluster/firewall/rules/{pos}",
+            "GET /cluster/firewall/macros",
+            "GET /cluster/firewall/refs"
+          ]
+        },
+        {
+          "id": "fw-dc-options",
+          "title": "集群防火墙选项",
+          "endpoints": [
+            "GET /cluster/firewall/options",
+            "PUT /cluster/firewall/options"
+          ]
+        },
+        {
+          "id": "fw-security-groups",
+          "title": "安全组",
+          "endpoints": [
+            "GET /cluster/firewall/groups",
+            "POST /cluster/firewall/groups",
+            "GET /cluster/firewall/groups/{group}",
+            "POST /cluster/firewall/groups/{group}",
+            "DELETE /cluster/firewall/groups/{group}",
+            "GET /cluster/firewall/groups/{group}/{pos}",
+            "PUT /cluster/firewall/groups/{group}/{pos}",
+            "DELETE /cluster/firewall/groups/{group}/{pos}"
+          ]
+        },
+        {
+          "id": "fw-aliases",
+          "title": "别名",
+          "endpoints": [
+            "GET /cluster/firewall/aliases",
+            "POST /cluster/firewall/aliases",
+            "GET /cluster/firewall/aliases/{name}",
+            "PUT /cluster/firewall/aliases/{name}",
+            "DELETE /cluster/firewall/aliases/{name}"
+          ]
+        },
+        {
+          "id": "fw-ipsets",
+          "title": "IPSet",
+          "endpoints": [
+            "GET /cluster/firewall/ipset",
+            "POST /cluster/firewall/ipset",
+            "GET /cluster/firewall/ipset/{name}",
+            "POST /cluster/firewall/ipset/{name}",
+            "DELETE /cluster/firewall/ipset/{name}",
+            "GET /cluster/firewall/ipset/{name}/{cidr}",
+            "PUT /cluster/firewall/ipset/{name}/{cidr}",
+            "DELETE /cluster/firewall/ipset/{name}/{cidr}"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "replication",
+      "title": "存储复制",
+      "phase": 2,
+      "route": "/datacenter/replication",
+      "summary": "复制任务增删改、立即同步、状态与日志（数据中心/节点/客户机三处视图）。",
+      "features": [
+        {
+          "id": "vm-replication-tab",
+          "title": "VM Replication 页",
+          "endpoints": [
+            "GET /nodes/{node}/replication",
+            "GET /cluster/replication",
+            "POST /cluster/replication",
+            "GET /nodes/{node}/replication/{id}/status",
+            "GET /nodes/{node}/replication/{id}/log",
+            "POST /nodes/{node}/replication/{id}/schedule_now"
+          ]
+        },
+        {
+          "id": "ct-replication-tab",
+          "title": "CT Replication 页",
+          "endpoints": [
+            "GET /nodes/{node}/replication",
+            "POST /cluster/replication",
+            "POST /nodes/{node}/replication/{id}/schedule_now"
+          ]
+        },
+        {
+          "id": "node-replication",
+          "title": "节点 Replication",
+          "endpoints": [
+            "GET /nodes/{node}/replication",
+            "GET /nodes/{node}/replication/{id}",
+            "GET /nodes/{node}/replication/{id}/status",
+            "GET /nodes/{node}/replication/{id}/log",
+            "POST /nodes/{node}/replication/{id}/schedule_now"
+          ]
+        },
+        {
+          "id": "repl-jobs",
+          "title": "复制任务",
+          "endpoints": [
+            "GET /cluster/replication",
+            "POST /cluster/replication",
+            "GET /cluster/replication/{id}",
+            "PUT /cluster/replication/{id}",
+            "DELETE /cluster/replication/{id}"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "backup-jobs",
+      "title": "备份任务（计划）",
+      "phase": 2,
+      "route": "/datacenter/backup",
+      "summary": "计划备份任务增删改、立即运行、任务详情（包含的卷）、未备份客户机、计划模拟器。",
+      "features": [
+        {
+          "id": "backup-job-list",
+          "title": "备份任务列表",
+          "endpoints": [
+            "GET /cluster/backup",
+            "GET /cluster/backup-info",
+            "GET /cluster/backup-info/not-backed-up"
+          ]
+        },
+        {
+          "id": "backup-job-edit",
+          "title": "创建/编辑备份任务",
+          "endpoints": [
+            "POST /cluster/backup",
+            "GET /cluster/backup/{id}",
+            "PUT /cluster/backup/{id}",
+            "GET /cluster/resources",
+            "GET /pools"
+          ]
+        },
+        {
+          "id": "backup-job-remove",
+          "title": "删除备份任务",
+          "endpoints": [
+            "DELETE /cluster/backup/{id}"
+          ]
+        },
+        {
+          "id": "backup-job-run",
+          "title": "立即运行",
+          "endpoints": [
+            "POST /nodes/{node}/vzdump"
+          ]
+        },
+        {
+          "id": "backup-job-detail",
+          "title": "任务详情（包含的卷）",
+          "endpoints": [
+            "GET /cluster/backup/{id}/included_volumes"
+          ]
+        },
+        {
+          "id": "schedule-simulator",
+          "title": "计划模拟器",
+          "endpoints": [
+            "GET /cluster/jobs/schedule-analyze"
+          ]
+        },
+        {
+          "id": "jobs-index",
+          "title": "任务索引",
+          "endpoints": [
+            "GET /cluster/jobs"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "access-users",
+      "title": "用户 / API Token / TFA / 组",
+      "phase": 3,
+      "route": "/datacenter/permissions/users",
+      "summary": "用户、API Token、全体用户 TFA 管理、组、查看有效权限。",
+      "features": [
+        {
+          "id": "users",
+          "title": "用户",
+          "endpoints": [
+            "GET /access/users",
+            "POST /access/users",
+            "GET /access/users/{userid}",
+            "PUT /access/users/{userid}",
+            "DELETE /access/users/{userid}",
+            "PUT /access/password",
+            "PUT /access/users/{userid}/unlock-tfa",
+            "GET /access/users/{userid}/tfa",
+            "GET /access",
+            "GET /access/permissions"
+          ]
+        },
+        {
+          "id": "tokens",
+          "title": "API Token",
+          "endpoints": [
+            "GET /access/users",
+            "GET /access/users/{userid}/token",
+            "POST /access/users/{userid}/token/{tokenid}",
+            "GET /access/users/{userid}/token/{tokenid}",
+            "PUT /access/users/{userid}/token/{tokenid}",
+            "DELETE /access/users/{userid}/token/{tokenid}"
+          ]
+        },
+        {
+          "id": "tfa-admin",
+          "title": "两步验证（全部用户）",
+          "endpoints": [
+            "GET /access/tfa",
+            "GET /access/tfa/{userid}",
+            "POST /access/tfa/{userid}",
+            "GET /access/tfa/{userid}/{id}",
+            "PUT /access/tfa/{userid}/{id}",
+            "DELETE /access/tfa/{userid}/{id}"
+          ]
+        },
+        {
+          "id": "groups",
+          "title": "组",
+          "endpoints": [
+            "GET /access/groups",
+            "POST /access/groups",
+            "GET /access/groups/{groupid}",
+            "PUT /access/groups/{groupid}",
+            "DELETE /access/groups/{groupid}"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "access-control",
+      "title": "角色 / 权限(ACL) / 认证域 / 同步 / 资源池",
+      "phase": 3,
+      "route": "/datacenter/permissions",
+      "summary": "ACL 增删、角色、认证域（PAM/PVE/LDAP/AD/OpenID）、域同步与同步任务、资源池管理。",
+      "features": [
+        {
+          "id": "vm-permissions",
+          "title": "VM 权限页",
+          "endpoints": [
+            "GET /access/acl",
+            "PUT /access/acl"
+          ]
+        },
+        {
+          "id": "ct-permissions",
+          "title": "CT 权限页",
+          "endpoints": [
+            "GET /access/acl",
+            "PUT /access/acl"
+          ]
+        },
+        {
+          "id": "storage-permissions",
+          "title": "存储权限页",
+          "endpoints": [
+            "GET /access/acl",
+            "PUT /access/acl"
+          ]
+        },
+        {
+          "id": "pool-members",
+          "title": "资源池成员管理",
+          "endpoints": [
+            "GET /pools",
+            "PUT /pools"
+          ]
+        },
+        {
+          "id": "pool-permissions",
+          "title": "资源池权限页",
+          "endpoints": [
+            "GET /access/acl",
+            "PUT /access/acl"
+          ]
+        },
+        {
+          "id": "acl",
+          "title": "权限（ACL）",
+          "endpoints": [
+            "GET /access/acl",
+            "PUT /access/acl"
+          ]
+        },
+        {
+          "id": "roles",
+          "title": "角色",
+          "endpoints": [
+            "GET /access/roles",
+            "POST /access/roles",
+            "GET /access/roles/{roleid}",
+            "PUT /access/roles/{roleid}",
+            "DELETE /access/roles/{roleid}"
+          ]
+        },
+        {
+          "id": "realms",
+          "title": "认证域",
+          "endpoints": [
+            "GET /access/domains",
+            "POST /access/domains",
+            "GET /access/domains/{realm}",
+            "PUT /access/domains/{realm}",
+            "DELETE /access/domains/{realm}"
+          ]
+        },
+        {
+          "id": "realm-sync",
+          "title": "立即同步域",
+          "endpoints": [
+            "POST /access/domains/{realm}/sync"
+          ]
+        },
+        {
+          "id": "realm-sync-jobs",
+          "title": "域同步任务",
+          "endpoints": [
+            "GET /cluster/jobs/realm-sync",
+            "POST /cluster/jobs/realm-sync/{id}",
+            "GET /cluster/jobs/realm-sync/{id}",
+            "PUT /cluster/jobs/realm-sync/{id}",
+            "DELETE /cluster/jobs/realm-sync/{id}"
+          ]
+        },
+        {
+          "id": "pools-admin",
+          "title": "资源池管理",
+          "endpoints": [
+            "GET /pools",
+            "POST /pools",
+            "PUT /pools",
+            "DELETE /pools",
+            "GET /pools/{poolid}",
+            "PUT /pools/{poolid}",
+            "DELETE /pools/{poolid}"
+          ]
+        },
+        {
+          "id": "vnc-ticket",
+          "title": "VNC ticket 校验（内部）",
+          "endpoints": [
+            "POST /access/vncticket"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ha",
+      "title": "高可用 HA",
+      "phase": 3,
+      "route": "/datacenter/ha",
+      "summary": "HA 状态、Arm/Disarm、HA 资源、节点亲和/资源亲和规则、旧 HA 组（已废弃）、Fencing、CRS 设置。",
+      "features": [
+        {
+          "id": "ha-status",
+          "title": "HA 状态",
+          "endpoints": [
+            "GET /cluster/ha",
+            "GET /cluster/ha/status",
+            "GET /cluster/ha/status/current",
+            "GET /cluster/ha/status/manager_status",
+            "POST /cluster/ha/status/arm-ha",
+            "POST /cluster/ha/status/disarm-ha"
+          ]
+        },
+        {
+          "id": "ha-resources",
+          "title": "HA 资源",
+          "endpoints": [
+            "GET /cluster/ha/resources",
+            "POST /cluster/ha/resources",
+            "GET /cluster/ha/resources/{sid}",
+            "PUT /cluster/ha/resources/{sid}",
+            "DELETE /cluster/ha/resources/{sid}",
+            "POST /cluster/ha/resources/{sid}/migrate",
+            "POST /cluster/ha/resources/{sid}/relocate"
+          ]
+        },
+        {
+          "id": "ha-rules",
+          "title": "HA 亲和规则",
+          "endpoints": [
+            "GET /cluster/ha/rules",
+            "POST /cluster/ha/rules",
+            "GET /cluster/ha/rules/{rule}",
+            "PUT /cluster/ha/rules/{rule}",
+            "DELETE /cluster/ha/rules/{rule}"
+          ]
+        },
+        {
+          "id": "ha-groups-legacy",
+          "title": "HA 组（已废弃）",
+          "endpoints": [
+            "GET /cluster/ha/groups",
+            "POST /cluster/ha/groups",
+            "GET /cluster/ha/groups/{group}",
+            "PUT /cluster/ha/groups/{group}",
+            "DELETE /cluster/ha/groups/{group}"
+          ]
+        },
+        {
+          "id": "ha-fencing",
+          "title": "Fencing",
+          "endpoints": [
+            "GET /cluster/options"
+          ]
+        },
+        {
+          "id": "ha-crs",
+          "title": "CRS 设置入口",
+          "endpoints": [
+            "PUT /cluster/options"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sdn",
+      "title": "SDN（Zone / VNet / Subnet / Controller / IPAM / DNS）",
+      "phase": 3,
+      "route": "/datacenter/sdn",
+      "summary": "SDN 状态、Zones、VNets、Subnets、Options（Controller/IPAM/DNS）、IPAM 视图、应用/锁/回滚/差异、节点 Zone 浏览。",
+      "features": [
+        {
+          "id": "sdn-status",
+          "title": "SDN 状态",
+          "endpoints": [
+            "GET /cluster/resources",
+            "GET /cluster/sdn",
+            "PUT /cluster/sdn"
+          ]
+        },
+        {
+          "id": "sdn-zones",
+          "title": "Zones",
+          "endpoints": [
+            "GET /cluster/sdn/zones",
+            "POST /cluster/sdn/zones",
+            "GET /cluster/sdn/zones/{zone}",
+            "PUT /cluster/sdn/zones/{zone}",
+            "DELETE /cluster/sdn/zones/{zone}"
+          ]
+        },
+        {
+          "id": "sdn-vnets",
+          "title": "VNets 与 Subnets",
+          "endpoints": [
+            "GET /cluster/sdn/vnets",
+            "POST /cluster/sdn/vnets",
+            "GET /cluster/sdn/vnets/{vnet}",
+            "PUT /cluster/sdn/vnets/{vnet}",
+            "DELETE /cluster/sdn/vnets/{vnet}",
+            "GET /cluster/sdn/vnets/{vnet}/subnets",
+            "POST /cluster/sdn/vnets/{vnet}/subnets",
+            "GET /cluster/sdn/vnets/{vnet}/subnets/{subnet}",
+            "PUT /cluster/sdn/vnets/{vnet}/subnets/{subnet}",
+            "DELETE /cluster/sdn/vnets/{vnet}/subnets/{subnet}"
+          ]
+        },
+        {
+          "id": "sdn-options",
+          "title": "Options：Controllers / IPAM / DNS",
+          "endpoints": [
+            "GET /cluster/sdn/controllers",
+            "POST /cluster/sdn/controllers",
+            "GET /cluster/sdn/controllers/{controller}",
+            "PUT /cluster/sdn/controllers/{controller}",
+            "DELETE /cluster/sdn/controllers/{controller}",
+            "GET /cluster/sdn/ipams",
+            "POST /cluster/sdn/ipams",
+            "GET /cluster/sdn/ipams/{ipam}",
+            "PUT /cluster/sdn/ipams/{ipam}",
+            "DELETE /cluster/sdn/ipams/{ipam}",
+            "GET /cluster/sdn/dns",
+            "POST /cluster/sdn/dns",
+            "GET /cluster/sdn/dns/{dns}",
+            "PUT /cluster/sdn/dns/{dns}",
+            "DELETE /cluster/sdn/dns/{dns}"
+          ]
+        },
+        {
+          "id": "sdn-ipam-view",
+          "title": "IPAM 视图",
+          "endpoints": [
+            "GET /cluster/sdn/ipams/{ipam}/status",
+            "POST /cluster/sdn/vnets/{vnet}/ips",
+            "PUT /cluster/sdn/vnets/{vnet}/ips",
+            "DELETE /cluster/sdn/vnets/{vnet}/ips"
+          ]
+        },
+        {
+          "id": "sdn-vnet-firewall",
+          "title": "VNet 防火墙",
+          "endpoints": [
+            "GET /cluster/sdn/vnets/{vnet}/firewall",
+            "GET /cluster/sdn/vnets/{vnet}/firewall/rules",
+            "POST /cluster/sdn/vnets/{vnet}/firewall/rules",
+            "GET /cluster/sdn/vnets/{vnet}/firewall/rules/{pos}",
+            "PUT /cluster/sdn/vnets/{vnet}/firewall/rules/{pos}",
+            "DELETE /cluster/sdn/vnets/{vnet}/firewall/rules/{pos}",
+            "GET /cluster/sdn/vnets/{vnet}/firewall/options",
+            "PUT /cluster/sdn/vnets/{vnet}/firewall/options"
+          ]
+        },
+        {
+          "id": "sdn-lock-rollback",
+          "title": "锁 / 回滚 / 差异预览",
+          "endpoints": [
+            "GET /cluster/sdn/dry-run",
+            "POST /cluster/sdn/rollback",
+            "POST /cluster/sdn/lock",
+            "DELETE /cluster/sdn/lock"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sdn-fabrics",
+      "title": "SDN Fabrics / Route Maps / Prefix Lists",
+      "phase": 3,
+      "route": "/datacenter/sdn/fabrics",
+      "summary": "OpenFabric/OSPF/WireGuard/BGP Fabric 与节点、路由表/邻居/接口视图、Route Map、Prefix List、EVPN VRF 视图。",
+      "features": [
+        {
+          "id": "node-sdn-browse",
+          "title": "节点下的 SDN Zone / Fabric 浏览",
+          "endpoints": [
+            "GET /nodes/{node}/sdn",
+            "GET /nodes/{node}/sdn/zones",
+            "GET /nodes/{node}/sdn/zones/{zone}",
+            "GET /nodes/{node}/sdn/zones/{zone}/content",
+            "GET /nodes/{node}/sdn/zones/{zone}/bridges",
+            "GET /nodes/{node}/sdn/zones/{zone}/ip-vrf",
+            "GET /nodes/{node}/sdn/vnets/{vnet}",
+            "GET /nodes/{node}/sdn/vnets/{vnet}/mac-vrf",
+            "GET /nodes/{node}/sdn/fabrics/{fabric}",
+            "GET /nodes/{node}/sdn/fabrics/{fabric}/routes",
+            "GET /nodes/{node}/sdn/fabrics/{fabric}/neighbors",
+            "GET /nodes/{node}/sdn/fabrics/{fabric}/interfaces"
+          ]
+        },
+        {
+          "id": "sdn-fabrics",
+          "title": "Fabrics",
+          "endpoints": [
+            "GET /cluster/sdn/fabrics",
+            "GET /cluster/sdn/fabrics/all",
+            "GET /cluster/sdn/fabrics/fabric",
+            "POST /cluster/sdn/fabrics/fabric",
+            "GET /cluster/sdn/fabrics/fabric/{id}",
+            "PUT /cluster/sdn/fabrics/fabric/{id}",
+            "DELETE /cluster/sdn/fabrics/fabric/{id}",
+            "GET /cluster/sdn/fabrics/node",
+            "GET /cluster/sdn/fabrics/node/{fabric_id}",
+            "POST /cluster/sdn/fabrics/node/{fabric_id}",
+            "GET /cluster/sdn/fabrics/node/{fabric_id}/{node_id}",
+            "PUT /cluster/sdn/fabrics/node/{fabric_id}/{node_id}",
+            "DELETE /cluster/sdn/fabrics/node/{fabric_id}/{node_id}",
+            "GET /nodes/{node}/network"
+          ]
+        },
+        {
+          "id": "sdn-route-maps",
+          "title": "Route Maps",
+          "endpoints": [
+            "GET /cluster/sdn/route-maps",
+            "GET /cluster/sdn/route-maps/entries",
+            "POST /cluster/sdn/route-maps/entries",
+            "GET /cluster/sdn/route-maps/entries/{route-map-id}",
+            "GET /cluster/sdn/route-maps/entries/{route-map-id}/entry/{order}",
+            "PUT /cluster/sdn/route-maps/entries/{route-map-id}/entry/{order}",
+            "DELETE /cluster/sdn/route-maps/entries/{route-map-id}/entry/{order}"
+          ]
+        },
+        {
+          "id": "sdn-prefix-lists",
+          "title": "Prefix Lists",
+          "endpoints": [
+            "GET /cluster/sdn/prefix-lists",
+            "POST /cluster/sdn/prefix-lists",
+            "GET /cluster/sdn/prefix-lists/{id}",
+            "PUT /cluster/sdn/prefix-lists/{id}",
+            "DELETE /cluster/sdn/prefix-lists/{id}",
+            "GET /cluster/sdn/prefix-lists/{id}/entries",
+            "POST /cluster/sdn/prefix-lists/{id}/entries",
+            "GET /cluster/sdn/prefix-lists/{id}/entries/{url_seq}",
+            "PUT /cluster/sdn/prefix-lists/{id}/entries/{url_seq}",
+            "DELETE /cluster/sdn/prefix-lists/{id}/entries/{url_seq}"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ceph",
+      "title": "Ceph",
+      "phase": 3,
+      "route": "/datacenter/ceph",
+      "summary": "Ceph 状态、安装向导、配置、Monitor/Manager/MDS、OSD、CephFS、Pools、CRUSH、日志、Flags、健康静默、批量重启。",
+      "features": [
+        {
+          "id": "ceph-install",
+          "title": "Ceph 安装向导",
+          "endpoints": [
+            "GET /nodes/{node}/ceph/releases",
+            "POST /nodes/{node}/termproxy",
+            "POST /nodes/{node}/ceph/init",
+            "POST /nodes/{node}/ceph/mon/{monid}"
+          ]
+        },
+        {
+          "id": "ceph-node-status",
+          "title": "Ceph 状态（节点）",
+          "endpoints": [
+            "GET /nodes/{node}/ceph/status",
+            "GET /nodes/{node}/ceph"
+          ]
+        },
+        {
+          "id": "ceph-config",
+          "title": "Ceph 配置",
+          "endpoints": [
+            "GET /nodes/{node}/ceph/cfg",
+            "GET /nodes/{node}/ceph/cfg/raw",
+            "GET /nodes/{node}/ceph/cfg/db",
+            "GET /nodes/{node}/ceph/cfg/value",
+            "GET /nodes/{node}/ceph/crush"
+          ]
+        },
+        {
+          "id": "ceph-mon-mgr",
+          "title": "Monitor / Manager",
+          "endpoints": [
+            "GET /nodes/{node}/ceph/mon",
+            "POST /nodes/{node}/ceph/mon/{monid}",
+            "DELETE /nodes/{node}/ceph/mon/{monid}",
+            "GET /nodes/{node}/ceph/mgr",
+            "POST /nodes/{node}/ceph/mgr/{id}",
+            "DELETE /nodes/{node}/ceph/mgr/{id}",
+            "POST /nodes/{node}/ceph/start",
+            "POST /nodes/{node}/ceph/stop",
+            "POST /nodes/{node}/ceph/restart",
+            "GET /nodes/{node}/ceph/cmd-safety",
+            "GET /nodes/{node}/syslog"
+          ]
+        },
+        {
+          "id": "ceph-osd",
+          "title": "OSD",
+          "endpoints": [
+            "GET /nodes/{node}/ceph/osd",
+            "POST /nodes/{node}/ceph/osd",
+            "DELETE /nodes/{node}/ceph/osd/{osdid}",
+            "GET /nodes/{node}/ceph/osd/{osdid}",
+            "GET /nodes/{node}/ceph/osd/{osdid}/metadata",
+            "GET /nodes/{node}/ceph/osd/{osdid}/lv-info",
+            "POST /nodes/{node}/ceph/osd/{osdid}/in",
+            "POST /nodes/{node}/ceph/osd/{osdid}/out",
+            "POST /nodes/{node}/ceph/osd/{osdid}/scrub",
+            "GET /nodes/{node}/disks/list"
+          ]
+        },
+        {
+          "id": "ceph-fs",
+          "title": "CephFS 与 MDS",
+          "endpoints": [
+            "GET /nodes/{node}/ceph/fs",
+            "POST /nodes/{node}/ceph/fs/{name}",
+            "DELETE /nodes/{node}/ceph/fs/{name}",
+            "GET /nodes/{node}/ceph/mds",
+            "POST /nodes/{node}/ceph/mds/{name}",
+            "DELETE /nodes/{node}/ceph/mds/{name}"
+          ]
+        },
+        {
+          "id": "ceph-pools",
+          "title": "Ceph 池",
+          "endpoints": [
+            "GET /nodes/{node}/ceph/pool",
+            "POST /nodes/{node}/ceph/pool",
+            "GET /nodes/{node}/ceph/pool/{name}",
+            "PUT /nodes/{node}/ceph/pool/{name}",
+            "DELETE /nodes/{node}/ceph/pool/{name}",
+            "GET /nodes/{node}/ceph/pool/{name}/status",
+            "GET /nodes/{node}/ceph/rules"
+          ]
+        },
+        {
+          "id": "ceph-log",
+          "title": "Ceph 日志",
+          "endpoints": [
+            "GET /nodes/{node}/ceph/log"
+          ]
+        },
+        {
+          "id": "ceph-node-bulk-restart",
+          "title": "节点 Ceph 服务批量重启",
+          "endpoints": [
+            "POST /nodes/{node}/ceph/restart-bulk"
+          ]
+        },
+        {
+          "id": "ceph-dc-status",
+          "title": "Ceph 状态",
+          "endpoints": [
+            "GET /cluster/ceph/status",
+            "GET /cluster/ceph/metadata",
+            "GET /cluster/ceph"
+          ]
+        },
+        {
+          "id": "ceph-health-mute",
+          "title": "健康警告静默",
+          "endpoints": [
+            "GET /cluster/ceph/health-mute",
+            "PUT /cluster/ceph/health-mute/{code}"
+          ]
+        },
+        {
+          "id": "ceph-flags",
+          "title": "全局 OSD Flags",
+          "endpoints": [
+            "GET /cluster/ceph/flags",
+            "PUT /cluster/ceph/flags",
+            "GET /cluster/ceph/flags/{flag}",
+            "PUT /cluster/ceph/flags/{flag}"
+          ]
+        },
+        {
+          "id": "ceph-bulk-restart",
+          "title": "批量重启 Ceph 服务",
+          "endpoints": [
+            "POST /cluster/ceph/restart-bulk"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cluster",
+      "title": "集群",
+      "phase": 3,
+      "route": "/datacenter/cluster",
+      "summary": "创建集群、加入信息、加入集群、节点列表、Corosync links、QDevice/Totem 信息。",
+      "features": [
+        {
+          "id": "cluster-info",
+          "title": "集群信息与节点",
+          "endpoints": [
+            "GET /cluster/config",
+            "GET /cluster/config/nodes",
+            "GET /cluster/status",
+            "GET /cluster/config/apiversion"
+          ]
+        },
+        {
+          "id": "cluster-create",
+          "title": "创建集群",
+          "endpoints": [
+            "POST /cluster/config",
+            "GET /nodes/{node}/network"
+          ]
+        },
+        {
+          "id": "cluster-join-info",
+          "title": "加入信息",
+          "endpoints": [
+            "GET /cluster/config/join"
+          ]
+        },
+        {
+          "id": "cluster-join",
+          "title": "加入集群",
+          "endpoints": [
+            "POST /cluster/config/join"
+          ]
+        },
+        {
+          "id": "cluster-node-remove",
+          "title": "移除节点/添加节点（API）",
+          "endpoints": [
+            "DELETE /cluster/config/nodes/{node}",
+            "POST /cluster/config/nodes/{node}"
+          ]
+        },
+        {
+          "id": "cluster-qdevice-totem",
+          "title": "QDevice / Totem 信息",
+          "endpoints": [
+            "GET /cluster/config/qdevice",
+            "GET /cluster/config/totem"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "notifications-metrics",
+      "title": "通知与指标服务器",
+      "phase": 3,
+      "route": "/datacenter/notifications",
+      "summary": "通知目标（sendmail/SMTP/Gotify/Webhook）、匹配器、测试；外部指标服务器（InfluxDB/Graphite/OpenTelemetry）。",
+      "features": [
+        {
+          "id": "metric-servers",
+          "title": "外部指标服务器",
+          "endpoints": [
+            "GET /cluster/metrics",
+            "GET /cluster/metrics/server",
+            "POST /cluster/metrics/server/{id}",
+            "GET /cluster/metrics/server/{id}",
+            "PUT /cluster/metrics/server/{id}",
+            "DELETE /cluster/metrics/server/{id}"
+          ]
+        },
+        {
+          "id": "metrics-export",
+          "title": "集群指标导出（拉取）",
+          "endpoints": [
+            "GET /cluster/metrics/export"
+          ]
+        },
+        {
+          "id": "notif-targets",
+          "title": "通知目标",
+          "endpoints": [
+            "GET /cluster/notifications",
+            "GET /cluster/notifications/targets",
+            "POST /cluster/notifications/targets/{name}/test",
+            "GET /cluster/notifications/endpoints",
+            "GET /cluster/notifications/endpoints/sendmail",
+            "POST /cluster/notifications/endpoints/sendmail",
+            "GET /cluster/notifications/endpoints/sendmail/{name}",
+            "PUT /cluster/notifications/endpoints/sendmail/{name}",
+            "DELETE /cluster/notifications/endpoints/sendmail/{name}",
+            "GET /cluster/notifications/endpoints/smtp",
+            "POST /cluster/notifications/endpoints/smtp",
+            "GET /cluster/notifications/endpoints/smtp/{name}",
+            "PUT /cluster/notifications/endpoints/smtp/{name}",
+            "DELETE /cluster/notifications/endpoints/smtp/{name}",
+            "GET /cluster/notifications/endpoints/gotify",
+            "POST /cluster/notifications/endpoints/gotify",
+            "GET /cluster/notifications/endpoints/gotify/{name}",
+            "PUT /cluster/notifications/endpoints/gotify/{name}",
+            "DELETE /cluster/notifications/endpoints/gotify/{name}",
+            "GET /cluster/notifications/endpoints/webhook",
+            "POST /cluster/notifications/endpoints/webhook",
+            "GET /cluster/notifications/endpoints/webhook/{name}",
+            "PUT /cluster/notifications/endpoints/webhook/{name}",
+            "DELETE /cluster/notifications/endpoints/webhook/{name}"
+          ]
+        },
+        {
+          "id": "notif-matchers",
+          "title": "通知匹配器",
+          "endpoints": [
+            "GET /cluster/notifications/matchers",
+            "POST /cluster/notifications/matchers",
+            "GET /cluster/notifications/matchers/{name}",
+            "PUT /cluster/notifications/matchers/{name}",
+            "DELETE /cluster/notifications/matchers/{name}",
+            "GET /cluster/notifications/matcher-fields",
+            "GET /cluster/notifications/matcher-field-values"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "resource-mappings",
+      "title": "资源映射与自定义 CPU",
+      "phase": 3,
+      "route": "/datacenter/mappings",
+      "summary": "PCI/USB/目录(virtiofs) 集群映射、自定义 CPU 型号。",
+      "features": [
+        {
+          "id": "map-pci",
+          "title": "PCI 映射",
+          "endpoints": [
+            "GET /cluster/mapping",
+            "GET /cluster/mapping/pci",
+            "POST /cluster/mapping/pci",
+            "GET /cluster/mapping/pci/{id}",
+            "PUT /cluster/mapping/pci/{id}",
+            "DELETE /cluster/mapping/pci/{id}",
+            "GET /nodes/{node}/hardware/pci"
+          ]
+        },
+        {
+          "id": "map-usb",
+          "title": "USB 映射",
+          "endpoints": [
+            "GET /cluster/mapping/usb",
+            "POST /cluster/mapping/usb",
+            "GET /cluster/mapping/usb/{id}",
+            "PUT /cluster/mapping/usb/{id}",
+            "DELETE /cluster/mapping/usb/{id}",
+            "GET /nodes/{node}/hardware/usb"
+          ]
+        },
+        {
+          "id": "map-dir",
+          "title": "目录映射（virtiofs）",
+          "endpoints": [
+            "GET /cluster/mapping/dir",
+            "POST /cluster/mapping/dir",
+            "GET /cluster/mapping/dir/{id}",
+            "PUT /cluster/mapping/dir/{id}",
+            "DELETE /cluster/mapping/dir/{id}"
+          ]
+        },
+        {
+          "id": "custom-cpu",
+          "title": "自定义 CPU 型号",
+          "endpoints": [
+            "GET /cluster/qemu",
+            "GET /cluster/qemu/custom-cpu-models",
+            "POST /cluster/qemu/custom-cpu-models",
+            "GET /cluster/qemu/custom-cpu-models/{cputype}",
+            "PUT /cluster/qemu/custom-cpu-models/{cputype}",
+            "DELETE /cluster/qemu/custom-cpu-models/{cputype}",
+            "GET /cluster/qemu/cpu-flags"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dc-options",
+      "title": "数据中心选项 / 标签 / 订阅与支持",
+      "phase": 3,
+      "route": "/datacenter/options",
+      "summary": "数据中心 Options 全部条目（含标签样式、用户标签权限、注册标签）、节点订阅、Support 页。",
+      "features": [
+        {
+          "id": "node-subscription",
+          "title": "节点订阅",
+          "endpoints": [
+            "GET /nodes/{node}/subscription",
+            "PUT /nodes/{node}/subscription",
+            "POST /nodes/{node}/subscription",
+            "DELETE /nodes/{node}/subscription",
+            "GET /nodes/{node}/report"
+          ]
+        },
+        {
+          "id": "dc-options-all",
+          "title": "数据中心选项",
+          "endpoints": [
+            "GET /cluster/options",
+            "PUT /cluster/options",
+            "GET /nodes/{node}/network"
+          ]
+        },
+        {
+          "id": "dc-tag-style",
+          "title": "标签样式",
+          "endpoints": [
+            "GET /cluster/options",
+            "PUT /cluster/options"
+          ]
+        },
+        {
+          "id": "dc-tag-access",
+          "title": "用户标签权限 / 注册标签",
+          "endpoints": [
+            "GET /cluster/options",
+            "PUT /cluster/options"
+          ]
+        },
+        {
+          "id": "dc-support",
+          "title": "Support",
+          "endpoints": [
+            "GET /nodes/{node}/subscription"
+          ]
+        }
+      ]
+    }
+  ]
+}
