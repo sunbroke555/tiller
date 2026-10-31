@@ -1,0 +1,13 @@
+node_modules/
+dist/
+server/web/dist/
+server/pve-web
+*.local
+.env
+.env.*
+coverage/
+playwright-report/
+test-results/
+.DS_Store
+.vite/
+*.tsbuildinfo
