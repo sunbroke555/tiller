@@ -1,7 +1,12 @@
-import { AreaPlaceholder } from '@/components/page/AreaPlaceholder'
+import { useMemo } from 'react'
+
+import { type ConsoleTarget } from '@/api/console'
 import type { NodeTabProps } from '@/features/node/types'
 
-/** Placeholder owned by area `console`: replace with the real tab. */
-export default function NodeShellTab(_props: NodeTabProps) {
-  return <AreaPlaceholder area="console">节点 Shell（termproxy + xterm.js）。</AreaPlaceholder>
+import { ConsoleScreen } from './ConsoleScreen'
+
+/** Node page "Shell" tab: embedded xterm.js shell (termproxy), noVNC or SPICE. */
+export default function NodeShellTab({ node }: NodeTabProps) {
+  const target = useMemo<ConsoleTarget>(() => ({ kind: 'node', node }), [node])
+  return <ConsoleScreen key={node} target={target} variant="embedded" title={node} />
 }

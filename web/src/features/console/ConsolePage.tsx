@@ -1,32 +1,57 @@
-import { Link, useParams } from 'react-router'
-import { ChevronLeft } from 'lucide-react'
+import { useMemo } from 'react'
+import { Navigate, useLocation, useParams, useSearchParams } from 'react-router'
 
-import { AmbientBackground } from '@/components/AmbientBackground'
-import { AreaPlaceholder } from '@/components/page/AreaPlaceholder'
-import { nodePath } from '@/lib/resources'
+import type { ConsoleTarget } from '@/api/console'
+import { targetKey } from '@/api/console'
+import { useClusterResources } from '@/api/queries'
+import { isGuest, type GuestType } from '@/api/types'
+import { consolePath, guestName, guestPath, nodePath } from '@/lib/resources'
+
+import { ConsoleScreen } from './ConsoleScreen'
 
 /**
- * Placeholder owned by area `console`: full-screen console outside the app
- * frame. Routes: /console/:node/:type/:vmid (VM/CT) and /console/:node/shell.
+ * Full-screen console outside the app frame:
+ *   /console/:node/:type/:vmid   VM (noVNC / serial xterm.js) or CT (xterm.js / noVNC)
+ *   /console/:node/shell         node shell
+ * ?viewer=xterm|novnc picks the viewer.
  */
 export default function ConsolePage() {
-  const { node = '', type, vmid } = useParams()
-  const isShell = !type
-  const back = isShell ? nodePath(node) : `/guest/${encodeURIComponent(node)}/${type}/${vmid}`
+  const params = useParams()
+  const location = useLocation()
+  const [search, setSearch] = useSearchParams()
+  const node = params.node ?? ''
+  const isShell = !params.type
+  const type: GuestType = params.type === 'lxc' ? 'lxc' : 'qemu'
+  const vmid = Number(params.vmid)
+
+  const { data: guest } = useClusterResources({
+    enabled: !isShell,
+    select: (all) => all.filter(isGuest).find((g) => g.vmid === vmid),
+  })
+
+  const target = useMemo<ConsoleTarget>(
+    () => (isShell ? { kind: 'node', node } : { kind: type, node, vmid }),
+    [isShell, node, type, vmid],
+  )
+
+  if (!isShell && (params.type !== 'qemu' && params.type !== 'lxc')) return <Navigate replace to="/" />
+  if (!isShell && guest && (guest.node !== node || guest.type !== type)) {
+    // Migrated (or a stale link): follow the guest.
+    return <Navigate replace to={consolePath(guest) + location.search} />
+  }
+
+  const title = isShell ? node : guest ? guestName(guest) : `${type === 'lxc' ? 'CT' : 'VM'} ${params.vmid}`
+  const backTo = isShell ? nodePath(node) : guestPath({ node, type, vmid })
+
   return (
-    <div className="relative min-h-dvh bg-background">
-      <AmbientBackground />
-      <div className="relative z-10 mx-auto flex max-w-3xl flex-col gap-4 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-8">
-        <Link
-          to={back}
-          className="-ml-2 inline-flex h-11 w-fit items-center gap-1 rounded-full px-2 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="size-5" /> 返回
-        </Link>
-        <AreaPlaceholder area="console">
-          {isShell ? `节点 ${node} 的 Shell` : `${type === 'lxc' ? 'CT' : 'VM'} ${vmid} 的控制台`}（noVNC / xterm.js）。
-        </AreaPlaceholder>
-      </div>
-    </div>
+    <ConsoleScreen
+      key={targetKey(target)}
+      target={target}
+      variant="page"
+      title={title}
+      backTo={backTo}
+      requestedViewer={search.get('viewer')}
+      onViewerChange={(viewer) => setSearch({ viewer }, { replace: true })}
+    />
   )
 }

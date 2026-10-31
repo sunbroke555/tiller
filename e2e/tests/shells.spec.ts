@@ -54,7 +54,7 @@ test.describe('page shells', () => {
     const bar = mobile ? page.getByRole('toolbar', { name: '操作' }) : page.locator('header')
     await bar.getByRole('button', { name: '控制台' }).click()
     await expect(page).toHaveURL(new RegExp(`/console/${vm!.node}/${vm!.type}/${vm!.vmid}$`))
-    await expect(page.getByText('console', { exact: true })).toBeVisible()
+    await expect(page.getByTestId('console-surface')).toBeVisible()
     await page.getByRole('link', { name: '返回' }).click()
     await expect(page).toHaveURL(new RegExp(`/guest/${vm!.node}/${vm!.type}/${vm!.vmid}$`))
   })
@@ -66,7 +66,7 @@ test.describe('page shells', () => {
     await tabs.getByRole('link', { name: '服务' }).click()
     await expect(page.getByRole('tabpanel', { name: '服务' })).toContainText('node-summary')
     await page.goto(`/console/${pve.node}/shell`)
-    await expect(page.getByText(`节点 ${pve.node} 的 Shell`, { exact: false })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: pve.node })).toBeVisible()
   })
 
   test('storage list opens the storage page', async ({ page, pve }) => {
