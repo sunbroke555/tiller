@@ -16,6 +16,7 @@ import { StatusDot } from '@/components/StatusDot'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { TagList } from '@/features/guest-core/TagBadge'
 import { GUEST_TYPE_LABEL, guestName, guestPath, nodePath, parseTags, statusLabel } from '@/lib/resources'
 
 import { guestActions, guestTabs } from './registry'
@@ -113,11 +114,7 @@ function GuestPageBody({ ctx, tabParam }: { ctx: GuestActionContext; tabParam: s
               </Badge>
             )}
             {guest.hastate && <Badge variant="outline">HA：{guest.hastate}</Badge>}
-            {tags.map((t) => (
-              <Badge key={t} variant="secondary" className="font-normal">
-                {t}
-              </Badge>
-            ))}
+            <TagList tags={tags} />
           </span>
         }
         actions={<ActionBar variant="toolbar" actions={actions} ctx={ctx} trigger={trigger} className="hidden lg:flex" />}

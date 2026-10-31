@@ -1,6 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { AlertTriangle, Box, Monitor, RefreshCw, Server, Settings2 } from 'lucide-react'
+import { AlertTriangle, Box, ListChecks, Monitor, RefreshCw, Server, Settings2 } from 'lucide-react'
 
 import { useClusterResources, useClusterStatus, useVersion } from '@/api/queries'
 import { isGuest, isNode, isStorage, type ClusterResource } from '@/api/types'
@@ -12,6 +12,7 @@ import { UserMenu } from '@/components/layout/UserMenu'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { BulkSelectionBar } from '@/features/guest-lifecycle/BulkSelectionBar'
 import { errorMessage } from '@/lib/errors'
 import { byVmid } from '@/lib/resources'
 import { cn } from '@/lib/utils'
@@ -58,6 +59,22 @@ export function OverviewPage() {
     }),
     [guests],
   )
+
+  // Selection mode for bulk actions (area guest-lifecycle).
+  const [selecting, setSelecting] = useState(false)
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
+  const selectedGuests = useMemo(() => guests.filter((g) => selected.has(g.id)), [guests, selected])
+  const toggleSelected = (g: { id: string }) =>
+    setSelected((s) => {
+      const next = new Set(s)
+      if (next.has(g.id)) next.delete(g.id)
+      else next.add(g.id)
+      return next
+    })
+  const exitSelection = () => {
+    setSelecting(false)
+    setSelected(new Set())
+  }
 
   const cluster = status?.find((e) => e.type === 'cluster')
   const subtitle = [
@@ -137,22 +154,37 @@ export function OverviewPage() {
 
           <section aria-labelledby="guests-heading">
             <SectionHeader title={<span id="guests-heading">虚拟机与容器</span>}>
-              <ToggleGroup
-                type="single"
-                value={filter}
-                onValueChange={(v) => v && setFilter(v as GuestFilter)}
-                variant="outline"
-                size="sm"
-                aria-label="筛选"
-              >
-                {FILTERS.map((f) => (
-                  <ToggleGroupItem key={f.value} value={f.value} className="gap-1.5 px-3 text-xs">
-                    {f.label}
-                    <span className="text-muted-foreground tabular">{counts[f.value]}</span>
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
+              <div className="flex flex-wrap items-center gap-2">
+                <ToggleGroup
+                  type="single"
+                  value={filter}
+                  onValueChange={(v) => v && setFilter(v as GuestFilter)}
+                  variant="outline"
+                  size="sm"
+                  aria-label="筛选"
+                >
+                  {FILTERS.map((f) => (
+                    <ToggleGroupItem key={f.value} value={f.value} className="gap-1.5 px-3 text-xs">
+                      {f.label}
+                      <span className="text-muted-foreground tabular">{counts[f.value]}</span>
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+                {guests.length > 0 && (
+                  <Button
+                    type="button"
+                    variant={selecting ? 'secondary' : 'outline'}
+                    size="sm"
+                    aria-pressed={selecting}
+                    onClick={() => (selecting ? exitSelection() : setSelecting(true))}
+                    className="text-xs"
+                  >
+                    <ListChecks /> {selecting ? '完成' : '多选'}
+                  </Button>
+                )}
+              </div>
             </SectionHeader>
+            {selecting && <BulkSelectionBar selected={selectedGuests} onExit={exitSelection} canMigrate={nodes.length > 1} />}
             <GlassCard flush className="overflow-hidden">
               {resources.isPending ? (
                 <div className="divide-y divide-border/70">
@@ -167,7 +199,12 @@ export function OverviewPage() {
                   ))}
                 </div>
               ) : visible.length > 0 ? (
-                <GuestList guests={visible} showNode={nodes.length > 1} />
+                <GuestList
+                  guests={visible}
+                  showNode={nodes.length > 1}
+                  selected={selecting ? selected : undefined}
+                  onToggle={selecting ? toggleSelected : undefined}
+                />
               ) : (
                 <EmptyState
                   icon={filter === 'all' ? Monitor : Box}
