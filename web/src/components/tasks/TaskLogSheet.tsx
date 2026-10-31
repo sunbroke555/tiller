@@ -20,13 +20,15 @@ export interface TaskLogSheetProps {
   onOpenChange: (open: boolean) => void
   /** Heading; defaults to the task type description ("启动 VM 100"). */
   title?: string
+  /** End time (Unix seconds) from a task list; shows the duration of a finished task. */
+  endtime?: number | undefined
 }
 
 /**
  * Task details with a live, auto-scrolling log, a stop button while running
  * and a download of the full log. Bottom sheet on phones, dialog on desktop.
  */
-export function TaskLogSheet({ node, upid, open, onOpenChange, title }: TaskLogSheetProps) {
+export function TaskLogSheet({ node, upid, open, onOpenChange, title, endtime }: TaskLogSheetProps) {
   const active = open && !!node && !!upid
   const status = useTaskStatus(active ? node : null, active ? upid : null)
   const parsed = upid ? parseUpid(upid) : null
@@ -98,6 +100,8 @@ export function TaskLogSheet({ node, upid, open, onOpenChange, title }: TaskLogS
           <span className="tabular">{started ? formatDateTime(started) : DASH}</span>
           {state === 'running' && started ? (
             <span className="tabular">已运行 {formatDuration(Date.now() / 1000 - started)}</span>
+          ) : started && endtime ? (
+            <span className="tabular">耗时 {formatDuration(endtime - started)}</span>
           ) : null}
         </span>
       }
@@ -179,6 +183,7 @@ export function TaskLogHost() {
       node={last?.node}
       upid={last?.upid}
       title={last?.title}
+      endtime={last?.endtime}
       open={!!target}
       onOpenChange={(o) => !o && closeTaskLog()}
     />

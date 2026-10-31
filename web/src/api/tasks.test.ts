@@ -75,6 +75,8 @@ describe('task state', () => {
     expect(taskState({})).toBe('running')
     expect(taskState({ status: 'OK', endtime: 1 })).toBe('ok')
     expect(taskState({ status: 'WARNINGS: 1' })).toBe('warning')
+    // /nodes/{node}/tasks?source=all marks active tasks in upper case
+    expect(taskState({ status: 'RUNNING' })).toBe('running')
   })
 
   it('extracts progress percentages', () => {

@@ -75,10 +75,10 @@ export function exitStatusState(exitstatus: string | null | undefined): Exclude<
  * State of a task from either shape PVE returns:
  * - /nodes/{node}/tasks/{upid}/status: { status: 'running' | 'stopped', exitstatus }
  * - /cluster/tasks and /nodes/{node}/tasks: { status?: exitstatus } (missing while running;
- *   the node list reports "running" explicitly with `source=all`)
+ *   the node list reports "RUNNING" explicitly with `source=active|all`)
  */
 export function taskState(task: { status?: string | null; exitstatus?: string | null; endtime?: number | null }): TaskState {
-  if (task.status === 'running') return 'running'
+  if (task.status === 'running' || task.status === 'RUNNING') return 'running'
   if (task.status === 'stopped') return exitStatusState(task.exitstatus)
   if (!task.status) return task.endtime ? 'error' : 'running'
   return exitStatusState(task.status)
