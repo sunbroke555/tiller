@@ -6,17 +6,14 @@ import { cn } from '@/lib/utils'
 import { useCommandPalette } from './CommandPalette'
 import { MOBILE_NAV } from './nav'
 
-/** Floating glass tab bar plus a separate round search button (mobile). */
+/**
+ * Floating glass tab bar plus a separate round search button (mobile).
+ * Positioned by BottomDock.
+ */
 export function BottomNav({ className }: { className?: string }) {
   const { setOpen } = useCommandPalette()
   return (
-    <div
-      className={cn(
-        'pointer-events-none fixed inset-x-0 bottom-0 z-40 flex items-end justify-center gap-2.5 px-4',
-        'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
-        className,
-      )}
-    >
+    <div className={cn('pointer-events-none flex w-full items-end justify-center gap-2.5', className)}>
       <nav aria-label="主导航" className="surface-strong pointer-events-auto flex flex-1 items-center rounded-full p-1.5 sm:max-w-md sm:flex-none">
         {MOBILE_NAV.map((item) => (
           <NavLink

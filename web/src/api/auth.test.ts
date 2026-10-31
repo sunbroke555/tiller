@@ -64,7 +64,8 @@ describe('login', () => {
     const body = bodyOf(0)
     expect(body.get('username')).toBe('root@pam')
     expect(body.get('password')).toBe('secret')
-    expect(body.get('realm')).toBe('pam')
+    // The realm is part of the user id; sending it again makes PVE look up "root@pam@pam".
+    expect(body.has('realm')).toBe(false)
     expect(getTicket()).toBe(REAL_TICKET)
     expect(getSession()).toMatchObject({ username: 'root@pam', csrfToken: 'csrf', clustername: 'lab' })
   })

@@ -1,41 +1,149 @@
-import { useParams } from 'react-router'
+import { useMemo } from 'react'
+import { Link, Navigate, useNavigate, useParams } from 'react-router'
+import { Lock, SearchX } from 'lucide-react'
 
 import { useClusterResources } from '@/api/queries'
 import { isGuest, type GuestType } from '@/api/types'
-import { ComingSoon } from '@/components/ComingSoon'
+import { EmptyState } from '@/components/EmptyState'
+import { GlassCard } from '@/components/GlassCard'
+import { DockPortal } from '@/components/layout/BottomDock'
 import { PageHeader } from '@/components/PageHeader'
+import { ActionBar, useActionRunner } from '@/components/page/ActionBar'
+import { TabBar, TabPanel, TabSkeleton } from '@/components/page/RegistryTabs'
+import { sortByOrder, visibleActions } from '@/components/page/registry'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { StatusDot } from '@/components/StatusDot'
-import { GUEST_TYPE_LABEL, guestName, statusLabel } from '@/lib/resources'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import { GUEST_TYPE_LABEL, guestName, guestPath, nodePath, parseTags, statusLabel } from '@/lib/resources'
 
-/** /guest/:node/:type/:vmid — placeholder until the guest detail feature lands. */
+import { guestActions, guestTabs } from './registry'
+import { GuestContextProvider, type GuestActionContext, type GuestTabProps } from './types'
+
+/**
+ * /guest/:node/:type/:vmid/:tab? — the VM / CT detail page shell: header,
+ * action bar and tabs, all from features/guest/registry.ts.
+ */
 export function GuestPage() {
-  const { node = '', type = 'qemu', vmid = '' } = useParams()
-  const guestType: GuestType = type === 'lxc' ? 'lxc' : 'qemu'
-  const { data: guest } = useClusterResources({
-    select: (all) => all.filter(isGuest).find((g) => g.type === guestType && String(g.vmid) === vmid),
+  const params = useParams()
+  const navigate = useNavigate()
+  const type: GuestType = params.type === 'lxc' ? 'lxc' : 'qemu'
+  const vmid = Number(params.vmid)
+  const node = params.node ?? ''
+  const tabParam = params.tab
+
+  const { data: guest, isPending, isError } = useClusterResources({
+    select: (all) => all.filter(isGuest).find((g) => g.vmid === vmid),
   })
 
+  const ctx = useMemo<GuestActionContext | null>(
+    () => (guest ? { node: guest.node, type: guest.type, vmid, guest, name: guestName(guest), navigate } : null),
+    [guest, vmid, navigate],
+  )
+
+  if (guest && (guest.node !== node || guest.type !== type)) {
+    // Migrated to another node (or a stale link): follow it.
+    return <Navigate replace to={guestPath(guest, tabParam)} />
+  }
+
+  if (!ctx) {
+    if (isPending) return <GuestPageSkeleton />
+    return (
+      <>
+        <PageHeader backTo="/" eyebrow={`${GUEST_TYPE_LABEL[type]} · ${node}`} title={`${type === 'lxc' ? 'CT' : 'VM'} ${params.vmid}`} />
+        <GlassCard>
+          <EmptyState
+            icon={SearchX}
+            title={isError ? '无法加载资源' : '找不到这台客户机'}
+            description={isError ? '请检查网络连接后重试。' : '它可能已被删除，或者你没有查看它的权限。'}
+            action={
+              <Button asChild variant="outline">
+                <Link to="/">回到概览</Link>
+              </Button>
+            }
+          />
+        </GlassCard>
+      </>
+    )
+  }
+
+  return <GuestPageBody ctx={ctx} tabParam={tabParam} />
+}
+
+function GuestPageBody({ ctx, tabParam }: { ctx: GuestActionContext; tabParam: string | undefined }) {
+  const { guest, type, vmid, node } = ctx
+  const tabProps: GuestTabProps = { node, type, vmid, guest }
+  const tabs = sortByOrder(guestTabs.filter((t) => t.types.includes(type) && (t.visible?.(tabProps) ?? true)))
+  const actions = visibleActions(
+    guestActions.filter((a) => !a.types || a.types.includes(type)),
+    ctx,
+  )
+  const { trigger, host } = useActionRunner(ctx)
+
+  const active = tabs.find((t) => t.id === tabParam) ?? (tabParam ? undefined : tabs[0])
+  if (!active) return <Navigate replace to={guestPath(guest)} />
+
+  const tags = parseTags(guest.tags)
   return (
-    <>
+    <GuestContextProvider value={ctx}>
       <PageHeader
         backTo="/"
         eyebrow={
-          <span className="inline-flex items-center gap-1.5">
-            <ResourceIcon type={guestType} className="size-3.5" />
-            {GUEST_TYPE_LABEL[guestType]} <span className="tabular">{vmid}</span> · {node}
+          <span className="inline-flex flex-wrap items-center gap-1.5">
+            <ResourceIcon type={type} template={guest.template === 1} className="size-3.5" />
+            <span>{GUEST_TYPE_LABEL[type]}</span>
+            <span className="tabular">{vmid}</span>
+            <span aria-hidden>·</span>
+            <Link to={nodePath(node)} className="underline-offset-2 hover:text-foreground hover:underline">
+              {node}
+            </Link>
           </span>
         }
-        title={guest ? guestName(guest) : `${guestType === 'lxc' ? 'CT' : 'VM'} ${vmid}`}
+        title={ctx.name}
         description={
-          guest && (
-            <span className="inline-flex items-center gap-2">
-              <StatusDot status={guest.status} decorative /> {statusLabel(guest.status)}
+          <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+            <span className="inline-flex items-center gap-1.5">
+              <StatusDot status={guest.status} decorative />
+              {guest.template === 1 ? '模板' : statusLabel(guest.status)}
             </span>
-          )
+            {guest.lock && (
+              <Badge variant="outline" className="gap-1 border-warning/40 text-warning">
+                <Lock /> 已锁定：{guest.lock}
+              </Badge>
+            )}
+            {guest.hastate && <Badge variant="outline">HA：{guest.hastate}</Badge>}
+            {tags.map((t) => (
+              <Badge key={t} variant="secondary" className="font-normal">
+                {t}
+              </Badge>
+            ))}
+          </span>
         }
+        actions={<ActionBar variant="toolbar" actions={actions} ctx={ctx} trigger={trigger} className="hidden lg:flex" />}
       />
-      <ComingSoon>概要、控制台、硬件、快照、备份和电源操作会在这里。</ComingSoon>
-    </>
+
+      <TabBar tabs={tabs} active={active.id} hrefFor={(id) => guestPath(guest, id === tabs[0]?.id ? undefined : id)} />
+      <TabPanel tab={active} props={tabProps} />
+
+      <DockPortal>
+        <ActionBar variant="dock" actions={actions} ctx={ctx} trigger={trigger} />
+      </DockPortal>
+      {host}
+    </GuestContextProvider>
+  )
+}
+
+function GuestPageSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="加载中">
+      <div className="mb-(--section-gap) grid gap-2">
+        <Skeleton className="h-3 w-32" />
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="h-4 w-40" />
+      </div>
+      <Skeleton className="mb-(--section-gap) h-10 w-full max-w-xl" />
+      <TabSkeleton />
+    </div>
   )
 }

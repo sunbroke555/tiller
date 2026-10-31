@@ -12,3 +12,5 @@ test-results/
 .vite/
 *.tsbuildinfo
 dev-dist/
+e2e/.auth/
+e2e/.run/

@@ -8,7 +8,7 @@ NPM ?= npm
 BIN := server/pve-web
 GOFLAGS_BUILD := -trimpath -ldflags "-s -w"
 
-.PHONY: deps web server test test-go test-web typecheck dev e2e-deps clean
+.PHONY: deps web server test test-go test-web typecheck dev e2e e2e-deps e2e-server e2e-stop clean
 
 # Reinstall web dependencies only when the lockfile changes.
 web/node_modules/.package-lock.json: web/package-lock.json web/package.json
@@ -47,8 +47,32 @@ dev: deps
 	(cd web && $(NPM) run dev) & \
 	wait
 
-e2e-deps:
-	cd e2e && $(NPM) install --no-audit --no-fund && npx playwright install --with-deps chromium webkit
+## e2e: start pve-web on $(PORT) against the lab (building it if sources changed),
+## run Playwright, and stop the server again even when tests fail. Needs lab.env:
+##   set -a; . ~/.config/pve-web/lab.env; set +a; make e2e PORT=8101 SPEC=tests/tasks.spec.ts
+## SPEC is relative to e2e/ (empty = all); extra Playwright flags in E2E_ARGS,
+## e.g. E2E_ARGS="--project=desktop -g 快照". Use a PORT of your own (8101–8199)
+## so parallel runs on the test server do not collide.
+PORT ?= 8101
+SPEC ?=
+E2E_ARGS ?=
+
+e2e/node_modules/.package-lock.json: e2e/package-lock.json e2e/package.json
+	cd e2e && $(NPM) ci --no-audit --no-fund
+e2e-deps: e2e/node_modules/.package-lock.json
+	cd e2e && npx playwright install chromium
+
+e2e: e2e-deps
+	@test -n "$$PVE_LAB_URL" || { echo "PVE_LAB_URL 未设置：set -a; . ~/.config/pve-web/lab.env; set +a"; exit 2; }
+	@trap '$(CURDIR)/scripts/e2e-server.sh stop $(PORT)' EXIT; \
+	$(CURDIR)/scripts/e2e-server.sh start $(PORT) && \
+	cd e2e && BASE_URL=http://127.0.0.1:$(PORT) npx playwright test $(SPEC) $(E2E_ARGS)
+
+## e2e-server / e2e-stop: keep an instance running on $(PORT) to look at it (http://192.168.0.32:$(PORT))
+e2e-server:
+	$(CURDIR)/scripts/e2e-server.sh start $(PORT)
+e2e-stop:
+	$(CURDIR)/scripts/e2e-server.sh stop $(PORT)
 
 clean:
-	rm -rf web/dist server/web/dist $(BIN)
+	rm -rf web/dist server/web/dist $(BIN) e2e/.run

@@ -50,32 +50,43 @@ make clean
 `make dev` 需要设置 `PVE_URL` 等变量，例如 `PVE_URL=https://<实验机>:8006 PVE_INSECURE_TLS=1 make dev`，然后访问 `http://<主机>:5173`。
 写操作只对实验机（VMID 9900）做，连接信息在测试服务器 `~/.config/pve-web/lab.env`。
 
-端到端测试在 `e2e/`（Playwright，headless 跑在测试服务器上）：
+端到端测试在 `e2e/`（Playwright，headless 跑在测试服务器上，对接实验机）。`make e2e` 会按需构建、在 `PORT` 上启动 pve-web、跑测试、最后无论成败都停掉服务器：
 
 ```sh
-rt -- make e2e-deps
-rt --back e2e/playwright-report -- bash -c 'set -a; . ~/.config/pve-web/lab.env; cd e2e && npx playwright test'
+rt -- bash -lc 'set -a; . ~/.config/pve-web/lab.env; set +a; make e2e PORT=8101'                              # 全部
+rt -- bash -lc 'set -a; . ~/.config/pve-web/lab.env; set +a; make e2e PORT=8101 SPEC=tests/tasks.spec.ts'     # 单个 spec
+rt --back e2e/playwright-report -- bash -lc '… make e2e PORT=8101 E2E_ARGS="--project=desktop"'               # 取回报告
 ```
+
+固件（已登录的 `page`、实验机 API 助手 `pve`、`cleanup`）见 `e2e/fixtures.ts`。各功能区的分工、共享契约和端口分配见 [docs/CONTRIBUTING-AREAS.md](docs/CONTRIBUTING-AREAS.md)。
 
 ## 目录
 
 ```
 server/            Go 服务：config.go 配置、proxy.go 反代、static.go 前端托管、main.go 入口
 web/src/api/       client.ts（请求、CSRF、表单编码、PveApiError、401 处理）、auth.ts（登录、两步验证、续签）、
-                   session.ts（登录态）、types.ts、queries.ts（TanStack Query hooks）
+                   session.ts（登录态）、types.ts、queries.ts（TanStack Query hooks）、tasks.ts（UPID、任务状态与日志）、
+                   <area>.ts（各功能区自己的端点）
+web/src/components/form/   表单原语（FormDialog、FormField、SizeInput、StorageSelect、VmidInput…）
+web/src/components/page/   页面外壳的注册表类型、操作栏、标签栏
+web/src/components/tasks/  runTask 任务跟踪、底部任务提示、实时日志
+web/src/lib/       format、propstring（PVE 属性字符串与配置 diff）、size、resources（路径）、taskTypes
 web/src/theme/     主题偏好、首屏前执行的 boot 脚本、ThemeProvider
 web/src/components/  通用组件（GlassCard、StatusDot、UsageBar、Sparkline、ConfirmDialog…）与 layout/（外框、导航、命令面板）
 web/src/components/ui/  shadcn/ui 组件（可以改）
-web/src/features/  按功能区组织的页面
-e2e/               Playwright 配置与测试
+web/src/features/  按功能区组织的页面；guest/、node/、storage/ 是带注册表的页面外壳，command/ 是命令面板注册表
+e2e/               Playwright 配置、fixtures.ts 与测试
+scripts/e2e-server.sh  为 e2e 启停连接实验机的 pve-web
 ```
 
 ## 实现说明（给后续开发）
 
+- **功能区分工与共享契约**：见 [docs/CONTRIBUTING-AREAS.md](docs/CONTRIBUTING-AREAS.md)（文件归属、runTask、propstring、表单、注册表、e2e）。
 - **API 调用**：`get/post/put/del('/nodes/...', params)`；路径里插值用 ``p`/nodes/${node}/tasks/${upid}/status` ``，会自动 URI 编码。错误统一是 `PveApiError`（`status`、`message`、`errors`、`detail`）。
 - **查询 key**：都在 `queryKeys` 下（前缀 `['pve']`），退出登录时整体清掉。新功能的查询放在自己的 `features/<area>/` 里，复用 `queryKeys` 的前缀约定。
 - **轮询**：集群资源 5 秒、状态与任务 10 秒、RRD 60 秒；页面隐藏时暂停。
 - **危险操作**：用 `ConfirmDialog`（`destructive`，删除类加 `typeToConfirm`）。
+- **长任务**：返回 UPID 的操作用 `runTask(post(...), { title })`（`components/tasks/tracker.ts`），自动显示进度、实时日志并在结束后刷新数据。
 - **主题**：颜色只用语义 token（`bg-card`、`text-muted-foreground`、`text-brand`、`surface` / `surface-strong` 工具类…），不要写死颜色；纸质主题用 `paper:` 变体微调，密度用 `--row-py`、`--card-p` 等变量。
 - **CSP**：Go 服务按 `index.html` 里内联脚本的哈希生成 CSP，除主题 boot 脚本外不要加内联脚本。
 - **点击目标**：触屏设备上按钮、输入框通过 `pointer-coarse:` 放大到 44px。

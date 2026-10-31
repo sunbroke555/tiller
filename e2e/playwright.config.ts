@@ -1,15 +1,16 @@
 import { defineConfig, devices } from '@playwright/test'
 
-// End-to-end tests run on the test server (headless) against a pve-web
+// End-to-end tests run headless on the test server against a pve-web
 // instance that proxies to the lab PVE (VMID 9900), never production.
 //
-//   E2E_BASE_URL   pve-web under test (default http://127.0.0.1:8080)
-//   PVE_USER / PVE_PASSWORD / PVE_REALM   lab credentials, from ~/.config/pve-web/lab.env
+//   BASE_URL     pve-web under test (default http://127.0.0.1:8080; E2E_BASE_URL also accepted)
+//   PVE_LAB_*    lab credentials, from ~/.config/pve-web/lab.env
 //
-// Example (from the repo root on this Mac):
-//   rt -- bash -c 'set -a; . ~/.config/pve-web/lab.env; cd e2e && npx playwright test' --back e2e/playwright-report
+// Usually through make, which starts and stops the server (from this Mac):
+//   rt -- bash -lc 'set -a; . ~/.config/pve-web/lab.env; set +a; make e2e PORT=8101 SPEC=tests/tasks.spec.ts'
+// One project only: add E2E_ARGS="--project=desktop".
 
-const baseURL = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:8080'
+const baseURL = process.env.BASE_URL ?? process.env.E2E_BASE_URL ?? 'http://127.0.0.1:8080'
 
 export default defineConfig({
   testDir: './tests',
@@ -31,7 +32,9 @@ export default defineConfig({
     ignoreHTTPSErrors: true,
   },
   projects: [
-    { name: 'mobile', use: { ...devices['iPhone 15'] } },
+    // Phone layout (bottom nav, sheets). Chromium with iPhone metrics: WebKit
+    // does not run on the Arch test server.
+    { name: 'mobile', use: { ...devices['iPhone 15'], browserName: 'chromium', defaultBrowserType: 'chromium' } },
     { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } },
   ],
 })

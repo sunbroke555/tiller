@@ -28,12 +28,34 @@ export function guestName(g: Pick<GuestResource, 'name' | 'vmid' | 'type'>): str
   return g.name || `${g.type === 'lxc' ? 'CT' : 'VM'} ${g.vmid}`
 }
 
-export function guestPath(g: Pick<GuestResource, 'node' | 'type' | 'vmid'>): string {
-  return `/guest/${encodeURIComponent(g.node)}/${g.type}/${g.vmid}`
+/** /guest/:node/:type/:vmid[/:tab] */
+export function guestPath(g: Pick<GuestResource, 'node' | 'type' | 'vmid'>, tab?: string): string {
+  return `/guest/${encodeURIComponent(g.node)}/${g.type}/${g.vmid}${tab ? `/${encodeURIComponent(tab)}` : ''}`
 }
 
-export function nodePath(node: string): string {
-  return `/node/${encodeURIComponent(node)}`
+/** /node/:node[/:tab] */
+export function nodePath(node: string, tab?: string): string {
+  return `/node/${encodeURIComponent(node)}${tab ? `/${encodeURIComponent(tab)}` : ''}`
+}
+
+/** /storage/:node/:storage[/:tab] */
+export function storagePath(node: string, storage: string, tab?: string): string {
+  return `/storage/${encodeURIComponent(node)}/${encodeURIComponent(storage)}${tab ? `/${encodeURIComponent(tab)}` : ''}`
+}
+
+/** Full-screen console of a guest: /console/:node/:type/:vmid */
+export function consolePath(g: Pick<GuestResource, 'node' | 'type' | 'vmid'>): string {
+  return `/console/${encodeURIComponent(g.node)}/${g.type}/${g.vmid}`
+}
+
+/** Full-screen node shell: /console/:node/shell */
+export function nodeShellPath(node: string): string {
+  return `/console/${encodeURIComponent(node)}/shell`
+}
+
+/** Guest creation wizard: /create/qemu or /create/lxc (optional ?node=). */
+export function createGuestPath(type: GuestType, node?: string): string {
+  return `/create/${type}${node ? `?node=${encodeURIComponent(node)}` : ''}`
 }
 
 export function isTemplate(g: GuestResource): boolean {

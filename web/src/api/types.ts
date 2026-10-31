@@ -222,3 +222,48 @@ export interface TaskStatus {
   status: 'running' | 'stopped'
   exitstatus?: string
 }
+
+// ------------------------------------------------------------------ storage
+
+/** Content types a storage can hold (storage.cfg `content`). */
+export type StorageContent = 'images' | 'rootdir' | 'iso' | 'vztmpl' | 'backup' | 'snippets' | 'import'
+
+/** GET /nodes/{node}/storage (per-node view with usage). */
+export interface NodeStorage {
+  storage: string
+  /** Plugin type: dir, lvm, lvmthin, zfspool, nfs, cifs, pbs, rbd, cephfs, … */
+  type: string
+  /** Comma separated StorageContent list. */
+  content: string
+  active?: PveBool
+  enabled?: PveBool
+  shared?: PveBool
+  total?: number
+  used?: number
+  avail?: number
+  used_fraction?: number
+}
+
+// ------------------------------------------------------------------ network
+
+/** GET /nodes/{node}/network (fields depend on the interface type). */
+export interface NodeNetworkInterface {
+  iface: string
+  type: 'bridge' | 'bond' | 'eth' | 'alias' | 'vlan' | 'fabric' | 'OVSBridge' | 'OVSBond' | 'OVSPort' | 'OVSIntPort' | 'vnet' | 'unknown' | (string & {})
+  active?: PveBool
+  autostart?: PveBool
+  method?: string
+  method6?: string
+  address?: string
+  netmask?: string
+  cidr?: string
+  gateway?: string
+  address6?: string
+  cidr6?: string
+  gateway6?: string
+  bridge_ports?: string
+  bridge_vlan_aware?: PveBool
+  comments?: string
+  families?: string[]
+  priority?: number
+}

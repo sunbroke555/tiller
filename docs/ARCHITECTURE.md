@@ -74,7 +74,8 @@ pve-web/
 
 - `api/client.ts`：`get/post/put/del(path, params)`，路径以 `/nodes/...` 这种 API 路径表示，自动加 `/api2/json` 前缀、CSRF 头、表单编码（PVE 接受 `application/x-www-form-urlencoded`），解包 `{data}`，错误统一抛 `PveApiError`（含 status、message、字段错误 `errors`）。
 - 401 时清掉登录态并跳转登录页。
-- 返回 UPID 的操作用 `useTask(upid)` 轮询 `/nodes/{node}/tasks/{upid}/status` 和 `/log`。
+- 返回 UPID 的操作用 `runTask(promise, { title })`（`components/tasks/tracker.ts`）跟踪：底部任务提示、实时日志、结束后刷新查询。底层的 `useTaskStatus(node, upid)` / `useTaskLog(node, upid)`（增量 start/limit）在 `api/tasks.ts`。
+- 各功能区的文件归属、注册表（标签、操作、命令）、表单原语和 e2e 约定见 [CONTRIBUTING-AREAS.md](CONTRIBUTING-AREAS.md)。
 - 类型尽量精确定义在 `api/types.ts`；参考权威来源：PVE 主机上的 `/usr/share/pve-manager/js/pvemanagerlib.js`（官方 UI 源码）和 `pvesh usage <path> -v`（API schema），从测试服务器 `ssh pve` 只读查看。
 
 ## 环境与安全

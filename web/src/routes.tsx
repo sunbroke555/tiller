@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react'
 import { Navigate, createBrowserRouter, type RouteObject } from 'react-router'
 
 import { AppShell } from '@/components/layout/AppShell'
@@ -11,13 +12,24 @@ import { OverviewPage } from '@/features/overview/OverviewPage'
 import { AppearancePage } from '@/features/settings/AppearancePage'
 import { ShellPage } from '@/features/shell/ShellPage'
 import { StoragePage } from '@/features/storage/StoragePage'
-import { TasksPage } from '@/features/tasks/TasksPage'
 
-// Heavy features (console with noVNC/xterm, charts) should use `lazy` routes:
-//   { path: 'console/...', lazy: () => import('@/features/console/route') }
+/** Lazy route from a module whose default export is the page component. */
+function page(load: () => Promise<{ default: ComponentType }>): Pick<RouteObject, 'lazy'> {
+  return { lazy: async () => ({ Component: (await load()).default }) }
+}
 
+// Area pages are lazy so each area ships in its own chunk. Tabs inside the
+// guest/node/storage pages are registered in features/<page>/registry.ts.
 export const routes: RouteObject[] = [
   { path: '/login', element: <LoginPage /> },
+  // Full-screen pages (no app frame).
+  {
+    element: <RequireAuth />,
+    children: [
+      { path: 'console/:node/shell', ...page(() => import('@/features/console/ConsolePage')) },
+      { path: 'console/:node/:type/:vmid', ...page(() => import('@/features/console/ConsolePage')) },
+    ],
+  },
   {
     element: (
       <RequireAuth>
@@ -26,10 +38,13 @@ export const routes: RouteObject[] = [
     ),
     children: [
       { index: true, element: <OverviewPage /> },
-      { path: 'guest/:node/:type/:vmid', element: <GuestPage /> },
-      { path: 'node/:node', element: <NodePage /> },
+      { path: 'guest/:node/:type/:vmid/:tab?', element: <GuestPage /> },
+      { path: 'node/:node/:tab?', element: <NodePage /> },
       { path: 'storage', element: <StoragePage /> },
-      { path: 'tasks', element: <TasksPage /> },
+      { path: 'storage/:node/:storage/:tab?', ...page(() => import('@/features/storage/StorageDetailPage')) },
+      { path: 'tasks', ...page(() => import('@/features/tasks/TasksPage')) },
+      { path: 'create/qemu', ...page(() => import('@/features/guest-create/CreateQemuPage')) },
+      { path: 'create/lxc', ...page(() => import('@/features/guest-create/CreateLxcPage')) },
       { path: 'shell', element: <ShellPage /> },
       { path: 'datacenter', element: <DatacenterPage /> },
       { path: 'settings', element: <Navigate to="/settings/appearance" replace /> },

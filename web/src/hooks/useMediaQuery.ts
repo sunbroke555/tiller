@@ -1,13 +1,17 @@
 import { useSyncExternalStore } from 'react'
 
+function mql(query: string): MediaQueryList | null {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia(query) : null
+}
+
 export function useMediaQuery(query: string): boolean {
   return useSyncExternalStore(
     (cb) => {
-      const mq = window.matchMedia(query)
-      mq.addEventListener('change', cb)
-      return () => mq.removeEventListener('change', cb)
+      const mq = mql(query)
+      mq?.addEventListener('change', cb)
+      return () => mq?.removeEventListener('change', cb)
     },
-    () => window.matchMedia(query).matches,
+    () => mql(query)?.matches ?? false,
     () => false,
   )
 }

@@ -4,15 +4,19 @@
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query'
 
 import { fetchDomains } from './auth'
-import { get, p } from './client'
+import { get, isPveApiError, p } from './client'
 import type {
   AuthDomain,
   ClusterResource,
   ClusterStatusEntry,
   ClusterTask,
+  GuestType,
   NodeListEntry,
+  NodeNetworkInterface,
   NodeRrdPoint,
+  NodeStorage,
   RrdTimeframe,
+  StorageContent,
   VersionInfo,
 } from './types'
 
@@ -23,8 +27,26 @@ export const POLL = {
   rrd: 60_000,
 } as const
 
+/**
+ * Query keys. Everything user-specific lives under ['pve'] (dropped on
+ * logout). Area hooks build their keys on the scope prefixes below, so one
+ * invalidation refreshes everything about a guest, node or storage:
+ *
+ *   [...queryKeys.guest(node, 'qemu', 100), 'config']
+ *   [...queryKeys.node(node), 'services']
+ *   [...queryKeys.storage(node, 'local'), 'content', 'iso']
+ */
 export const queryKeys = {
   all: ['pve'] as const,
+  /** Scope prefix for one node's data. */
+  node: (node: string) => ['pve', 'nodes', node] as const,
+  /** Scope prefix for one guest's data (config, status, snapshots, …). */
+  guest: (node: string, type: GuestType, vmid: number | string) => ['pve', 'nodes', node, type, String(vmid)] as const,
+  /** Scope prefix for one storage on one node. */
+  storage: (node: string, storage: string) => ['pve', 'nodes', node, 'storage', storage] as const,
+  nodeStorages: (node: string, content?: string) => ['pve', 'nodes', node, 'storage-list', content ?? ''] as const,
+  nodeNetworks: (node: string, type?: string) => ['pve', 'nodes', node, 'network-list', type ?? ''] as const,
+  nextId: () => ['pve', 'cluster', 'nextid'] as const,
   resources: () => ['pve', 'cluster', 'resources'] as const,
   clusterStatus: () => ['pve', 'cluster', 'status'] as const,
   tasks: () => ['pve', 'cluster', 'tasks'] as const,
@@ -112,4 +134,76 @@ export function useDomains(options?: QueryOpts<AuthDomain[]>) {
     retry: 1,
     ...options,
   })
+}
+
+/**
+ * Storages usable on a node, optionally only those holding `content`
+ * (GET /nodes/{node}/storage?content=…&enabled=1). Used by StorageSelect.
+ */
+export function useNodeStorages(
+  node: string | null | undefined,
+  content?: StorageContent | readonly StorageContent[],
+  options?: QueryOpts<NodeStorage[]>,
+) {
+  const c = Array.isArray(content) ? content.join(',') : (content as string | undefined)
+  return useQuery({
+    queryKey: queryKeys.nodeStorages(node ?? '', c),
+    queryFn: ({ signal }) => get<NodeStorage[]>(p`/nodes/${node!}/storage`, { content: c, enabled: 1 }, { signal }),
+    enabled: !!node,
+    staleTime: 15_000,
+    ...options,
+  })
+}
+
+/**
+ * Network interfaces of a node; type "any_bridge" (default) lists Linux/OVS
+ * bridges and SDN VNets for guest NICs. Used by BridgeSelect.
+ */
+export function useNodeNetworks(
+  node: string | null | undefined,
+  type: string = 'any_bridge',
+  options?: QueryOpts<NodeNetworkInterface[]>,
+) {
+  return useQuery({
+    queryKey: queryKeys.nodeNetworks(node ?? '', type),
+    queryFn: async ({ signal }) => {
+      const list = await get<NodeNetworkInterface[]>(p`/nodes/${node!}/network`, { type }, { signal })
+      return [...list].sort((a, b) => a.iface.localeCompare(b.iface, undefined, { numeric: true }))
+    },
+    enabled: !!node,
+    staleTime: 30_000,
+    ...options,
+  })
+}
+
+/** Next free VMID (GET /cluster/nextid returns it as a string). */
+export async function fetchNextId(signal?: AbortSignal): Promise<number> {
+  return Number(await get<string | number>('/cluster/nextid', undefined, { signal }))
+}
+
+/** Next free VMID. Not cached: always ask fresh. */
+export function useNextId(options?: QueryOpts<number>) {
+  return useQuery({
+    queryKey: queryKeys.nextId(),
+    queryFn: ({ signal }) => fetchNextId(signal),
+    staleTime: 0,
+    gcTime: 0,
+    ...options,
+  })
+}
+
+/**
+ * Check that a VMID is free: GET /cluster/nextid?vmid=X succeeds for a free
+ * id and fails with "VM X already exists" otherwise. Resolves to null when
+ * free, or to the error message.
+ */
+export async function checkVmidFree(vmid: number, signal?: AbortSignal): Promise<string | null> {
+  try {
+    await get('/cluster/nextid', { vmid }, { signal })
+    return null
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') throw e
+    if (isPveApiError(e) && e.status >= 400 && e.status < 500) return e.errors?.vmid?.trim() || e.message
+    throw e
+  }
 }

@@ -486,3 +486,23 @@
     box-shadow: 0 0 0 6px transparent;
   }
 }
+
+/* Indeterminate task progress: a bar sweeping across its track. */
+@keyframes task-indeterminate {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+.task-indeterminate {
+  animation: task-indeterminate 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .task-indeterminate {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+}

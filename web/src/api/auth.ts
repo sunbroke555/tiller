@@ -105,7 +105,9 @@ export async function login(creds: LoginCredentials): Promise<LoginResult> {
   try {
     data = await post<TicketResponse>(
       '/access/ticket',
-      { username, password: creds.password, realm: creds.realm, 'new-format': 1 },
+      // No `realm` parameter: PVE appends it to the user name, so
+      // "root@pam" + realm=pam would become "root@pam@pam".
+      { username, password: creds.password, 'new-format': 1 },
       { noAuthRedirect: true },
     )
   } catch (e) {

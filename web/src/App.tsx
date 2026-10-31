@@ -5,6 +5,7 @@ import { RouterProvider } from 'react-router'
 import { startTicketRenewal } from '@/api/auth'
 import { queryKeys } from '@/api/queries'
 import { useSession } from '@/api/useSession'
+import { resetTaskTracker, setTaskQueryClient } from '@/components/tasks/tracker'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { createQueryClient } from '@/lib/queryClient'
@@ -23,6 +24,7 @@ function SessionEffects({ queryClient }: { queryClient: QueryClient }) {
       stop()
       // Logged out (or user switched): never show the previous user's data.
       queryClient.removeQueries({ queryKey: queryKeys.all })
+      resetTaskTracker()
     }
   }, [loggedIn, queryClient])
   return null
@@ -30,6 +32,11 @@ function SessionEffects({ queryClient }: { queryClient: QueryClient }) {
 
 export function App() {
   const [queryClient] = useState(createQueryClient)
+  // Finished tasks (runTask) refresh the queries on screen.
+  useEffect(() => {
+    setTaskQueryClient(queryClient)
+    return () => setTaskQueryClient(null)
+  }, [queryClient])
   const [router] = useState(createRouter)
   return (
     <ThemeProvider>

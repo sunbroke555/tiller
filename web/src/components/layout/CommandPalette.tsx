@@ -1,10 +1,13 @@
-import { createContext, use, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router'
-import { LogOut } from 'lucide-react'
+import { createContext, use, useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react'
+import { useMatch, useNavigate } from 'react-router'
+import { LogOut, Zap } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { logout } from '@/api/auth'
 import { useClusterResources } from '@/api/queries'
-import { isGuest, isNode, isStorage, type ClusterResource } from '@/api/types'
+import { isGuest, isNode, isStorage, type ClusterResource, type GuestResource, type NodeResource } from '@/api/types'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import type { ConfirmSpec } from '@/components/page/registry'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { StatusDot } from '@/components/StatusDot'
 import {
@@ -16,7 +19,10 @@ import {
   CommandList,
   CommandSeparator,
 } from '@/components/ui/command'
-import { byVmid, guestName, guestPath, nodePath, parseTags } from '@/lib/resources'
+import { globalCommands, guestCommands, nodeCommands } from '@/features/command/registry'
+import type { CommandContext } from '@/features/command/types'
+import { errorMessage } from '@/lib/errors'
+import { byVmid, guestName, guestPath, nodePath, parseTags, storagePath } from '@/lib/resources'
 
 import { MAIN_NAV, SETTINGS_NAV } from './nav'
 
@@ -66,25 +72,120 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   )
 }
 
+interface PendingCommand {
+  label: string
+  spec: ConfirmSpec
+  destructive?: boolean
+  run: () => unknown
+}
+
+/** One runnable palette entry (a command bound to its target). */
+interface BoundCommand {
+  key: string
+  value: string
+  label: string
+  detail?: string
+  icon?: ComponentType<{ className?: string }>
+  destructive?: boolean
+  confirm?: () => ConfirmSpec
+  run: () => unknown
+}
+
+function bindGuest(g: GuestResource, ctx: CommandContext): BoundCommand[] {
+  return guestCommands()
+    .filter((c) => (!c.types || c.types.includes(g.type)) && (c.visible?.(g, ctx) ?? true))
+    .map((c) => ({
+      key: `${c.id}:${g.id}`,
+      value: `${c.label} ${(c.keywords ?? []).join(' ')} ${g.vmid} ${guestName(g)} ${c.id}:${g.id}`,
+      label: `${c.label} ${guestName(g)}`,
+      detail: `${g.vmid} · ${g.node}`,
+      icon: c.icon,
+      destructive: c.destructive,
+      confirm: c.confirm ? () => c.confirm!(g, ctx) : undefined,
+      run: () => c.run(g, ctx),
+    }))
+}
+
+function bindNode(n: NodeResource, ctx: CommandContext): BoundCommand[] {
+  return nodeCommands()
+    .filter((c) => c.visible?.(n, ctx) ?? true)
+    .map((c) => ({
+      key: `${c.id}:${n.id}`,
+      value: `${c.label} ${(c.keywords ?? []).join(' ')} ${n.node} ${c.id}:${n.id}`,
+      label: `${c.label}（${n.node}）`,
+      icon: c.icon,
+      destructive: c.destructive,
+      confirm: c.confirm ? () => c.confirm!(n, ctx) : undefined,
+      run: () => c.run(n, ctx),
+    }))
+}
+
 function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const navigate = useNavigate()
   const { data: resources = [] } = useClusterResources({ enabled: open })
   const groups = useMemo(() => groupResources(resources), [resources])
+  const [search, setSearch] = useState('')
+  const [pending, setPending] = useState<PendingCommand | null>(null)
+  const guestMatch = useMatch('/guest/:node/:type/:vmid/*')
+  const nodeMatch = useMatch('/node/:node/*')
+
+  useEffect(() => {
+    if (!open) setSearch('')
+  }, [open])
+
+  const ctx: CommandContext = { navigate, resources }
+  const current = guestMatch
+    ? groups.guests.find((g) => String(g.vmid) === guestMatch.params.vmid)
+    : undefined
+  const currentNode = nodeMatch ? groups.nodes.find((n) => n.node === nodeMatch.params.node) : undefined
+  const currentCommands = current ? bindGuest(current, ctx) : currentNode ? bindNode(currentNode, ctx) : []
+  const searching = search.trim().length > 0
+  // Per-resource commands for everything only while searching (keeps the idle list short).
+  const allCommands = searching
+    ? [...groups.guests.filter((g) => g !== current).flatMap((g) => bindGuest(g, ctx)), ...groups.nodes.filter((n) => n !== currentNode).flatMap((n) => bindNode(n, ctx))]
+    : []
+  const globals = globalCommands().filter((c) => c.visible?.(ctx) ?? true)
 
   const go = (to: string) => {
     onOpenChange(false)
     navigate(to)
   }
 
+  const execute = (cmd: Pick<BoundCommand, 'label' | 'confirm' | 'run' | 'destructive'>) => {
+    onOpenChange(false)
+    if (cmd.confirm) {
+      setPending({ label: cmd.label, spec: cmd.confirm(), destructive: cmd.destructive, run: cmd.run })
+      return
+    }
+    Promise.resolve()
+      .then(cmd.run)
+      .catch((e: unknown) => toast.error(`${cmd.label}失败`, { description: errorMessage(e) }))
+  }
+
+  const renderBound = (c: BoundCommand) => (
+    <CommandItem key={c.key} value={c.value} onSelect={() => execute(c)} className={c.destructive ? 'text-destructive' : undefined}>
+      {c.icon ? <c.icon className="text-muted-foreground" /> : <Zap className="text-muted-foreground" />}
+      <span className="truncate">{c.label}</span>
+      {c.detail && <span className="ml-auto text-xs text-muted-foreground tabular">{c.detail}</span>}
+    </CommandItem>
+  )
+
   return (
+    <>
     <CommandDialog
       open={open}
       onOpenChange={onOpenChange}
       className="top-[max(1rem,env(safe-area-inset-top))] translate-y-0 sm:top-[12vh] sm:max-w-xl"
     >
-      <CommandInput placeholder="搜索虚拟机、容器、节点、存储或页面…" />
+      <CommandInput placeholder="搜索资源、页面或操作…" value={search} onValueChange={setSearch} />
       <CommandList className="max-h-[min(60vh,28rem)]">
         <CommandEmpty>没有匹配的结果</CommandEmpty>
+
+        {currentCommands.length > 0 && (
+          <CommandGroup heading={`当前：${current ? guestName(current) : currentNode?.node}`}>
+            {currentCommands.map(renderBound)}
+          </CommandGroup>
+        )}
 
         {groups.guests.length > 0 && (
           <CommandGroup heading="虚拟机与容器">
@@ -123,11 +224,35 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (
               <CommandItem
                 key={s.id}
                 value={`storage ${s.storage} ${s.node} ${s.plugintype ?? ''} 存储`}
-                onSelect={() => go(`/storage?node=${encodeURIComponent(s.node)}&storage=${encodeURIComponent(s.storage)}`)}
+                onSelect={() => go(storagePath(s.node, s.storage))}
               >
                 <ResourceIcon type="storage" />
                 <span>{s.storage}</span>
                 <span className="ml-auto text-xs text-muted-foreground">{s.node}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+
+        {allCommands.length > 0 && <CommandGroup heading="操作">{allCommands.map(renderBound)}</CommandGroup>}
+
+        {globals.length > 0 && (
+          <CommandGroup heading="快捷操作">
+            {globals.map((c) => (
+              <CommandItem
+                key={c.id}
+                value={`${c.label} ${(c.keywords ?? []).join(' ')} ${c.id}`}
+                onSelect={() =>
+                  execute({
+                    label: c.label,
+                    destructive: c.destructive,
+                    confirm: c.confirm ? () => c.confirm!(ctx) : undefined,
+                    run: () => c.run(ctx),
+                  })
+                }
+              >
+                {c.icon ? <c.icon className="text-muted-foreground" /> : <Zap className="text-muted-foreground" />}
+                <span>{c.label}</span>
               </CommandItem>
             ))}
           </CommandGroup>
@@ -158,6 +283,17 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (
         </CommandGroup>
       </CommandList>
     </CommandDialog>
+    <ConfirmDialog
+      open={pending !== null}
+      onOpenChange={(o) => !o && setPending(null)}
+      title={pending?.spec.title ?? ''}
+      description={pending?.spec.description}
+      confirmLabel={pending?.spec.confirmLabel ?? pending?.label}
+      destructive={pending?.spec.destructive ?? pending?.destructive}
+      typeToConfirm={pending?.spec.typeToConfirm}
+      onConfirm={() => pending?.run() as Promise<unknown> | void}
+    />
+    </>
   )
 }
 
