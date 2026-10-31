@@ -19,7 +19,7 @@ test.describe('page shells', () => {
 
     await tabs.getByRole('link', { name: '选项', exact: true }).click()
     await expect(page).toHaveURL(new RegExp(`${base}/options$`))
-    await expect(page.getByRole('tabpanel', { name: '选项' })).toContainText('qemu-config')
+    await expect(page.getByRole('tabpanel', { name: '选项' })).toContainText('开机自启')
 
     await tabs.getByRole('link', { name: '防火墙' }).click()
     await expect(page.getByRole('tabpanel', { name: '防火墙' })).toContainText('第 2 阶段提供')
