@@ -125,6 +125,7 @@ if (params) await put(p`/nodes/${node}/qemu/${vmid}/config`, params)
 
   顺序区间：客户机页 guest-core 100–199、console 200–249、guest-backup 300–349、guest-lifecycle 400–499；节点页 node-summary 100–199、console 200–249、guest-lifecycle（批量）300–399；存储页 storage-browser 100–199。`types: QEMU | LXC` 限定客户机类型。
 - 第二、三阶段的标签用 `comingSoonTab('说明', 2)` 占位。
+- 数据中心的管理功能是独立页面 `/datacenter/:section/*`，注册在 `features/datacenter/registry.ts` 的 `datacenterSections`（storage、backup、replication、firewall、users、permissions、ha、sdn、ceph、cluster、notifications、mappings、options）。功能区把自己那一项的 `comingSoonTab(...)` 换成 `lazy(() => import('@/features/<area>/<Page>'))` 并加上 `ready: true`（数据中心概要的“管理”网格才会变成链接）。组件没有 props，`/datacenter/<id>/` 下面的子页面由它自己用嵌套 `<Routes>` 处理；标题和返回按钮由外壳渲染。
 - 路径工具（`lib/resources.ts`）：`guestPath(g, tab?)`、`nodePath(node, tab?)`、`storagePath(node, storage, tab?)`、`consolePath(g)`、`nodeShellPath(node)`、`createGuestPath(type, node?)`。
 
 ## 7. 命令面板

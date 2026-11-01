@@ -2,7 +2,6 @@ import { useMemo, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import {
-  Archive,
   BadgeCheck,
   Box,
   ChevronRight,
@@ -10,15 +9,9 @@ import {
   CircleCheck,
   CircleX,
   Cpu,
-  Database,
-  HardDrive,
-  KeyRound,
   Monitor,
-  Network,
-  Repeat,
-  Shield,
+  Settings2,
   ShieldCheck,
-  Users,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -27,6 +20,7 @@ import { useClusterResources, useClusterStatus, useNodes, useVersion } from '@/a
 import { clusterOptionsKey, saveDatacenterNotes, useCephStatus, useClusterOptions } from '@/api/shell'
 import type { ClusterStatusNode, GuestType, NodeListEntry } from '@/api/types'
 import { GlassCard } from '@/components/GlassCard'
+import { sortByOrder } from '@/components/page/registry'
 import { NotesCard } from '@/components/NotesCard'
 import { PageHeader, SectionHeader } from '@/components/PageHeader'
 import { ErrorCard, ErrorState, LoadingRows } from '@/components/QueryState'
@@ -48,6 +42,7 @@ import {
   type GuestCounts,
   type Health,
 } from './summary'
+import { datacenterSectionPath, datacenterSections } from './registry'
 
 /** /datacenter — the datacenter summary (health, guests, usage, nodes, subscriptions, notes). */
 export function DatacenterPage() {
@@ -414,35 +409,35 @@ function SubscriptionSummary({ subs }: { subs: ReturnType<typeof subscriptionSum
   )
 }
 
-const MANAGE: { icon: LucideIcon; label: string; hint: string; phase: 2 | 3 }[] = [
-  { icon: HardDrive, label: '存储配置', hint: '添加 NFS、CIFS、PBS 等存储', phase: 2 },
-  { icon: Archive, label: '备份计划', hint: '定时备份任务', phase: 2 },
-  { icon: Repeat, label: '存储复制', hint: 'ZFS 复制任务', phase: 2 },
-  { icon: Shield, label: '防火墙', hint: '规则、安全组、IPSet', phase: 2 },
-  { icon: Users, label: '用户与权限', hint: '用户、组、角色、ACL', phase: 3 },
-  { icon: KeyRound, label: '认证域', hint: 'LDAP、AD、OpenID', phase: 3 },
-  { icon: ShieldCheck, label: '高可用', hint: 'HA 资源与规则', phase: 3 },
-  { icon: Network, label: 'SDN', hint: 'Zone、VNet、子网', phase: 3 },
-  { icon: Database, label: 'Ceph', hint: '集群存储', phase: 3 },
-]
-
 function ManageLinks() {
+  const perms = usePermissions()
+  const sections = sortByOrder(datacenterSections).filter((s) => !s.permission || perms.can(s.permission))
   return (
     <section aria-labelledby="dc-manage">
-      <SectionHeader title={<span id="dc-manage">管理</span>}>
-        <span className="text-xs text-muted-foreground">后续版本提供</span>
-      </SectionHeader>
+      <SectionHeader title={<span id="dc-manage">管理</span>} />
       <div className="grid grid-cols-2 gap-(--row-gap) sm:grid-cols-3 lg:grid-cols-5">
-        {MANAGE.map((m) => (
-          <GlassCard key={m.label} className="flex min-h-20 flex-col gap-1 opacity-75" aria-disabled="true">
-            <div className="flex items-center gap-2">
-              <m.icon className="size-4 text-muted-foreground" aria-hidden />
-              <span className="text-sm font-medium">{m.label}</span>
-            </div>
-            <span className="text-xs text-muted-foreground">{m.hint}</span>
-            <span className="mt-auto pt-1 text-[11px] text-faint">第 {m.phase} 阶段</span>
-          </GlassCard>
-        ))}
+        {sections.map((m) => {
+          const Icon = m.icon ?? Settings2
+          const body = (
+            <>
+              <div className="flex items-center gap-2">
+                <Icon className="size-4 text-muted-foreground" aria-hidden />
+                <span className="text-sm font-medium">{m.title}</span>
+              </div>
+              <span className="text-xs text-muted-foreground">{m.hint}</span>
+              {!m.ready && <span className="mt-auto pt-1 text-[11px] text-faint">第 {m.phase} 阶段</span>}
+            </>
+          )
+          return m.ready ? (
+            <Link key={m.id} to={datacenterSectionPath(m.id)} className="rounded-2xl focus-visible:outline-2 focus-visible:outline-ring">
+              <GlassCard className="flex h-full min-h-20 flex-col gap-1 transition-colors hover:bg-accent/40">{body}</GlassCard>
+            </Link>
+          ) : (
+            <GlassCard key={m.id} className="flex min-h-20 flex-col gap-1 opacity-75" aria-disabled="true">
+              {body}
+            </GlassCard>
+          )
+        })}
       </div>
     </section>
   )

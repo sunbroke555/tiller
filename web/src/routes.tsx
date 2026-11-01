@@ -48,6 +48,7 @@ export const routes: RouteObject[] = [
       { path: 'create/lxc', ...page(() => import('@/features/guest-create/CreateLxcPage')) },
       { path: 'shell', element: <ShellPage /> },
       { path: 'datacenter', element: <DatacenterPage /> },
+      { path: 'datacenter/:section/*', ...page(() => import('@/features/datacenter/DatacenterSectionPage')) },
       { path: 'pool', ...page(() => import('@/features/pool/PoolsPage')) },
       { path: 'pool/*', ...page(() => import('@/features/pool/PoolPage')) },
       { path: 'account', ...page(() => import('@/features/account/AccountPage')) },
