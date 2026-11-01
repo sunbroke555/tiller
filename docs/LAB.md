@@ -117,5 +117,7 @@ qm start 101 2>/dev/null; pct start 200 2>/dev/null  # 101 和 200 应保持运�
   - 3 个监视器（每个节点一个）、1 个管理器（`pvelab-c1`）、3 个 OSD：`pvelab-c1:/dev/sdc`、`pvelab-c2:/dev/sdc`、`pvelab-c3:/dev/sdb`（c1、c2 的 `sdb` 属于 `e2erep`，不要用）。缺少的监视器和 OSD 由 `e2e/tests/ceph.spec.ts` 通过界面创建（幂等）。
   - **内存**：每节点只有 3 GiB，OSD 默认会占 4 GiB 缓存。已在配置数据库里调低：`ceph config set osd osd_memory_target 939524096`（896 MiB，Ceph 允许的最小值）。新建 OSD 自动生效；不要再调高。
   - 测试创建的对象一律叫 `e2e-ceph-*`（存储池、CephFS 和它的两个池、MDS），第二个管理器建在 `pvelab-c2` 上，`noout` 标志会被打开再关掉；测试结束（包括失败时）在 `afterAll` 里清理。正常状态是 `HEALTH_OK`。
+  - 已知问题（PVE 9.2.2 + Ceph 19.2.6）：新集群的 admin 密钥是 60 字符、以单个 `=` 结尾（aes256k），而 PVE 的 `ceph_check_keyfile` 要求 RBD 密钥以 `==` 结尾，所以"添加为存储"生成的 `/etc/pve/priv/ceph/<存储>.keyring` 被判为"Not a proper rbd authentication file"：不带 force 销毁存储池会失败，用这类 RBD 存储放客户机磁盘也会失败。测试用"强制销毁"绕过；需要真正使用 RBD 存储时要先处理这个问题。
+  - 销毁 CephFS 前必须停止所有 MDS（Ceph 要求），界面的销毁对话框默认先停止它们。
   - 没有 Ceph 的实验环境（单机实验机、未安装的集群）上 `@lab` Ceph 测试自动跳过。
   - 完全移除（一般不需要）：先删除存储池/CephFS，再在每个节点上 `pveceph osd destroy <id> --cleanup`（先 `ceph osd out <id>` 并停止）、`pveceph mon destroy <node>`、`pveceph mgr destroy <node>`，最后 `pveceph purge`。或者回滚快照 `pre-phase3`。
