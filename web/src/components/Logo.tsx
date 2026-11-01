@@ -1,7 +1,15 @@
+import { useId } from 'react'
+
 import { cn } from '@/lib/utils'
 
-/** App mark: two server bays in a glass tile. Follows the theme accent. */
+/**
+ * App mark in a glass tile, following the theme accent: the tiller bar (a
+ * server with its status light, cut out) over a tapering rudder of stacked
+ * guests, reading as a T. Same drawing as public/favicon.svg.
+ */
 export function Logo({ className }: { className?: string }) {
+  // useId() contains characters that url(#…) does not accept.
+  const light = `tiller-light-${useId().replace(/[^\w-]/g, '')}`
   return (
     <span
       className={cn(
@@ -12,11 +20,14 @@ export function Logo({ className }: { className?: string }) {
       )}
       aria-hidden
     >
-      <svg viewBox="0 0 24 24" className="size-[60%] text-brand-strong paper:text-white" fill="none" stroke="currentColor" strokeWidth="2.2">
-        <rect x="4" y="4.5" width="16" height="6" rx="1.8" />
-        <rect x="4" y="13.5" width="16" height="6" rx="1.8" opacity="0.7" />
-        <circle cx="16.5" cy="7.5" r="1.1" fill="currentColor" stroke="none" />
-        <circle cx="16.5" cy="16.5" r="1.1" fill="currentColor" stroke="none" />
+      <svg viewBox="0 0 64 64" className="size-[62%] text-brand-strong paper:text-white" fill="currentColor">
+        <mask id={light}>
+          <rect width="64" height="64" fill="white" />
+          <circle cx="47.5" cy="16.5" r="2.4" fill="black" />
+        </mask>
+        <rect x="8" y="10" width="48" height="13" rx="6.5" mask={`url(#${light})`} />
+        <rect x="24" y="27.5" width="16" height="12" rx="4.5" opacity="0.72" />
+        <rect x="26.5" y="43.5" width="11" height="11" rx="4" opacity="0.45" />
       </svg>
     </span>
   )
