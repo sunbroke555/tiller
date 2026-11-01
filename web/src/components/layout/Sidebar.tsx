@@ -57,7 +57,7 @@ export function Sidebar({ className }: { className?: string }) {
       <div className="flex items-center gap-3 px-2">
         <Logo />
         <div className="min-w-0">
-          <div className="heading text-[15px] font-semibold">PVE Web</div>
+          <div className="heading text-[15px] font-semibold">Tiller</div>
           <div className="truncate text-xs text-muted-foreground">{subtitle || 'Proxmox VE'}</div>
         </div>
       </div>

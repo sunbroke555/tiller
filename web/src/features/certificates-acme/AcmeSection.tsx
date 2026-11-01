@@ -281,7 +281,7 @@ export function AcmeSection({
 }
 
 function confirmProps(p: Pending, ctx: { node: string; account: string; domainCount: number; isLocal: boolean }) {
-  const localNote = ctx.isLocal ? ' pve-web 通过这个节点连接 PVE，pveproxy 重启时会短暂断开。' : ''
+  const localNote = ctx.isLocal ? ' Tiller 通过这个节点连接 PVE，pveproxy 重启时会短暂断开。' : ''
   switch (p.kind) {
     case 'order':
       return {

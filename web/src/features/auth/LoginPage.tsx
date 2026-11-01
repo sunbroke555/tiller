@@ -23,8 +23,8 @@ import { assertionToPve, loginRequestOptions, webauthnChallengeOf, webauthnError
 import { ConsentGate } from './ConsentGate'
 import { ThemeQuickSwitch } from './ThemeQuickSwitch'
 
-const LAST_LOGIN_KEY = 'pve-web:last-login'
-const LAST_TFA_KEY = 'pve-web:last-tfa-method'
+const LAST_LOGIN_KEY = 'tiller:last-login'
+const LAST_TFA_KEY = 'tiller:last-tfa-method'
 
 function loadLastLogin(): { username: string; realm: string } {
   try {
@@ -85,7 +85,7 @@ export function LoginPage() {
           <div className="mb-8 flex flex-col items-center gap-4 text-center">
             <Logo className="size-14 rounded-2xl" />
             <div>
-              <h1 className="text-2xl font-semibold paper:text-3xl">PVE Web</h1>
+              <h1 className="text-2xl font-semibold paper:text-3xl">Tiller</h1>
               <p className="mt-1 text-sm text-muted-foreground">登录 Proxmox VE</p>
             </div>
           </div>

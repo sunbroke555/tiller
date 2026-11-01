@@ -32,7 +32,7 @@ import { clampZoom, VNC_ZOOM } from './viewers'
 /** Keeps the hidden textarea non-empty so a Backspace still produces an input event. */
 const SENTINEL = ' '.repeat(16)
 const MAX_PASTE = 8192
-const PINCH_HINT_KEY = 'pve-web:vnc-pinch-hint'
+const PINCH_HINT_KEY = 'tiller:vnc-pinch-hint'
 
 /** Show the "pinch to zoom" hint once per browser on touch devices. */
 function takePinchHint(): boolean {

@@ -10,7 +10,7 @@ test('SDN screens (dark)', async ({ page }, info) => {
   const mobile = info.project.name === 'mobile'
   await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 })
   await page.addInitScript(() => {
-    localStorage.setItem('pve-web:appearance', JSON.stringify({ mode: 'dark', accent: 'indigo', glass: true, density: 'comfortable' }))
+    localStorage.setItem('tiller:appearance', JSON.stringify({ mode: 'dark', accent: 'indigo', glass: true, density: 'comfortable' }))
   })
   await mockSdn(page)
   const dir = `test-results/sdn-shots/${info.project.name}`

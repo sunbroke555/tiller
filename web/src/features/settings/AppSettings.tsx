@@ -29,11 +29,11 @@ const LANGUAGE_NAMES: Record<string, string> = {
 
 /** Local data the "清除本地设置" button removes (never the login session). */
 export const LOCAL_SETTING_KEYS = [
-  'pve-web:appearance',
-  'pve-web:resource-tree',
-  'pve-web:last-login',
-  'pve-web:last-tfa-method',
-  'pve-web:install-dismissed',
+  'tiller:appearance',
+  'tiller:resource-tree',
+  'tiller:last-login',
+  'tiller:last-tfa-method',
+  'tiller:install-dismissed',
   COUNTED_STORAGES_KEY,
 ]
 
@@ -89,7 +89,7 @@ export function AppSettings() {
           title="界面语言"
           description={
             <>
-              PVE Web 只提供简体中文界面，任务日志和错误信息保持 PVE 原文。
+              Tiller 只提供简体中文界面，任务日志和错误信息保持 PVE 原文。
               {dcLang && <> 数据中心默认语言：{LANGUAGE_NAMES[dcLang] ?? dcLang}（只影响官方界面）。</>}
             </>
           }

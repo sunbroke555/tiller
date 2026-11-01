@@ -1,4 +1,4 @@
-// Shared Playwright fixtures for pve-web e2e tests.
+// Shared Playwright fixtures for Tiller e2e tests.
 //
 //   import { test, expect } from '../fixtures'
 //

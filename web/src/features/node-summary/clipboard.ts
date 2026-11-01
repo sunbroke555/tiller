@@ -2,7 +2,7 @@ import { toast } from 'sonner'
 
 /**
  * Copy text. navigator.clipboard needs a secure context (https or localhost);
- * pve-web is often opened over plain http on the LAN, so fall back to a
+ * Tiller is often opened over plain http on the LAN, so fall back to a
  * hidden textarea + execCommand.
  */
 export async function copyText(text: string, success = '已复制'): Promise<boolean> {

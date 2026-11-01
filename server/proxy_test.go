@@ -28,7 +28,7 @@ func mustURL(t *testing.T, raw string) *url.URL {
 	return u
 }
 
-// newFront starts the full pve-web handler in front of backend.
+// newFront starts the full Tiller handler in front of backend.
 func newFront(t *testing.T, cfg *Config) *httptest.Server {
 	t.Helper()
 	web := fstest.MapFS{"index.html": {Data: []byte("<!doctype html><title>t</title>")}}

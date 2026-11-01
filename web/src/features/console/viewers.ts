@@ -129,9 +129,9 @@ export function opensSpiceByDefault(
 
 // ------------------------------------------------------------ preferences
 
-const VIEWER_PREF_KEY = 'pve-web:console-viewer'
-const FONT_PREF_KEY = 'pve-web:console-font-size'
-const SPICE_PROXY_KEY = 'pve-web:spice-proxy'
+const VIEWER_PREF_KEY = 'tiller:console-viewer'
+const FONT_PREF_KEY = 'tiller:console-font-size'
+const SPICE_PROXY_KEY = 'tiller:spice-proxy'
 
 function readJson<T>(key: string): T | null {
   try {

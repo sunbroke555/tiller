@@ -175,7 +175,7 @@ if (params) await put(p`/nodes/${node}/qemu/${vmid}/config`, params)
   rt -- bash -lc 'set -a; . ~/.config/pve-web/lab.env; set +a; make e2e-area AREA=tasks-logs PORT=8101'
   ```
 
-  `make e2e*` 会在需要时构建 `server/pve-web`，在 `PORT` 上启动并连接实验机，跑完（无论成败）都会停掉服务器。area id 对应的 spec 见 `scripts/e2e-area.sh`（例如 `guest-lifecycle` → `guest-core.spec.ts`）。单个 spec 或单个测试：`make e2e SPEC=tests/tasks-logs.spec.ts E2E_ARGS="--project=desktop -g 集群日志"`；顺带检查手机布局：`make e2e SPEC=tests/<area>.spec.ts`；取回报告和 trace：`rt --back e2e/playwright-report --back e2e/test-results -- …`。
+  `make e2e*` 会在需要时构建 `server/tiller`，在 `PORT` 上启动并连接实验机，跑完（无论成败）都会停掉服务器。area id 对应的 spec 见 `scripts/e2e-area.sh`（例如 `guest-lifecycle` → `guest-core.spec.ts`）。单个 spec 或单个测试：`make e2e SPEC=tests/tasks-logs.spec.ts E2E_ARGS="--project=desktop -g 集群日志"`；顺带检查手机布局：`make e2e SPEC=tests/<area>.spec.ts`；取回报告和 trace：`rt --back e2e/playwright-report --back e2e/test-results -- …`。
 - 想手动看效果：`rt -- bash -lc 'set -a; . ~/.config/pve-web/lab.env; set +a; make e2e-server PORT=8101'`，然后在本机打开 `http://192.168.0.32:8101`；用完 `make e2e-stop PORT=8101`。
 - 并行跑 e2e 时每个区用自己的端口，避免冲突：
 

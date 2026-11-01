@@ -30,7 +30,7 @@ for (const theme of THEMES) {
     test.setTimeout(240_000)
     if (mobile) await page.setViewportSize({ width: 390, height: 844 })
     await page.addInitScript((mode) => {
-      localStorage.setItem('pve-web:appearance', JSON.stringify({ mode, accent: 'indigo', glass: true, density: 'comfortable' }))
+      localStorage.setItem('tiller:appearance', JSON.stringify({ mode, accent: 'indigo', glass: true, density: 'comfortable' }))
     }, theme)
 
     const vmid = mobile ? VMID.mobile : VMID.desktop

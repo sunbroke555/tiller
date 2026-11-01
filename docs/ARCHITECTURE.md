@@ -1,13 +1,13 @@
-# PVE Web — 架构约定
+# Tiller — 架构约定
 
 一套基于 Proxmox VE 官方 API 的新 WebUI，目标是覆盖官方 WebUI 的全部功能，手机优先、操作简便。所有参与开发的人（和 agent）都按这份约定写代码。
 
 ## 仓库结构
 
 ```
-pve-web/
+tiller/
   server/                 Go 单二进制：托管前端 + 反代 PVE
-    go.mod                module pve-web/server（Go 1.25+）
+    go.mod                module tiller/server（Go 1.25+）
     main.go               读配置、启动 HTTP
     proxy.go              /api2/* 反代到 PVE（含 websocket 升级）
     web/dist/             前端构建产物（go:embed，构建时由 web 复制过来，不入库）
@@ -46,9 +46,9 @@ pve-web/
 
 - 登录：`POST /api2/json/access/ticket`（username、password、realm）。成功后得到 `ticket` 和 `CSRFPreventionToken`。
 - 两步验证：若返回的 ticket 带 `!tfa!` 前缀（`NeedTFA`），用 `tfa-challenge=<ticket>` 加 `password=totp:<code>`（或 `recovery:`、WebAuthn）再次请求。
-- 前端登录请求带 `X-Pve-Web-Ticket: cookie`：Go 服务把返回的 ticket 写进 cookie `PVEAuthCookie`（HttpOnly、SameSite=Strict、Path=/api2/、会话 cookie），并从 JSON 里去掉（`!tfa!` 中间 ticket 照常返回）。浏览器随 API 请求带上它，Go 服务原样转发给 PVE；写操作带 `CSRFPreventionToken` 请求头。CSRF token 和用户名存在 localStorage，另有一个非机密的会话标记 cookie 表示 ticket cookie 仍在，刷新页面不掉登录。退出登录调用 `POST /api/logout` 清掉 ticket cookie。
+- 前端登录请求带 `X-Tiller-Ticket: cookie`：Go 服务把返回的 ticket 写进 cookie `PVEAuthCookie`（HttpOnly、SameSite=Strict、Path=/api2/、会话 cookie），并从 JSON 里去掉（`!tfa!` 中间 ticket 照常返回）。浏览器随 API 请求带上它，Go 服务原样转发给 PVE；写操作带 `CSRFPreventionToken` 请求头。CSRF token 和用户名存在 localStorage，另有一个非机密的会话标记 cookie 表示 ticket cookie 仍在，刷新页面不掉登录。退出登录调用 `POST /api/logout` 清掉 ticket cookie。
 - ticket 有效期 2 小时，前端在过期前续签：密码填占位符，由 Go 服务换成 cookie 里的 ticket。
-- 登录失败按客户端地址/用户名限速并记日志；可选 `ALLOW_FROM` 客户端白名单（pveproxy 只能看到 pve-web 的地址）。
+- 登录失败按客户端地址/用户名限速并记日志；可选 `ALLOW_FROM` 客户端白名单（pveproxy 只能看到 Tiller 的地址）。
 
 ## 主题
 

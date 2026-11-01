@@ -399,7 +399,7 @@ export function Combobox({
 
 // ------------------------------------------------------------ local node
 
-/** The node that serves pve-web's API connection (cluster/status local=1). */
+/** The node that serves Tiller's API connection (cluster/status local=1). */
 export function useLocalNode(): string | undefined {
   const { data } = useClusterStatus()
   return data?.find((e) => e.type === 'node' && Number(e.local) === 1)?.name

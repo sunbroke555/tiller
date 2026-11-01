@@ -35,7 +35,7 @@ export interface TreePrefs {
 
 export const DEFAULT_TREE_PREFS: TreePrefs = { group: 'node', showStorage: true, showTemplates: true, collapsed: {} }
 
-const PREFS_KEY = 'pve-web:resource-tree'
+const PREFS_KEY = 'tiller:resource-tree'
 
 export function loadTreePrefs(): TreePrefs {
   try {

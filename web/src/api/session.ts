@@ -9,16 +9,16 @@ import type { Capabilities } from './types'
 
 export const AUTH_COOKIE = 'PVEAuthCookie'
 /** Not secret: only says "the HttpOnly ticket cookie was set in this browser session". */
-export const SESSION_MARKER_COOKIE = 'pve-web-session'
-const SESSION_KEY = 'pve-web:session'
+export const SESSION_MARKER_COOKIE = 'tiller-session'
+const SESSION_KEY = 'tiller:session'
 
 /**
  * Sent with login, two-factor, OpenID and renewal requests: the Go server
  * then keeps the ticket in the HttpOnly cookie instead of the JSON answer.
  */
-export const TICKET_COOKIE_HEADERS = { 'X-Pve-Web-Ticket': 'cookie' } as const
+export const TICKET_COOKIE_HEADERS = { 'X-Tiller-Ticket': 'cookie' } as const
 /** Renewal password the Go server replaces with the ticket from the cookie. */
-export const RENEW_FROM_COOKIE = 'pve-web:cookie-ticket'
+export const RENEW_FROM_COOKIE = 'tiller:cookie-ticket'
 
 /** PVE tickets are valid for two hours. */
 export const TICKET_LIFETIME_MS = 2 * 60 * 60 * 1000

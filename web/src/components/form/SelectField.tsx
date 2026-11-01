@@ -17,7 +17,7 @@ export interface SelectOption<V extends string = string> {
 }
 
 /** Radix Select cannot hold "", so the empty choice uses this value internally. */
-const EMPTY = '__pve_web_empty__'
+const EMPTY = '__tiller_empty__'
 
 export interface SelectFieldProps<V extends string = string> {
   value: V | undefined | null

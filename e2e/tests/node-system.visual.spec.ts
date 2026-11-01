@@ -9,7 +9,7 @@ import { expect, test } from '../fixtures'
 test('screens', async ({ page, pve, mobile }, info) => {
   if (mobile) await page.setViewportSize({ width: 390, height: 844 })
   await page.addInitScript(() => {
-    localStorage.setItem('pve-web:appearance', JSON.stringify({ mode: 'dark', accent: 'indigo', glass: true, density: 'comfortable' }))
+    localStorage.setItem('tiller:appearance', JSON.stringify({ mode: 'dark', accent: 'indigo', glass: true, density: 'comfortable' }))
   })
   await page.route(`**/api2/json/nodes/${pve.node}/config`, (route) =>
     route.request().method() === 'GET'

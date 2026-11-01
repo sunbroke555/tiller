@@ -1,5 +1,5 @@
 // Endpoints of the shell-polish area: datacenter options and notes, pools,
-// the account page (password, own TFA), OpenID login and the pve-web server
+// the account page (password, own TFA), OpenID login and the Tiller server
 // config (login consent text).
 
 import { useQuery } from '@tanstack/react-query'
@@ -214,7 +214,7 @@ export function readOpenIdCallback(search: URLSearchParams): { code: string; sta
 
 // ----------------------------------------------------------- app config
 
-/** GET /api/config from the pve-web server (works without login). */
+/** GET /api/config from the Tiller server (works without login). */
 export interface AppConfig {
   /** Markdown consent text configured in the datacenter options; empty when none. */
   consentText: string

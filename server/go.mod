@@ -1,3 +1,3 @@
-module pve-web/server
+module tiller/server
 
 go 1.25

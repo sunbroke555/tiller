@@ -10,7 +10,7 @@ import { themeBootScript } from './src/theme/boot.ts'
 /** Inline the theme boot script so the stored theme applies before first paint. */
 function themeBoot(): Plugin {
   return {
-    name: 'pve-web:theme-boot',
+    name: 'tiller:theme-boot',
     transformIndexHtml: {
       order: 'pre',
       handler(html) {
@@ -22,8 +22,8 @@ function themeBoot(): Plugin {
 }
 
 // `npm run dev` proxies the API to the Go server (`make dev` starts both);
-// point PVE_WEB_BACKEND elsewhere to use another instance.
-const backend = process.env.PVE_WEB_BACKEND ?? 'http://127.0.0.1:8080'
+// point TILLER_BACKEND elsewhere to use another instance.
+const backend = process.env.TILLER_BACKEND ?? 'http://127.0.0.1:8080'
 
 export default defineConfig({
   plugins: [
@@ -35,8 +35,8 @@ export default defineConfig({
       injectRegister: 'script',
       includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon-180x180.png'],
       manifest: {
-        name: 'PVE Web',
-        short_name: 'PVE',
+        name: 'Tiller',
+        short_name: 'Tiller',
         description: 'Proxmox VE 移动优先管理界面',
         lang: 'zh-CN',
         start_url: '/',
@@ -67,7 +67,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api2': { target: backend, ws: true, changeOrigin: false },
-      // pve-web's own endpoints (/api/config, /api/logout).
+      // Tiller's own endpoints (/api/config, /api/logout).
       '/api/': { target: backend, changeOrigin: false },
     },
   },

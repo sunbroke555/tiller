@@ -1,14 +1,14 @@
 package main
 
-// Access control that pveproxy cannot do itself once pve-web sits in front of
-// it: PVE only ever sees pve-web's address, so its ALLOW_FROM, fail2ban and
-// "authentication failure; rhost=" log lose the real client. pve-web
+// Access control that pveproxy cannot do itself once Tiller sits in front of
+// it: PVE only ever sees Tiller's address, so its ALLOW_FROM, fail2ban and
+// "authentication failure; rhost=" log lose the real client. Tiller
 // therefore offers its own client allowlist, slows down repeated failed
 // logins per client address and per user, and logs failed logins with the
 // client address (never the password or ticket).
 //
 // It also keeps the SPA's login ticket out of JavaScript: when the SPA asks
-// for it (X-Pve-Web-Ticket: cookie), the ticket from POST /access/ticket goes
+// for it (X-Tiller-Ticket: cookie), the ticket from POST /access/ticket goes
 // into an HttpOnly session cookie scoped to /api2/ and is removed from the
 // JSON. Renewal posts a placeholder password that is replaced here by the
 // cookie's ticket. Other API clients get PVE's normal responses.
@@ -32,10 +32,10 @@ const (
 	authCookieName = "PVEAuthCookie"
 	authCookiePath = "/api2/"
 	// ticketModeHeader is sent by the SPA to keep the ticket in an HttpOnly cookie.
-	ticketModeHeader = "X-Pve-Web-Ticket"
+	ticketModeHeader = "X-Tiller-Ticket"
 	ticketModeCookie = "cookie"
 	// renewPassword stands for "the ticket in my cookie" in a renewal request.
-	renewPassword = "pve-web:cookie-ticket"
+	renewPassword = "tiller:cookie-ticket"
 
 	ticketPath      = "/api2/json/access/ticket"
 	openIDLoginPath = "/api2/json/access/openid/login"

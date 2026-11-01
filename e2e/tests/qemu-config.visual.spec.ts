@@ -29,7 +29,7 @@ async function newPage(browser: Browser, authFile: string, theme: string, size: 
     locale: 'zh-CN',
   })
   await ctx.addInitScript((t) => {
-    localStorage.setItem('pve-web:appearance', JSON.stringify({ mode: t, accent: 'indigo', glass: true, density: 'comfortable' }))
+    localStorage.setItem('tiller:appearance', JSON.stringify({ mode: t, accent: 'indigo', glass: true, density: 'comfortable' }))
   }, theme)
   return ctx.newPage()
 }

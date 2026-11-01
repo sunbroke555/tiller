@@ -48,7 +48,7 @@ test('screens', async ({ page, pve, cleanup, mobile }) => {
   cleanup.add(() => sweepFirewall(pve))
   if (mobile) await page.setViewportSize({ width: 390, height: 844 })
   await page.addInitScript(() => {
-    localStorage.setItem('pve-web:appearance', JSON.stringify({ mode: 'dark', accent: 'indigo', glass: true, density: 'comfortable' }))
+    localStorage.setItem('tiller:appearance', JSON.stringify({ mode: 'dark', accent: 'indigo', glass: true, density: 'comfortable' }))
   })
   const project = mobile ? 'mobile' : 'desktop'
   const shot = (name: string, full = true) => page.screenshot({ path: `test-results/fw-screens/${project}-${name}.png`, fullPage: full })

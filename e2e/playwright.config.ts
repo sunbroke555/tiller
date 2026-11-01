@@ -1,9 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
 
-// End-to-end tests run headless on the test server against a pve-web
+// End-to-end tests run headless on the test server against a Tiller
 // instance that proxies to the lab PVE (VMID 9900), never production.
 //
-//   BASE_URL        pve-web under test (default http://127.0.0.1:8080; E2E_BASE_URL also accepted)
+//   BASE_URL        Tiller under test (default http://127.0.0.1:8080; E2E_BASE_URL also accepted)
 //   PVE_LAB_*       lab credentials, from ~/.config/pve-web/lab.env
 //   E2E_WORKERS     parallel workers (default 2)
 //   E2E_SCREENSHOTS =1 adds the visual specs (*.visual.spec.ts), which only take screenshots

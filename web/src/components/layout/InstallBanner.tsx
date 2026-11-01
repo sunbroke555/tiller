@@ -27,7 +27,7 @@ export function InstallBanner({ className, force }: { className?: string; force?
     <GlassCard className={cn('relative flex items-start gap-3.5 lg:hidden', className)} role="region" aria-label="安装应用">
       <Logo className="size-11 shrink-0 rounded-xl" />
       <div className="min-w-0 flex-1 pr-6">
-        <div className="font-medium">把 PVE Web 添加到主屏幕</div>
+        <div className="font-medium">把 Tiller 添加到主屏幕</div>
         {state === 'available' ? (
           <p className="mt-0.5 text-sm text-muted-foreground">像应用一样全屏打开，启动更快。</p>
         ) : (

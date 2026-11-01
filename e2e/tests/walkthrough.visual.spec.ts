@@ -155,8 +155,8 @@ for (const theme of THEMES) {
   test(`walkthrough ${theme}`, async ({ page, mobile }, testInfo) => {
     test.setTimeout(1_800_000)
     await page.addInitScript((mode) => {
-      localStorage.setItem('pve-web:appearance', JSON.stringify({ mode, accent: 'indigo', glass: true, density: 'comfortable' }))
-      localStorage.setItem('pve-web:install-dismissed', String(Date.now()))
+      localStorage.setItem('tiller:appearance', JSON.stringify({ mode, accent: 'indigo', glass: true, density: 'comfortable' }))
+      localStorage.setItem('tiller:install-dismissed', String(Date.now()))
     }, theme)
     // The background grain (opacity ≤ 6 %) is invisible to the eye but makes
     // every PNG incompressible; hide it so the screenshots stay small.
@@ -259,7 +259,7 @@ for (const theme of THEMES) {
     // Logged-out login page.
     if (want('login')) {
       await page.context().clearCookies()
-      await page.evaluate(() => localStorage.removeItem('pve-web:session'))
+      await page.evaluate(() => localStorage.removeItem('tiller:session'))
       await page.goto('/login')
       await expect(page.getByLabel('用户名')).toBeVisible()
       await page.waitForTimeout(600)
@@ -270,7 +270,7 @@ for (const theme of THEMES) {
     if (want('tester') && env.testerPassword) {
       try {
         await page.context().clearCookies()
-        await page.evaluate(() => localStorage.removeItem('pve-web:session'))
+        await page.evaluate(() => localStorage.removeItem('tiller:session'))
         const { username, realm } = splitUser(env.testerUser)
         await page.goto('/login')
         await page.getByLabel('用户名').fill(username)

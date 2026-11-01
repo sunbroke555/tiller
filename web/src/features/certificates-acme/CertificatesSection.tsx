@@ -154,7 +154,7 @@ export function CertificatesSection({ node, canModify, isLocal }: { node: string
         description={
           <>
             {node} 的 Web 界面将改回使用集群 CA 签发的 pve-ssl.pem，并重启 pveproxy。
-            {isLocal && ' pve-web 通过这个节点连接 PVE，重启期间会短暂断开；如果固定了 PVE_TLS_FINGERPRINT，需要改成新证书的指纹。'}
+            {isLocal && ' Tiller 通过这个节点连接 PVE，重启期间会短暂断开；如果固定了 PVE_TLS_FINGERPRINT，需要改成新证书的指纹。'}
           </>
         }
         confirmLabel="删除"
@@ -434,7 +434,7 @@ function UploadDialog({
       )}
       {isLocal && (
         <Notice icon={AlertTriangle} tone="warning">
-          pve-web 通过 {node} 连接 PVE。如果 pve-web 用 PVE_TLS_FINGERPRINT 固定了证书指纹，换证书后要同步修改，否则会连不上。
+          Tiller 通过 {node} 连接 PVE。如果 Tiller 用 PVE_TLS_FINGERPRINT 固定了证书指纹，换证书后要同步修改，否则会连不上。
         </Notice>
       )}
     </FormDialog>

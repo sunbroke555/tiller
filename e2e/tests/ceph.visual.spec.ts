@@ -65,7 +65,7 @@ test('ceph screens (dark)', async ({ page, pve }, info) => {
   test.setTimeout(240_000)
   if (info.project.name === 'mobile') await page.setViewportSize({ width: 390, height: 844 })
   await page.addInitScript(() => {
-    localStorage.setItem('pve-web:appearance', JSON.stringify({ mode: 'dark', accent: 'indigo', glass: true, density: 'comfortable' }))
+    localStorage.setItem('tiller:appearance', JSON.stringify({ mode: 'dark', accent: 'indigo', glass: true, density: 'comfortable' }))
   })
   const dir = `test-results/ceph-shots/${info.project.name}`
   const shot = async (name: string, fullPage = true) => {

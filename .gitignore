@@ -1,7 +1,7 @@
 node_modules/
 dist/
 server/web/dist/
-server/pve-web
+server/tiller
 *.local
 .env
 .env.*

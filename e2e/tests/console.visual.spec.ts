@@ -40,7 +40,7 @@ async function shoot(
     for (const size of sizes) {
       const context = await browser.newContext({ ...SIZES[size], storageState: authFile, locale: 'zh-CN' })
       await context.addInitScript((mode) => {
-        localStorage.setItem('pve-web:appearance', JSON.stringify({ mode, accent: 'indigo', glass: true, density: 'comfortable' }))
+        localStorage.setItem('tiller:appearance', JSON.stringify({ mode, accent: 'indigo', glass: true, density: 'comfortable' }))
       }, theme)
       const page = await context.newPage()
       await page.goto(url)

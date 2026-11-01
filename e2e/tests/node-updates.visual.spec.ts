@@ -68,7 +68,7 @@ test('node updates screenshots', async ({ browser, authFile }) => {
   for (const [size, opts] of Object.entries(SIZES)) {
     const context = await browser.newContext({ ...opts, storageState: authFile, locale: 'zh-CN' })
     await context.addInitScript(() => {
-      localStorage.setItem('pve-web:appearance', JSON.stringify({ mode: 'dark', accent: 'indigo', glass: true, density: 'comfortable' }))
+      localStorage.setItem('tiller:appearance', JSON.stringify({ mode: 'dark', accent: 'indigo', glass: true, density: 'comfortable' }))
     })
     const page = await context.newPage()
     for (const s of SCREENS) {

@@ -14,7 +14,7 @@ test.describe('smoke', { tag: '@smoke' }, () => {
       const { username, realm } = splitUser(env.user)
       await page.goto('/')
       await expect(page).toHaveURL(/\/login/)
-      await expect(page.getByRole('heading', { name: 'PVE Web' })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Tiller' })).toBeVisible()
       await page.getByLabel('用户名').fill(username)
       await page.getByLabel('密码', { exact: true }).fill(env.password)
       const realmBox = page.getByRole('combobox', { name: '认证域' })

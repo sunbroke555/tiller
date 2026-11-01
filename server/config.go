@@ -33,11 +33,11 @@ type Config struct {
 	// on anything other than localhost.
 	TLSCert string
 	TLSKey  string
-	// AllowFrom, when set, limits which client addresses may use pve-web at
+	// AllowFrom, when set, limits which client addresses may use Tiller at
 	// all (ALLOW_FROM: comma separated IPs/CIDRs; loopback is always allowed).
-	// pveproxy's own ALLOW_FROM only ever sees pve-web's address.
+	// pveproxy's own ALLOW_FROM only ever sees Tiller's address.
 	AllowFrom []*net.IPNet
-	// TrustedProxies are reverse proxies in front of pve-web whose
+	// TrustedProxies are reverse proxies in front of Tiller whose
 	// X-Forwarded-For is believed when working out the client address
 	// (TRUSTED_PROXIES, IPs/CIDRs). Without them the socket peer counts.
 	TrustedProxies []*net.IPNet

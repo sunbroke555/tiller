@@ -1,4 +1,6 @@
-# PVE Web
+# Tiller
+
+> Tiller（舵柄）：手机上也能稳稳掌舵你的 Proxmox VE。
 
 基于 Proxmox VE 官方 API 的新 WebUI：手机优先、操作简便，目标是覆盖官方界面的全部功能。
 
@@ -12,22 +14,22 @@
 
 需要 Go 1.25+、Node 22.12+（推荐 Node 26 / npm 11）、make。
 
-登录要传 PVE 密码、两步验证码和 ticket，**对外提供服务时一定要用 HTTPS**：让 pve-web 自己带证书，或者放在 TLS 反向代理后面。
+登录要传 PVE 密码、两步验证码和 ticket，**对外提供服务时一定要用 HTTPS**：让 Tiller 自己带证书，或者放在 TLS 反向代理后面。
 
 ```sh
-make server                      # 构建前端并编译 server/pve-web（内嵌前端）
+make server                      # 构建前端并编译 server/tiller（内嵌前端）
 PVE_URL=https://192.168.0.6:8006 \
 PVE_TLS_FINGERPRINT=4F:04:C3:...:6E:17 \
-TLS_CERT_FILE=/etc/pve-web/cert.pem \
-TLS_KEY_FILE=/etc/pve-web/key.pem \
+TLS_CERT_FILE=/etc/tiller/cert.pem \
+TLS_KEY_FILE=/etc/tiller/key.pem \
 LISTEN=:8443 \
-./server/pve-web
+./server/tiller
 ```
 
 浏览器打开 `https://<主机>:8443`，用 PVE 账号登录（支持 TOTP / 恢复码两步验证）。
 
-- 用 Caddy / nginx 等做 TLS 时，让 pve-web 只听本机（`LISTEN=127.0.0.1:8080`），并把代理地址写进 `TRUSTED_PROXIES`，这样登录限速和日志看到的是真实客户端地址。
-- 不带证书又监听非本机地址时，pve-web 仍会启动（局域网实验用），但启动日志会醒目警告：密码和 ticket 以明文在网络上传输。
+- 用 Caddy / nginx 等做 TLS 时，让 Tiller 只听本机（`LISTEN=127.0.0.1:8080`），并把代理地址写进 `TRUSTED_PROXIES`，这样登录限速和日志看到的是真实客户端地址。
+- 不带证书又监听非本机地址时，Tiller 仍会启动（局域网实验用），但启动日志会醒目警告：密码和 ticket 以明文在网络上传输。
 
 > 本仓库约定：重负载命令（安装依赖、构建、测试、dev server）在测试服务器上跑：
 > `rt -- make test`、`rt -- make server`。
@@ -41,20 +43,20 @@ LISTEN=:8443 \
 | `PVE_TLS_FINGERPRINT` | 固定信任 PVE 叶子证书的 SHA-256 指纹（冒号分隔或纯十六进制）。在 PVE 上用 `pvenode cert info` 或界面的“证书”查看 |
 | `PVE_INSECURE_TLS=1` | 不校验 PVE 证书，仅限实验环境。与指纹二选一 |
 | `PVE_CA_FILE` | 用指定 CA（如 `/etc/pve/pve-root-ca.pem` 的副本）校验 PVE 证书 |
-| `TLS_CERT_FILE` / `TLS_KEY_FILE` | 让 pve-web 自己提供 HTTPS（推荐）。手机安装 PWA（离线外壳、主屏图标）也需要 HTTPS |
+| `TLS_CERT_FILE` / `TLS_KEY_FILE` | 让 Tiller 自己提供 HTTPS（推荐）。手机安装 PWA（离线外壳、主屏图标）也需要 HTTPS |
 | `PVE_ALLOW_HTTP=1` | 允许 `PVE_URL` 用明文 `http://` 连非本机地址（默认只接受 https，或 http 连本机） |
-| `ALLOW_FROM` | 只允许这些客户端访问（逗号分隔的 IP / 网段，如 `192.168.0.0/24,10.8.0.5`；本机地址总是允许）。pve-web 在 PVE 前面时，pveproxy 自己的 `ALLOW_FROM` 只能看到 pve-web 的地址 |
-| `TRUSTED_PROXIES` | pve-web 前面的反向代理地址（IP / 网段）；只信任它们带来的 `X-Forwarded-For` |
+| `ALLOW_FROM` | 只允许这些客户端访问（逗号分隔的 IP / 网段，如 `192.168.0.0/24,10.8.0.5`；本机地址总是允许）。Tiller 在 PVE 前面时，pveproxy 自己的 `ALLOW_FROM` 只能看到 Tiller 的地址 |
+| `TRUSTED_PROXIES` | Tiller 前面的反向代理地址（IP / 网段）；只信任它们带来的 `X-Forwarded-For` |
 | `WEB_DIR` | 从磁盘目录提供前端而不是内嵌版本（调试用） |
 
 服务端无状态：不保存任何凭据，只在浏览器和 PVE 之间转发。
 
 安全相关的行为：
 
-- 登录 ticket 由 pve-web 写进 `PVEAuthCookie`：HttpOnly、SameSite=Strict、只发往 `/api2/`、关闭浏览器即失效（会话 cookie），前端 JavaScript 读不到；续签时由服务端从 cookie 里取出 ticket。不带 `X-Pve-Web-Ticket: cookie` 请求头的普通 API 客户端照常拿到 JSON 里的 ticket。
+- 登录 ticket 由 Tiller 写进 `PVEAuthCookie`：HttpOnly、SameSite=Strict、只发往 `/api2/`、关闭浏览器即失效（会话 cookie），前端 JavaScript 读不到；续签时由服务端从 cookie 里取出 ticket。不带 `X-Tiller-Ticket: cookie` 请求头的普通 API 客户端照常拿到 JSON 里的 ticket。
 - 登录失败会按客户端地址和用户名逐步限速（同一地址连续 5 次、同一用户连续 10 次后开始等待，最长 15 / 5 分钟），并记录日志 `login failed client=… user=…`（不记密码和 ticket），可以接 fail2ban。
-- 转发给 PVE 的请求带 `X-Forwarded-For: <客户端地址>`。想在 pveproxy 的访问日志里看到真实地址，在 PVE 的 `/etc/default/pveproxy` 设置 `PROXY_REAL_IP_HEADER="X-Forwarded-For"` 和 `PROXY_REAL_IP_ALLOW_FROM="<pve-web 的地址>"`。注意 pveproxy 的 `ALLOW_FROM` 和认证失败日志仍只看到 pve-web 的地址，所以访问控制请用上面的 `ALLOW_FROM`。
-- 只转发 `/api2/json/`（含 websocket）；PVE 的 `/api2/html`、`/api2/extjs` 等格式不会出现在 pve-web 的源上，转发的响应都带 `Content-Security-Policy: default-src 'none'; sandbox`。
+- 转发给 PVE 的请求带 `X-Forwarded-For: <客户端地址>`。想在 pveproxy 的访问日志里看到真实地址，在 PVE 的 `/etc/default/pveproxy` 设置 `PROXY_REAL_IP_HEADER="X-Forwarded-For"` 和 `PROXY_REAL_IP_ALLOW_FROM="<Tiller 的地址>"`。注意 pveproxy 的 `ALLOW_FROM` 和认证失败日志仍只看到 Tiller 的地址，所以访问控制请用上面的 `ALLOW_FROM`。
+- 只转发 `/api2/json/`（含 websocket）；PVE 的 `/api2/html`、`/api2/extjs` 等格式不会出现在 Tiller 的源上，转发的响应都带 `Content-Security-Policy: default-src 'none'; sandbox`。
 - 连不上 PVE 时，返回给浏览器的错误不含 PVE 的地址和证书细节，细节只写进服务端日志。
 
 ## 开发
@@ -69,7 +71,7 @@ make clean
 `make dev` 需要设置 `PVE_URL` 等变量，例如 `PVE_URL=https://<实验机>:8006 PVE_INSECURE_TLS=1 make dev`，然后访问 `http://<主机>:5173`。
 写操作只对实验集群（192.168.0.5 上的 3 节点嵌套 PVE，见 docs/LAB.md）做，连接信息在测试服务器 `~/.config/pve-web/lab.env`。
 
-端到端测试在 `e2e/`（Playwright，headless 跑在测试服务器上，对接实验机）。每个 make 目标都会按需构建、在 `PORT` 上启动 pve-web、跑测试，最后无论成败都停掉服务器。按改动大小选测试层级：
+端到端测试在 `e2e/`（Playwright，headless 跑在测试服务器上，对接实验机）。每个 make 目标都会按需构建、在 `PORT` 上启动 Tiller、跑测试，最后无论成败都停掉服务器。按改动大小选测试层级：
 
 | 什么时候 | 跑什么 | 大约用时 |
 |---|---|---|
@@ -112,7 +114,7 @@ web/src/components/  通用组件（GlassCard、StatusDot、UsageBar、Sparkline
 web/src/components/ui/  shadcn/ui 组件（可以改）
 web/src/features/  按功能区组织的页面；guest/、node/、storage/ 是带注册表的页面外壳，command/ 是命令面板注册表
 e2e/               Playwright 配置、fixtures.ts 与测试
-scripts/e2e-server.sh  为 e2e 启停连接实验机的 pve-web
+scripts/e2e-server.sh  为 e2e 启停连接实验机的 Tiller
 scripts/e2e-area.sh    area id → e2e spec 文件（make e2e-area 用）
 ```
 
@@ -127,3 +129,5 @@ scripts/e2e-area.sh    area id → e2e spec 文件（make e2e-area 用）
 - **主题**：颜色只用语义 token（`bg-card`、`text-muted-foreground`、`text-brand`、`surface` / `surface-strong` 工具类…），不要写死颜色；纸质主题用 `paper:` 变体微调，密度用 `--row-py`、`--card-p` 等变量。
 - **CSP**：Go 服务按 `index.html` 里内联脚本的哈希生成 CSP，除主题 boot 脚本外不要加内联脚本。
 - **点击目标**：触屏设备上按钮、输入框通过 `pointer-coarse:` 放大到 44px。
+
+> Tiller 是独立项目，与 Proxmox Server Solutions GmbH 无关。Proxmox 是其注册商标。

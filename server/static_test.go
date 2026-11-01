@@ -22,9 +22,9 @@ var testIndex = "<!doctype html><html><head><script>" + bootScript + "</script>"
 func testWebFS() fstest.MapFS {
 	return fstest.MapFS{
 		"index.html":           {Data: []byte(testIndex)},
-		"assets/index-abc.js":  {Data: []byte(strings.Repeat("console.log('pve web');\n", 100))},
+		"assets/index-abc.js":  {Data: []byte(strings.Repeat("console.log('tiller');\n", 100))},
 		"assets/font-1.woff2":  {Data: bytes.Repeat([]byte{0x77}, 2048)},
-		"manifest.webmanifest": {Data: []byte(`{"name":"PVE Web"}`)},
+		"manifest.webmanifest": {Data: []byte(`{"name":"Tiller"}`)},
 		"sw.js":                {Data: []byte("self.addEventListener('fetch',()=>{})")},
 		"icons/icon.svg":       {Data: []byte("<svg/>")},
 	}

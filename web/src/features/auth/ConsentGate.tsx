@@ -6,7 +6,7 @@ import { Markdown } from '@/components/Markdown'
 import { ResponsiveDialog } from '@/components/ResponsiveDialog'
 import { Button } from '@/components/ui/button'
 
-const ACCEPTED_KEY = 'pve-web:consent-accepted'
+const ACCEPTED_KEY = 'tiller:consent-accepted'
 
 /** Cheap stable fingerprint of the text, so a changed consent text is shown again. */
 export function consentFingerprint(text: string): string {
@@ -25,7 +25,7 @@ function accepted(text: string): boolean {
 
 /**
  * The datacenter "consent text" (Datacenter → Options), shown before login
- * like the official UI. The pve-web server reads it from PVE's login page
+ * like the official UI. The Tiller server reads it from PVE's login page
  * (GET /api/config), since the API needs a ticket for /cluster/options.
  * Accepting is remembered for this browser tab session only.
  */

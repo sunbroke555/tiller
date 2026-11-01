@@ -53,7 +53,7 @@ test('screens', async ({ page, pve, cleanup }, info) => {
 
   for (const theme of THEMES) {
     await page.addInitScript((mode) => {
-      localStorage.setItem('pve-web:appearance', JSON.stringify({ mode, accent: 'indigo', glass: true, density: 'comfortable' }))
+      localStorage.setItem('tiller:appearance', JSON.stringify({ mode, accent: 'indigo', glass: true, density: 'comfortable' }))
     }, theme)
     for (const tab of ['resources', 'network', 'dns', 'options']) {
       await page.goto(`${base}/${tab}`)

@@ -1,7 +1,7 @@
 package main
 
 // Cross-origin protection in front of PVE. The proxy rewrites Origin to PVE's
-// own before forwarding (pveproxy has no notion of pve-web's address), and
+// own before forwarding (pveproxy has no notion of Tiller's address), and
 // pveproxy does not check Origin on websocket upgrades at all. What is left
 // is SameSite=Strict on the ticket cookie, the CSRF header and the
 // short-lived vncticket. SameSite does not separate same-site but
@@ -61,7 +61,7 @@ func crossOriginReason(r *http.Request, trusted []*net.IPNet) string {
 	}
 	want := hostKey(u.Host, u.Scheme)
 	hosts := []string{r.Host}
-	// A trusted reverse proxy may address pve-web by another name and pass
+	// A trusted reverse proxy may address Tiller by another name and pass
 	// the public one on.
 	if peer := remoteIP(r); peer != nil && inNets(peer, trusted) {
 		for _, v := range r.Header.Values("X-Forwarded-Host") {

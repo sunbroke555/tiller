@@ -67,7 +67,7 @@ describe('login', () => {
     // The realm is part of the user id; sending it again makes PVE look up "root@pam@pam".
     expect(body.has('realm')).toBe(false)
     // The Go server moves the ticket into an HttpOnly cookie when asked to.
-    expect((fetchMock.mock.calls[0]![1] as RequestInit).headers).toMatchObject({ 'X-Pve-Web-Ticket': 'cookie' })
+    expect((fetchMock.mock.calls[0]![1] as RequestInit).headers).toMatchObject({ 'X-Tiller-Ticket': 'cookie' })
     expect(hasSessionMarker()).toBe(true)
     expect(document.cookie).not.toContain('PVEAuthCookie')
     expect(getSession()).toMatchObject({ username: 'root@pam', csrfToken: 'csrf', clustername: 'lab' })
@@ -93,7 +93,7 @@ describe('login', () => {
     expect(body.get('username')).toBe('root@pam')
     // The CSRF token from the first step is kept when the second omits it.
     expect(session.csrfToken).toBe('csrf-1')
-    expect((fetchMock.mock.calls[1]![1] as RequestInit).headers).toMatchObject({ 'X-Pve-Web-Ticket': 'cookie' })
+    expect((fetchMock.mock.calls[1]![1] as RequestInit).headers).toMatchObject({ 'X-Tiller-Ticket': 'cookie' })
     expect(getSession()?.username).toBe('root@pam')
   })
 
@@ -121,7 +121,7 @@ describe('login', () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ data: { username: 'root@pam', ticket: '', CSRFPreventionToken: 'new' } }))
     await renewTicket()
     // The Go server swaps this placeholder for the HttpOnly cookie's ticket.
-    expect(bodyOf(0).get('password')).toBe('pve-web:cookie-ticket')
+    expect(bodyOf(0).get('password')).toBe('tiller:cookie-ticket')
     expect(getSession()?.csrfToken).toBe('new')
     expect(getSession()?.ticketIssuedAt).toBeGreaterThan(0)
   })
@@ -137,7 +137,7 @@ describe('login', () => {
 
   it('counts a stored session without the browser-session marker as logged out', () => {
     setSession({ username: 'root@pam', csrfToken: 'c', ticketIssuedAt: Date.now() })
-    document.cookie = 'pve-web-session=; Path=/; Max-Age=0'
+    document.cookie = 'tiller-session=; Path=/; Max-Age=0'
     resetSessionCache()
     expect(getSession()).toBeNull()
   })

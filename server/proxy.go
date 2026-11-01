@@ -111,7 +111,7 @@ const proxiedCSP = "default-src 'none'; frame-ancestors 'none'; sandbox"
 // (sameOrigin has checked the browser's Origin before);
 // X-Forwarded-For carries the client address for pveproxy's access log
 // (PROXY_REAL_IP_HEADER=X-Forwarded-For with PROXY_REAL_IP_ALLOW_FROM set to
-// pve-web's address). trusted lists reverse proxies in front of pve-web.
+// Tiller's address). trusted lists reverse proxies in front of Tiller.
 func NewProxy(target *url.URL, transport http.RoundTripper, logger *slog.Logger, trusted []*net.IPNet) http.Handler {
 	origin := target.Scheme + "://" + target.Host
 	return &httputil.ReverseProxy{
@@ -160,7 +160,7 @@ func NewProxy(target *url.URL, transport http.RoundTripper, logger *slog.Logger,
 			// Details (upstream address, TLS errors, the presented
 			// fingerprint) go to the log only: anyone, logged in or not,
 			// can trigger this answer.
-			msg := "无法连接 PVE，请稍后重试；持续出现请联系管理员查看 pve-web 日志"
+			msg := "无法连接 PVE，请稍后重试；持续出现请联系管理员查看 Tiller 日志"
 			var fpErr *FingerprintMismatchError
 			if errors.As(err, &fpErr) {
 				msg = "无法连接 PVE：证书指纹不匹配，请联系管理员检查 PVE_TLS_FINGERPRINT"

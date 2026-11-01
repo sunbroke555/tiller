@@ -7,8 +7,8 @@ import { useSyncExternalStore } from 'react'
 
 import { isStorage, type ClusterResource, type StorageResource } from '@/api/types'
 
-export const COUNTED_STORAGES_KEY = 'pve-web:dashboard-storages'
-const EVENT = 'pve-web:dashboard-storages'
+export const COUNTED_STORAGES_KEY = 'tiller:dashboard-storages'
+const EVENT = 'tiller:dashboard-storages'
 
 function parse(raw: string | null): string[] {
   try {

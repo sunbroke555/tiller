@@ -10,7 +10,7 @@ test.describe('node summary screenshots', () => {
     test(`screens in ${theme}`, async ({ page, pve }, info) => {
       test.setTimeout(120_000)
       await page.addInitScript((mode) => {
-        localStorage.setItem('pve-web:appearance', JSON.stringify({ mode, accent: 'indigo', glass: true, density: 'comfortable' }))
+        localStorage.setItem('tiller:appearance', JSON.stringify({ mode, accent: 'indigo', glass: true, density: 'comfortable' }))
       }, theme)
       const dir = `test-results/ns-shots/${info.project.name}-${theme}`
       await page.goto(`/node/${pve.node}`)

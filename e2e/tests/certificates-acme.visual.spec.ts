@@ -9,7 +9,7 @@ test('certificates screens', async ({ page, mobile }, info) => {
   test.setTimeout(120_000)
   if (mobile) await page.setViewportSize({ width: 390, height: 844 })
   await page.addInitScript(() => {
-    localStorage.setItem('pve-web:appearance', JSON.stringify({ mode: 'dark', accent: 'indigo', glass: true, density: 'comfortable' }))
+    localStorage.setItem('tiller:appearance', JSON.stringify({ mode: 'dark', accent: 'indigo', glass: true, density: 'comfortable' }))
   })
   await mockAcmeState(page)
   const dir = `test-results/ca-shots/${info.project.name}`

@@ -102,7 +102,7 @@ export function useInstallPrompt(): { state: InstallState; install: () => Promis
 
 // ------------------------------------------------------ dismiss memory
 
-const DISMISS_KEY = 'pve-web:install-dismissed'
+const DISMISS_KEY = 'tiller:install-dismissed'
 const DISMISS_DAYS = 30
 
 export function installDismissed(now = Date.now()): boolean {

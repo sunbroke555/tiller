@@ -10,7 +10,7 @@ test('node network screenshots (dark)', async ({ page, pve, mobile }, info) => {
   test.setTimeout(120_000)
   if (mobile) await page.setViewportSize({ width: 390, height: 844 })
   await page.addInitScript(() => {
-    localStorage.setItem('pve-web:appearance', JSON.stringify({ mode: 'dark', accent: 'indigo', glass: true, density: 'comfortable' }))
+    localStorage.setItem('tiller:appearance', JSON.stringify({ mode: 'dark', accent: 'indigo', glass: true, density: 'comfortable' }))
   })
   await mockNetwork(page, pve.node)
   const dir = `test-results/nn-shots/${info.project.name}`

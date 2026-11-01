@@ -24,7 +24,7 @@ test('datacenter options screens', async ({ page, pve, mobile }) => {
   test.setTimeout(180_000)
   if (mobile) await page.setViewportSize({ width: 390, height: 844 })
   await page.addInitScript(() => {
-    localStorage.setItem('pve-web:appearance', JSON.stringify({ mode: 'dark', accent: 'indigo', glass: true, density: 'comfortable' }))
+    localStorage.setItem('tiller:appearance', JSON.stringify({ mode: 'dark', accent: 'indigo', glass: true, density: 'comfortable' }))
   })
   await mockOptions(page)
   await mockSubscription(page, pve.node)

@@ -79,7 +79,7 @@ test.describe.serial('console', { tag: '@lab' }, () => {
     await page.goto(`/console/${pve.node}/shell`)
     await expect(page.getByRole('heading', { level: 1, name: pve.node })).toBeVisible()
     await expectConnected(page)
-    await runInTerminal(page, 'echo pve-web-$((6*7))', 'pve-web-42')
+    await runInTerminal(page, 'echo tiller-$((6*7))', 'tiller-42')
 
     await expect(page.getByRole('toolbar', { name: '辅助按键' })).toHaveCount(0)
     // Plain HTTP cannot read the clipboard: 粘贴 asks for the text instead.
@@ -226,7 +226,7 @@ test.describe('console on phones', { tag: '@mobile' }, () => {
   test('node shell key bar: Ctrl+C and sticky Ctrl', async ({ page, pve }) => {
     await page.goto(`/console/${pve.node}/shell`)
     await expectConnected(page)
-    await runInTerminal(page, 'echo pve-web-$((6*7))', 'pve-web-42')
+    await runInTerminal(page, 'echo tiller-$((6*7))', 'tiller-42')
     const keys = page.getByRole('toolbar', { name: '辅助按键' })
     await expect(keys).toBeVisible()
     await page.keyboard.type('sleep 300')

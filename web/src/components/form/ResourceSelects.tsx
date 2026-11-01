@@ -142,7 +142,7 @@ export interface NodeSelectProps extends CommonProps {
   /** Nodes to leave out (e.g. the migration source). */
   exclude?: readonly string[]
   /**
-   * With several nodes, preselect the node pve-web is connected to
+   * With several nodes, preselect the node Tiller is connected to
    * (/cluster/status `local`), else the first online one, like the official
    * create wizards. Without it only a single node is preselected.
    */

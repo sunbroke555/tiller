@@ -377,10 +377,10 @@ test.describe('logged out', () => {
     await page.goto('/login')
     await page.evaluate(() => {
       localStorage.setItem(
-        'pve-web:session',
+        'tiller:session',
         JSON.stringify({ username: 'root@pam', csrfToken: 'x', ticketIssuedAt: Date.now() - 3 * 3600_000 }),
       )
-      document.cookie = 'pve-web-session=1; Path=/'
+      document.cookie = 'tiller-session=1; Path=/'
     })
     await page.goto('/datacenter')
     await expect(page).toHaveURL(/\/login\?next=%2Fdatacenter/)

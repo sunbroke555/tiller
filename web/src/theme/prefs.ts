@@ -1,7 +1,7 @@
 // Appearance preferences: pure data and logic, no DOM or React, so the same
 // rules can be shared with the inline boot script (see boot.ts) and tests.
 
-export const THEME_STORAGE_KEY = 'pve-web:appearance'
+export const THEME_STORAGE_KEY = 'tiller:appearance'
 
 export const THEME_MODES = ['system', 'dark', 'light', 'paper'] as const
 export type ThemeMode = (typeof THEME_MODES)[number]

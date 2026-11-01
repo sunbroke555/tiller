@@ -282,6 +282,6 @@ func serveNotBuilt(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusServiceUnavailable)
-	_, _ = io.WriteString(w, `<!doctype html><meta charset="utf-8"><title>PVE Web</title>
+	_, _ = io.WriteString(w, `<!doctype html><meta charset="utf-8"><title>Tiller</title>
 <p style="font-family:system-ui;padding:2rem">前端尚未构建：先运行 <code>make web</code> 再构建服务端，或用 <code>WEB_DIR</code> 指向 web/dist。</p>`)
 }

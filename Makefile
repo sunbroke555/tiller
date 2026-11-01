@@ -1,11 +1,11 @@
-# PVE Web build entry points. Heavy targets run on the test server:
+# Tiller build entry points. Heavy targets run on the test server:
 #   rt -- make test      rt -- make server
 SHELL := /bin/bash
 .DEFAULT_GOAL := server
 
 GO  ?= go
 NPM ?= npm
-BIN := server/pve-web
+BIN := server/tiller
 GOFLAGS_BUILD := -trimpath -ldflags "-s -w"
 
 .PHONY: deps web server test test-go test-web typecheck dev e2e e2e-area e2e-smoke e2e-visual e2e-deps e2e-server e2e-stop clean
@@ -19,12 +19,12 @@ deps: web/node_modules/.package-lock.json
 web: deps
 	cd web && $(NPM) run build
 
-## server: build the single binary with the SPA embedded (server/pve-web)
+## server: build the single binary with the SPA embedded (server/tiller)
 server: web
 	rm -rf server/web/dist
 	mkdir -p server/web
 	cp -R web/dist server/web/dist
-	cd server && CGO_ENABLED=0 $(GO) build $(GOFLAGS_BUILD) -o pve-web .
+	cd server && CGO_ENABLED=0 $(GO) build $(GOFLAGS_BUILD) -o tiller .
 	@echo "built $(BIN)"
 
 ## test: Go tests, Vitest and the TypeScript type check
@@ -48,7 +48,7 @@ dev: deps
 	wait
 
 ## End-to-end tests against the lab (Playwright, see e2e/playwright.config.ts).
-## Every target starts pve-web on $(PORT) (building it if sources changed), runs
+## Every target starts Tiller on $(PORT) (building it if sources changed), runs
 ## Playwright and stops the server again even when tests fail. Needs lab.env:
 ##   rt -- bash -lc 'set -a; . ~/.config/pve-web/lab.env; set +a; make e2e-area AREA=lxc-config PORT=8106'
 ##

@@ -25,8 +25,8 @@ for (const theme of THEMES) {
     test.setTimeout(180_000)
     await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 })
     await page.addInitScript((mode) => {
-      localStorage.setItem('pve-web:appearance', JSON.stringify({ mode, accent: 'indigo', glass: true, density: 'comfortable' }))
-      localStorage.removeItem('pve-web:install-dismissed')
+      localStorage.setItem('tiller:appearance', JSON.stringify({ mode, accent: 'indigo', glass: true, density: 'comfortable' }))
+      localStorage.removeItem('tiller:install-dismissed')
     }, theme)
     const shot = async (name: string, fullPage = true) =>
       page.screenshot({ path: path.join(testInfo.project.outputDir, 'shots', `${mobile ? 'm' : 'd'}-${theme}-${name}.png`), fullPage })
@@ -65,7 +65,7 @@ for (const theme of THEMES) {
 
     // Logged-out login page.
     await page.context().clearCookies()
-    await page.evaluate(() => localStorage.removeItem('pve-web:session'))
+    await page.evaluate(() => localStorage.removeItem('tiller:session'))
     await page.goto('/login')
     await expect(page.getByLabel('用户名')).toBeVisible()
     await shot('login', false)

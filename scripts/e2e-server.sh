@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Start or stop a pve-web instance for end-to-end tests, proxying to the LAB
+# Start or stop a Tiller instance for end-to-end tests, proxying to the LAB
 # PVE (never production). Runs on the test server:
 #
-#   scripts/e2e-server.sh [start] PORT   build server/pve-web if sources changed, start it on :PORT
+#   scripts/e2e-server.sh [start] PORT   build server/tiller if sources changed, start it on :PORT
 #   scripts/e2e-server.sh stop PORT      stop the instance started for PORT
 #   scripts/e2e-server.sh status PORT
 #
@@ -12,7 +12,7 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-BIN=$ROOT/server/pve-web
+BIN=$ROOT/server/tiller
 RUN_DIR=$ROOT/e2e/.run
 
 action=start
@@ -68,7 +68,7 @@ start() {
   fi
 
   if needs_build; then
-    echo "e2e-server: building server/pve-web"
+    echo "e2e-server: building server/tiller"
     make -C "$ROOT" server >"$RUN_DIR/build-$PORT.log" 2>&1 || {
       tail -n 40 "$RUN_DIR/build-$PORT.log" >&2
       exit 1

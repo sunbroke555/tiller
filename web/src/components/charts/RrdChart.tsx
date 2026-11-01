@@ -265,7 +265,7 @@ export interface RrdRange {
   cf: RrdCfValue
 }
 
-const RANGE_KEY = 'pve-web:rrd-range'
+const RANGE_KEY = 'tiller:rrd-range'
 
 function readRange(): RrdRange {
   try {

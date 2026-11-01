@@ -122,7 +122,7 @@ test.describe('权限与认证', { tag: '@lab' }, () => {
     test.setTimeout(150_000)
     await sweep(pve)
     cleanup.add(() => sweep(pve))
-    await pve.post('/access/groups', { groupid: GROUP, comment: 'pve-web e2e (access-control)' })
+    await pve.post('/access/groups', { groupid: GROUP, comment: 'Tiller e2e (access-control)' })
 
     // Create the pool in the datacenter list.
     await page.goto('/datacenter/permissions/pools')

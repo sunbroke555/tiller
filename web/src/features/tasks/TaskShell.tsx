@@ -42,7 +42,7 @@ export function RunningTasksBadge({ className }: { className?: string }) {
 // ------------------------------------------------------------ footer bar
 
 type PanelTab = 'tasks' | 'log'
-const STORE_KEY = 'pve-web.task-footer'
+const STORE_KEY = 'tiller.task-footer'
 
 function loadPanel(): { open: boolean; tab: PanelTab } {
   try {

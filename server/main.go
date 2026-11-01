@@ -1,4 +1,4 @@
-// Command pve-web serves the PVE Web single page app and reverse-proxies the
+// Command tiller serves the Tiller single page app and reverse-proxies the
 // Proxmox VE API (/api2/) to PVE_URL. It is stateless: it never stores
 // credentials, it only forwards the browser's PVEAuthCookie and CSRF header.
 package main
@@ -112,7 +112,7 @@ func NewHandler(cfg *Config, web fs.FS, immutable bool, transport http.RoundTrip
 	mux.Handle("/api2/json/", sameOrigin(cfg.TrustedProxies, logger,
 		newAuthGuard(NewProxy(cfg.PVE, transport, logger, cfg.TrustedProxies), cfg, logger)))
 	mux.HandleFunc("/api2/", func(w http.ResponseWriter, _ *http.Request) {
-		writePVEError(w, http.StatusNotFound, "pve-web 只转发 /api2/json/")
+		writePVEError(w, http.StatusNotFound, "Tiller 只转发 /api2/json/")
 	})
 	mux.Handle("POST /api/logout", sameOrigin(cfg.TrustedProxies, logger, logoutHandler(cfg.TrustedProxies)))
 	mux.Handle("GET /api/config", appConfigHandler(newConsentSource(cfg.PVE, transport, logger)))

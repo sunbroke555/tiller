@@ -20,7 +20,7 @@ test.describe('截图', () => {
     test(`截图 ${theme}`, async ({ page, mobile }, info) => {
       test.setTimeout(120_000)
       await page.addInitScript((mode) => {
-        localStorage.setItem('pve-web:appearance', JSON.stringify({ mode, accent: 'indigo', glass: true, density: 'comfortable' }))
+        localStorage.setItem('tiller:appearance', JSON.stringify({ mode, accent: 'indigo', glass: true, density: 'comfortable' }))
       }, theme)
       if (mobile) await page.setViewportSize({ width: 390, height: 844 })
       const dir = `${info.project.outputDir}/guest-create-shots`

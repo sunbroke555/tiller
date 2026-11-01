@@ -61,9 +61,9 @@ describe('resource tree', () => {
   it('persists prefs and tolerates junk', () => {
     saveTreePrefs({ ...DEFAULT_TREE_PREFS, group: 'tag', collapsed: { 'node:a': true } })
     expect(loadTreePrefs()).toMatchObject({ group: 'tag', collapsed: { 'node:a': true } })
-    localStorage.setItem('pve-web:resource-tree', '{"group":"weird"}')
+    localStorage.setItem('tiller:resource-tree', '{"group":"weird"}')
     expect(loadTreePrefs().group).toBe('node')
-    localStorage.setItem('pve-web:resource-tree', 'not json')
+    localStorage.setItem('tiller:resource-tree', 'not json')
     expect(loadTreePrefs()).toEqual(DEFAULT_TREE_PREFS)
   })
 })

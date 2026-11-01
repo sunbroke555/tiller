@@ -254,7 +254,7 @@ test.describe('certificates', () => {
     await accounts.getByRole('button', { name: '注册账户' }).click()
     let dialog = page.getByRole('dialog', { name: '注册 ACME 账户' })
     await dialog.getByRole('textbox', { name: '账户名称' }).fill(NAME)
-    await dialog.getByRole('textbox', { name: '邮箱' }).fill('pve-web-e2e@mailinator.com')
+    await dialog.getByRole('textbox', { name: '邮箱' }).fill('tiller-e2e@mailinator.com')
     await dialog.getByRole('combobox').click()
     await page.getByRole('option', { name: /Let's Encrypt V2 Staging/ }).click()
     await expect(dialog.getByRole('link', { name: /letsencrypt\.org/ })).toBeVisible({ timeout: 20_000 })
@@ -276,11 +276,11 @@ test.describe('certificates', () => {
 
     await dialog.getByRole('button', { name: '修改邮箱' }).click()
     const email = page.getByRole('dialog', { name: '修改账户邮箱' })
-    await email.getByRole('textbox', { name: '邮箱' }).fill('pve-web-e2e2@mailinator.com')
+    await email.getByRole('textbox', { name: '邮箱' }).fill('tiller-e2e2@mailinator.com')
     const update = page.waitForResponse((r) => r.request().method() === 'PUT' && r.url().includes(`/cluster/acme/account/${NAME}`))
     await email.getByRole('button', { name: '保存' }).click()
     const res = await update
-    expect(res.request().postData()).toBe('contact=pve-web-e2e2%40mailinator.com')
+    expect(res.request().postData()).toBe('contact=tiller-e2e2%40mailinator.com')
     await expect(email).toBeHidden()
     await pve.waitTask(((await res.json()) as { data: string }).data, { timeout: 60_000, allowWarnings: false })
 
