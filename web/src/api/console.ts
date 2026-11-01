@@ -19,12 +19,16 @@ import type { GuestType, PveBool } from './types'
 
 /**
  * A command the node shell runs instead of a login shell (termproxy / vncshell
- * / spiceshell `cmd`, root@pam only): "upgrade" runs `pveupgrade --shell`.
+ * / spiceshell `cmd`, root@pam only): "upgrade" runs `pveupgrade --shell`,
+ * "ceph_install" runs `pveceph install` with `cmdOpts` (NUL-separated
+ * arguments, e.g. "--version\0squid\0--repository\0no-subscription").
  */
-export type NodeShellCmd = 'upgrade'
+export type NodeShellCmd = 'upgrade' | 'ceph_install'
 
 /** What a console connects to. */
-export type ConsoleTarget = { kind: 'node'; node: string; cmd?: NodeShellCmd | undefined } | { kind: GuestType; node: string; vmid: number }
+export type ConsoleTarget =
+  | { kind: 'node'; node: string; cmd?: NodeShellCmd | undefined; cmdOpts?: string | undefined }
+  | { kind: GuestType; node: string; vmid: number }
 
 export type ConsoleViewer = 'xterm' | 'novnc'
 
@@ -58,8 +62,9 @@ export function targetKey(target: ConsoleTarget): string {
 }
 
 /** Params of the node shell calls for a command (none for a login shell). */
-function nodeCmdParams(target: ConsoleTarget): { cmd?: NodeShellCmd } {
-  return target.kind === 'node' && target.cmd ? { cmd: target.cmd } : {}
+export function nodeCmdParams(target: ConsoleTarget): { cmd?: NodeShellCmd; 'cmd-opts'?: string } {
+  if (target.kind !== 'node' || !target.cmd) return {}
+  return target.cmdOpts ? { cmd: target.cmd, 'cmd-opts': target.cmdOpts } : { cmd: target.cmd }
 }
 
 /** "节点 pve" / "VM 100" / "CT 100". */

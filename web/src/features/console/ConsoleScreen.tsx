@@ -95,7 +95,12 @@ export function viewerName(target: ConsoleTarget, v: ConsoleViewer): string {
 }
 
 function fullPath(target: ConsoleTarget): string {
-  if (target.kind === 'node') return nodeShellPath(target.node) + (target.cmd ? `?cmd=${target.cmd}` : '')
+  if (target.kind === 'node') {
+    if (!target.cmd) return nodeShellPath(target.node)
+    const q = new URLSearchParams({ cmd: target.cmd })
+    if (target.cmdOpts) q.set('cmd-opts', target.cmdOpts)
+    return `${nodeShellPath(target.node)}?${q.toString()}`
+  }
   return consolePath({ node: target.node, type: target.kind, vmid: target.vmid })
 }
 

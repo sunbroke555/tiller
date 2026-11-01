@@ -8,6 +8,7 @@
 import { lazy } from 'react'
 import {
   Activity,
+  Database,
   BadgeCheck,
   Download,
   FileText,
@@ -136,6 +137,15 @@ export const nodeTabs: NodeTabDef[] = [
   { id: 'replication', title: '复制', icon: Repeat, order: 120, component: lazy(() => import('@/features/replication/NodeReplicationTab')) },
   // Phase 3
   { id: 'subscription', title: '订阅', icon: BadgeCheck, order: 130, component: lazy(() => import('@/features/dc-options/NodeSubscriptionTab')) },
+  {
+    id: 'ceph',
+    title: 'Ceph',
+    icon: Database,
+    order: 140,
+    visible: online,
+    permission: { privs: 'Sys.Audit' },
+    component: lazy(() => import('@/features/ceph/NodeCephTab')),
+  },
 ]
 
 export const nodeActions: NodeActionDef[] = [...nodeSummaryActions, ...consoleNodeActions, ...nodeBulkActions]

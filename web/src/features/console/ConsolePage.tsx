@@ -12,7 +12,8 @@ import { ConsoleScreen } from './ConsoleScreen'
 /**
  * Full-screen console outside the app frame:
  *   /console/:node/:type/:vmid   VM (noVNC / serial xterm.js) or CT (xterm.js / noVNC)
- *   /console/:node/shell         node shell (?cmd=upgrade: run pveupgrade, root@pam only)
+ *   /console/:node/shell         node shell (?cmd=upgrade: run pveupgrade; ?cmd=ceph_install&cmd-opts=…:
+ *                                run pveceph install; both root@pam only)
  * ?viewer=xterm|novnc picks the viewer.
  */
 export default function ConsolePage() {
@@ -24,7 +25,9 @@ export default function ConsolePage() {
   const type: GuestType = params.type === 'lxc' ? 'lxc' : 'qemu'
   const validTarget = isShell || ((params.type === 'qemu' || params.type === 'lxc') && isVmidParam(params.vmid))
   const vmid = isVmidParam(params.vmid) ? Number(params.vmid) : NaN
-  const cmd: NodeShellCmd | undefined = isShell && search.get('cmd') === 'upgrade' ? 'upgrade' : undefined
+  const cmdParam = search.get('cmd')
+  const cmd: NodeShellCmd | undefined = isShell && (cmdParam === 'upgrade' || cmdParam === 'ceph_install') ? cmdParam : undefined
+  const cmdOpts = cmd === 'ceph_install' ? (search.get('cmd-opts') ?? undefined) : undefined
 
   const { data: guest } = useClusterResources({
     enabled: !isShell && validTarget,
@@ -32,8 +35,8 @@ export default function ConsolePage() {
   })
 
   const target = useMemo<ConsoleTarget>(
-    () => (isShell ? { kind: 'node', node, cmd } : { kind: type, node, vmid }),
-    [isShell, node, type, vmid, cmd],
+    () => (isShell ? { kind: 'node', node, cmd, cmdOpts } : { kind: type, node, vmid }),
+    [isShell, node, type, vmid, cmd, cmdOpts],
   )
 
   // Unknown type or a VMID that is no number: never open a console (no
@@ -44,8 +47,16 @@ export default function ConsolePage() {
     return <Navigate replace to={consolePath(guest) + location.search} />
   }
 
-  const title = isShell ? (cmd === 'upgrade' ? `${node} · 升级` : node) : guest ? guestName(guest) : `${type === 'lxc' ? 'CT' : 'VM'} ${params.vmid}`
-  const backTo = isShell ? nodePath(node, cmd === 'upgrade' ? 'updates' : undefined) : guestPath({ node, type, vmid })
+  const title = isShell
+    ? cmd === 'upgrade'
+      ? `${node} · 升级`
+      : cmd === 'ceph_install'
+        ? `${node} · 安装 Ceph`
+        : node
+    : guest
+      ? guestName(guest)
+      : `${type === 'lxc' ? 'CT' : 'VM'} ${params.vmid}`
+  const backTo = isShell ? nodePath(node, cmd === 'upgrade' ? 'updates' : cmd === 'ceph_install' ? 'ceph' : undefined) : guestPath({ node, type, vmid })
 
   return (
     <ConsoleScreen
@@ -55,7 +66,9 @@ export default function ConsolePage() {
       title={title}
       backTo={backTo}
       requestedViewer={search.get('viewer')}
-      onViewerChange={(viewer) => setSearch(cmd ? { viewer, cmd } : { viewer }, { replace: true })}
+      onViewerChange={(viewer) =>
+        setSearch(cmd ? { viewer, cmd, ...(cmdOpts ? { 'cmd-opts': cmdOpts } : {}) } : { viewer }, { replace: true })
+      }
     />
   )
 }
