@@ -1,10 +1,10 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { SearchX } from 'lucide-react'
 
 import { usePermissions } from '@/api/permissions'
 import { useClusterResources } from '@/api/queries'
-import { isNode } from '@/api/types'
+import { isNode, type ClusterResource, type NodeResource } from '@/api/types'
 import { EmptyState } from '@/components/EmptyState'
 import { GlassCard } from '@/components/GlassCard'
 import { DockPortal } from '@/components/layout/BottomDock'
@@ -28,7 +28,8 @@ export function NodePage() {
   const { node = '', tab } = useParams()
   const navigate = useNavigate()
   const { data: resource, isPending, isError } = useClusterResources({
-    select: (all) => all.filter(isNode).find((n) => n.node === node),
+    // Stable: an inline select would rescan the whole list on every render.
+    select: useCallback((all: ClusterResource[]) => all.find((r): r is NodeResource => isNode(r) && r.node === node), [node]),
   })
   const ctx = useMemo<NodeActionContext | null>(
     () => (resource ? { node, resource, navigate } : null),
@@ -64,7 +65,8 @@ export function NodePage() {
       </>
     )
   }
-  return <NodePageBody ctx={ctx} tabParam={tab} />
+  // Keyed: actions in flight, open dialogs and tab state belong to one node.
+  return <NodePageBody key={ctx.node} ctx={ctx} tabParam={tab} />
 }
 
 function NodePageBody({ ctx, tabParam }: { ctx: NodeActionContext; tabParam: string | undefined }) {
@@ -75,7 +77,7 @@ function NodePageBody({ ctx, tabParam }: { ctx: NodeActionContext; tabParam: str
     nodeTabs.filter((t) => (t.visible?.(tabProps) ?? true) && (!t.permission || perms.can(t.permission, { kind: 'node', node }))),
   )
   const actions = visibleActions(nodeActions, ctx, (a) => allowedFor(perms, a, ctx, { kind: 'node', node }))
-  const { trigger, host } = useActionRunner(ctx)
+  const { trigger, host, busy } = useActionRunner(ctx)
   const active = tabs.find((t) => t.id === tabParam) ?? (tabParam ? undefined : tabs[0])
   if (!active) return <Navigate replace to={nodePath(node)} />
 
@@ -97,12 +99,12 @@ function NodePageBody({ ctx, tabParam }: { ctx: NodeActionContext; tabParam: str
             {resource.status === 'online' && <span className="tabular">运行 {formatUptime(resource.uptime)}</span>}
           </span>
         }
-        actions={<ActionBar variant="toolbar" actions={actions} ctx={ctx} trigger={trigger} className="hidden lg:flex" />}
+        actions={<ActionBar variant="toolbar" actions={actions} ctx={ctx} trigger={trigger} busy={busy} className="hidden lg:flex" />}
       />
       <TabBar tabs={tabs} active={active.id} hrefFor={(id) => nodePath(node, id === tabs[0]?.id ? undefined : id)} />
       <TabPanel tab={active} props={tabProps} />
       <DockPortal>
-        <ActionBar variant="dock" actions={actions} ctx={ctx} trigger={trigger} />
+        <ActionBar variant="dock" actions={actions} ctx={ctx} trigger={trigger} busy={busy} />
       </DockPortal>
       {host}
     </>

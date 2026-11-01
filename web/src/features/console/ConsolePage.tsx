@@ -1,11 +1,11 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { Navigate, useLocation, useParams, useSearchParams } from 'react-router'
 
 import type { ConsoleTarget } from '@/api/console'
 import { targetKey } from '@/api/console'
 import { useClusterResources } from '@/api/queries'
-import { isGuest, type GuestType } from '@/api/types'
-import { consolePath, guestName, guestPath, nodePath } from '@/lib/resources'
+import { isGuest, type ClusterResource, type GuestResource, type GuestType } from '@/api/types'
+import { consolePath, guestName, guestPath, isVmidParam, nodePath } from '@/lib/resources'
 
 import { ConsoleScreen } from './ConsoleScreen'
 
@@ -22,11 +22,12 @@ export default function ConsolePage() {
   const node = params.node ?? ''
   const isShell = !params.type
   const type: GuestType = params.type === 'lxc' ? 'lxc' : 'qemu'
-  const vmid = Number(params.vmid)
+  const validTarget = isShell || ((params.type === 'qemu' || params.type === 'lxc') && isVmidParam(params.vmid))
+  const vmid = isVmidParam(params.vmid) ? Number(params.vmid) : NaN
 
   const { data: guest } = useClusterResources({
-    enabled: !isShell,
-    select: (all) => all.filter(isGuest).find((g) => g.vmid === vmid),
+    enabled: !isShell && validTarget,
+    select: useCallback((all: ClusterResource[]) => all.find((r): r is GuestResource => isGuest(r) && r.vmid === vmid), [vmid]),
   })
 
   const target = useMemo<ConsoleTarget>(
@@ -34,7 +35,9 @@ export default function ConsolePage() {
     [isShell, node, type, vmid],
   )
 
-  if (!isShell && (params.type !== 'qemu' && params.type !== 'lxc')) return <Navigate replace to="/" />
+  // Unknown type or a VMID that is no number: never open a console (no
+  // status/vncproxy calls for "NaN").
+  if (!validTarget) return <Navigate replace to="/" />
   if (!isShell && guest && (guest.node !== node || guest.type !== type)) {
     // Migrated (or a stale link): follow the guest.
     return <Navigate replace to={consolePath(guest) + location.search} />

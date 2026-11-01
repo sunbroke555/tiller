@@ -108,11 +108,13 @@ func NewHandler(cfg *Config, web fs.FS, immutable bool, transport http.RoundTrip
 	// Only the JSON API (websockets included). PVE's other formatters
 	// (/api2/html with its own login form, /api2/extjs, /api2/png,
 	// /api2/spiceconfig) are not used by the SPA and stay off this origin.
-	mux.Handle("/api2/json/", newAuthGuard(NewProxy(cfg.PVE, transport, logger, cfg.TrustedProxies), cfg, logger))
+	// sameOrigin runs before the proxy rewrites Origin to PVE's own.
+	mux.Handle("/api2/json/", sameOrigin(cfg.TrustedProxies, logger,
+		newAuthGuard(NewProxy(cfg.PVE, transport, logger, cfg.TrustedProxies), cfg, logger)))
 	mux.HandleFunc("/api2/", func(w http.ResponseWriter, _ *http.Request) {
 		writePVEError(w, http.StatusNotFound, "pve-web 只转发 /api2/json/")
 	})
-	mux.Handle("POST /api/logout", logoutHandler(cfg.TrustedProxies))
+	mux.Handle("POST /api/logout", sameOrigin(cfg.TrustedProxies, logger, logoutHandler(cfg.TrustedProxies)))
 	mux.Handle("GET /api/config", appConfigHandler(newConsentSource(cfg.PVE, transport, logger)))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")

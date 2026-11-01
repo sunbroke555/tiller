@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Link } from 'react-router'
 import { ChevronRight, Lock } from 'lucide-react'
 
@@ -37,19 +38,44 @@ export function GuestList({ guests, showNode, showPool, selected, onToggle }: Gu
   )
 }
 
-function GuestRow({
-  guest: g,
-  showNode,
-  showPool,
-  selected,
-  onToggle,
-}: {
+interface GuestRowProps {
   guest: GuestResource
   showNode: boolean
   showPool: boolean
-  selected?: boolean
-  onToggle?: (guest: GuestResource) => void
-}) {
+  selected?: boolean | undefined
+  onToggle?: ((guest: GuestResource) => void) | undefined
+}
+
+/**
+ * Whether a row would render the same: /cluster/resources is polled every
+ * 5 s and hands out a new object for every running guest (cpu, mem, netin…
+ * change), but a row only shows these fields, CPU and memory as formatted.
+ */
+export function sameGuestRow(a: GuestRowProps, b: GuestRowProps): boolean {
+  const x = a.guest
+  const y = b.guest
+  return (
+    a.showNode === b.showNode &&
+    a.showPool === b.showPool &&
+    a.selected === b.selected &&
+    a.onToggle === b.onToggle &&
+    (x === y ||
+      (x.id === y.id &&
+        x.vmid === y.vmid &&
+        x.type === y.type &&
+        x.node === y.node &&
+        x.name === y.name &&
+        x.status === y.status &&
+        x.template === y.template &&
+        x.lock === y.lock &&
+        x.tags === y.tags &&
+        x.pool === y.pool &&
+        formatPercent(x.cpu) === formatPercent(y.cpu) &&
+        formatBytes(x.mem) === formatBytes(y.mem)))
+  )
+}
+
+const GuestRow = memo(function GuestRow({ guest: g, showNode, showPool, selected, onToggle }: GuestRowProps) {
   const running = g.status === 'running'
   const template = g.template === 1
   const rowClass = cn(
@@ -110,4 +136,4 @@ function GuestRow({
       {body}
     </Link>
   )
-}
+}, sameGuestRow)

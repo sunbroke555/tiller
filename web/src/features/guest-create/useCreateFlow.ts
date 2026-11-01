@@ -17,12 +17,29 @@ export interface SubmitError {
   fields: Record<string, string>
 }
 
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(done, ms)
+    signal?.addEventListener('abort', done, { once: true })
+    function done() {
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', done)
+      resolve()
+    }
+  })
+}
+
 /**
  * /cluster/resources lags a few seconds behind a new guest; the guest page
- * shows "not found" until it is listed, so wait for it (max ~20 s).
+ * shows "not found" until it is listed, so wait for it (max ~20 s). Stops
+ * (false) when `signal` aborts, e.g. the wizard was left.
  */
-export async function waitForGuestListed(qc: QueryClient, vmid: number, tries = 20, delayMs = 1000): Promise<boolean> {
-  for (let i = 0; i < tries; i++) {
+export async function waitForGuestListed(
+  qc: QueryClient,
+  vmid: number,
+  { tries = 20, delayMs = 1000, signal }: { tries?: number; delayMs?: number; signal?: AbortSignal } = {},
+): Promise<boolean> {
+  for (let i = 0; i < tries && !signal?.aborted; i++) {
     try {
       const list = await qc.fetchQuery({
         queryKey: queryKeys.resources(),
@@ -33,7 +50,7 @@ export async function waitForGuestListed(qc: QueryClient, vmid: number, tries = 
     } catch {
       // keep trying
     }
-    await new Promise((r) => setTimeout(r, delayMs))
+    await sleep(delayMs, signal)
   }
   return false
 }
@@ -49,10 +66,15 @@ export function useCreateFlow(type: GuestType) {
   const [state, setState] = useState<CreateState>({ phase: 'idle' })
   const [error, setError] = useState<SubmitError | null>(null)
   const mounted = useRef(true)
+  // Aborted on unmount: stops waiting for the new guest to be listed.
+  const alive = useRef<AbortController | null>(null)
   useEffect(() => {
     mounted.current = true
+    const ac = new AbortController()
+    alive.current = ac
     return () => {
       mounted.current = false
+      ac.abort()
     }
   }, [])
 
@@ -80,10 +102,15 @@ export function useCreateFlow(type: GuestType) {
       return
     }
     setState({ phase: 'opening', upid: handle.upid, node })
-    await waitForGuestListed(qc, vmid)
-    if (mounted.current) navigate(guestPath({ node, type, vmid }), { replace: true })
+    const listed = await waitForGuestListed(qc, vmid, { signal: alive.current?.signal })
+    if (!mounted.current) return
+    if (listed) navigate(guestPath({ node, type, vmid }), { replace: true })
+    // Not listed (no VM.Audit on it, or still syncing): the guest page would
+    // only say "not found"; offer a link instead.
+    else setState({ phase: 'created', upid: handle.upid, node, type, vmid })
   }
 
-  const busy = state.phase === 'running' || state.phase === 'opening'
+  // 'created' stays locked: submitting again would only hit "already exists".
+  const busy = state.phase === 'running' || state.phase === 'opening' || state.phase === 'created'
   return { state, error, busy, submit, clearError: () => setError(null) }
 }

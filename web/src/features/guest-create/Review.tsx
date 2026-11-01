@@ -2,13 +2,16 @@
 // the "start after created" switch and the creation progress.
 
 import { useState, type ReactNode } from 'react'
-import { ChevronDown, CircleAlert, CircleCheck, FileText, Loader2, Pencil } from 'lucide-react'
+import { Link } from 'react-router'
+import { ArrowRight, ChevronDown, CircleAlert, CircleCheck, FileText, Loader2, Pencil } from 'lucide-react'
 
 import type { Params } from '@/api/client'
+import type { GuestType } from '@/api/types'
 import { SwitchField } from '@/components/form'
 import { openTaskLog, useTrackedTasks } from '@/components/tasks/tracker'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { guestPath } from '@/lib/resources'
 import { cn } from '@/lib/utils'
 
 export interface ReviewRow {
@@ -108,6 +111,8 @@ export type CreateState =
   | { phase: 'running'; upid: string | null; node: string }
   | { phase: 'opening'; upid: string | null; node: string }
   | { phase: 'failed'; upid: string | null; node: string; exitstatus?: string }
+  /** Created, but /cluster/resources did not list it in time (still syncing, or no VM.Audit on it). */
+  | { phase: 'created'; upid: string | null; node: string; type: GuestType; vmid: number }
 
 /** Progress / result of the create task, with a link to its live log. */
 export function CreateStatus({ state, what }: { state: CreateState; what: string }) {
@@ -129,23 +134,40 @@ export function CreateStatus({ state, what }: { state: CreateState; what: string
     >
       {failed ? (
         <CircleAlert className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden />
-      ) : state.phase === 'opening' ? (
+      ) : state.phase === 'opening' || state.phase === 'created' ? (
         <CircleCheck className="mt-0.5 size-5 shrink-0 text-success-strong" aria-hidden />
       ) : (
         <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-brand-strong paper:text-primary" aria-hidden />
       )}
       <div className="grid min-w-0 flex-1 gap-0.5">
         <p className={cn('text-sm font-medium', failed ? 'text-destructive' : 'text-foreground')}>
-          {failed ? `创建${what}失败` : state.phase === 'opening' ? `${what}已创建，正在打开…` : `正在创建${what}…`}
+          {failed
+            ? `创建${what}失败`
+            : state.phase === 'created'
+              ? `${what} ${state.vmid} 已创建`
+              : state.phase === 'opening'
+                ? `${what}已创建，正在打开…`
+                : `正在创建${what}…`}
         </p>
-        <p className="truncate font-mono text-xs text-muted-foreground">
-          {failed ? (state.exitstatus ?? task?.exitstatus ?? '任务失败') : (task?.lastLine ?? '已提交，等待任务输出…')}
-        </p>
+        {state.phase === 'created' ? (
+          <p className="text-xs text-muted-foreground">它还没有出现在资源列表里：可能还在同步，或者你没有查看它的权限。</p>
+        ) : (
+          <p className="truncate font-mono text-xs text-muted-foreground">
+            {failed ? (state.exitstatus ?? task?.exitstatus ?? '任务失败') : (task?.lastLine ?? '已提交，等待任务输出…')}
+          </p>
+        )}
         {failed && <p className="text-xs text-muted-foreground">可以修改参数后重新创建。</p>}
       </div>
       {showLog && (
         <Button type="button" variant="outline" size="sm" onClick={showLog} className="shrink-0 pointer-coarse:h-10">
           <FileText /> 日志
+        </Button>
+      )}
+      {state.phase === 'created' && (
+        <Button asChild variant="outline" size="sm" className="shrink-0 pointer-coarse:h-10">
+          <Link to={guestPath(state)}>
+            打开 <ArrowRight />
+          </Link>
         </Button>
       )}
     </div>

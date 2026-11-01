@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import { Link, NavLink } from 'react-router'
 import { ChevronRight, Folder, ListTree, Search, Tag, X } from 'lucide-react'
 
@@ -24,7 +24,15 @@ import { guestName, guestPath, nodePath, storagePath } from '@/lib/resources'
 import { orderTags, splitTags } from '@/lib/tags'
 import { cn } from '@/lib/utils'
 
-import { buildTree, loadTreePrefs, saveTreePrefs, type TreeGroup, type TreeGrouping, type TreePrefs } from './resourceTree'
+import {
+  buildTree,
+  loadTreePrefs,
+  saveTreePrefs,
+  sameTreeGuest,
+  type TreeGroup,
+  type TreeGrouping,
+  type TreePrefs,
+} from './resourceTree'
 
 const GROUPINGS: { value: TreeGrouping; label: string; icon: typeof ListTree }[] = [
   { value: 'node', label: '按节点', icon: ListTree },
@@ -220,7 +228,9 @@ function GroupLabel({ group, count }: { group: TreeGroup; count: number }) {
   }
 }
 
-function GuestRow({ guest: g, showNode }: { guest: GuestResource; showNode: boolean }) {
+// Memoized: the 5 s resource poll changes cpu/mem of every running guest,
+// which the tree does not show.
+const GuestRow = memo(function GuestRow({ guest: g, showNode }: { guest: GuestResource; showNode: boolean }) {
   const style = useTagStyle()
   const tags = orderTags(splitTags(g.tags), style).slice(0, 3)
   return (
@@ -236,7 +246,7 @@ function GuestRow({ guest: g, showNode }: { guest: GuestResource; showNode: bool
       </span>
     </NavLink>
   )
-}
+}, (a, b) => a.showNode === b.showNode && sameTreeGuest(a.guest, b.guest))
 
 function StorageRow({ storage: s, showNode }: { storage: StorageResource; showNode: boolean }) {
   return (

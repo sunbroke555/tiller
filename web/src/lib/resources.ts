@@ -33,6 +33,20 @@ export function guestPath(g: Pick<GuestResource, 'node' | 'type' | 'vmid'>, tab?
   return `/guest/${encodeURIComponent(g.node)}/${g.type}/${g.vmid}${tab ? `/${encodeURIComponent(tab)}` : ''}`
 }
 
+/** A route :vmid that is a plain decimal guest ID (PVE allows 100–999999999). */
+export function isVmidParam(value: string | undefined): value is string {
+  return !!value && /^[1-9]\d{0,8}$/.test(value)
+}
+
+/**
+ * Whether `pathname` is a page of this guest (/guest/<node>/<type>/<vmid> or
+ * one of its tabs). Compares whole segments: VM 10 is not VM 100.
+ */
+export function isGuestPathname(pathname: string, g: Pick<GuestResource, 'node' | 'type' | 'vmid'>): boolean {
+  const base = guestPath(g)
+  return pathname === base || pathname.startsWith(base + '/')
+}
+
 /** /node/:node[/:tab] */
 export function nodePath(node: string, tab?: string): string {
   return `/node/${encodeURIComponent(node)}${tab ? `/${encodeURIComponent(tab)}` : ''}`

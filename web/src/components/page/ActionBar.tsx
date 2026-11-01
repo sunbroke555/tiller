@@ -1,5 +1,5 @@
-import { Fragment, Suspense, useState, type ComponentProps, type ReactNode } from 'react'
-import { Ellipsis } from 'lucide-react'
+import { Fragment, Suspense, useRef, useState, type ComponentProps, type ReactNode } from 'react'
+import { Ellipsis, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -19,23 +19,54 @@ import { actionLabel, type ActionDef } from './registry'
 
 type Pending<Ctx> = { action: ActionDef<Ctx>; mode: 'confirm' | 'dialog' } | null
 
+const NONE: ReadonlySet<string> = new Set()
+
+/** The `done` promise of a runTask handle, if `result` is one. */
+function taskDone(result: unknown): Promise<unknown> | undefined {
+  const done = result && typeof result === 'object' ? (result as { done?: unknown }).done : undefined
+  return done instanceof Promise ? done : undefined
+}
+
 /**
  * Runs actions: direct run, confirm-then-run, or open the action's dialog.
- * Returns `trigger` and the `host` element (confirm/dialog) to render once.
+ * Returns `trigger`, the `host` element (confirm/dialog) to render once, and
+ * the ids of actions in flight (`busy`).
+ *
+ * A run action stays busy until its task ends (`run` returned a runTask
+ * handle) or its call settled: the page's resource state that hides "启动"
+ * only changes after the task, so a second tap would start a duplicate task.
  */
-export function useActionRunner<Ctx>(ctx: Ctx): { trigger: (action: ActionDef<Ctx>) => void; host: ReactNode } {
+export function useActionRunner<Ctx>(ctx: Ctx): {
+  trigger: (action: ActionDef<Ctx>) => void
+  host: ReactNode
+  busy: ReadonlySet<string>
+} {
   const [pending, setPending] = useState<Pending<Ctx>>(null)
   // Keep the last one mounted while the dialog animates out.
   const [last, setLast] = useState<Pending<Ctx>>(null)
   if (pending && pending !== last) setLast(pending)
+  const [busy, setBusy] = useState<ReadonlySet<string>>(NONE)
+  // Synchronous copy: two taps can land before the re-render disables the button.
+  const running = useRef(new Set<string>())
+
+  const execute = (action: ActionDef<Ctx>): Promise<unknown> | undefined => {
+    if (!action.run || running.current.has(action.id)) return undefined
+    running.current.add(action.id)
+    setBusy(new Set(running.current))
+    const release = () => {
+      running.current.delete(action.id)
+      setBusy(new Set(running.current))
+    }
+    const started = Promise.resolve().then(() => action.run!(ctx))
+    started.then(taskDone).then(release, release)
+    return started
+  }
 
   const trigger = (action: ActionDef<Ctx>) => {
+    if (running.current.has(action.id)) return
     if (action.dialog) return setPending({ action, mode: 'dialog' })
     if (action.confirm) return setPending({ action, mode: 'confirm' })
-    if (!action.run) return
-    Promise.resolve()
-      .then(() => action.run!(ctx))
-      .catch((e: unknown) => toast.error(`${actionLabel(action, ctx)}失败`, { description: errorMessage(e) }))
+    execute(action)?.catch((e: unknown) => toast.error(`${actionLabel(action, ctx)}失败`, { description: errorMessage(e) }))
   }
 
   const close = (open: boolean) => {
@@ -54,7 +85,7 @@ export function useActionRunner<Ctx>(ctx: Ctx): { trigger: (action: ActionDef<Ct
         confirmLabel={spec.confirmLabel ?? actionLabel(last.action, ctx)}
         destructive={spec.destructive ?? last.action.destructive}
         typeToConfirm={spec.typeToConfirm}
-        onConfirm={() => last.action.run?.(ctx) as Promise<unknown> | void}
+        onConfirm={() => execute(last.action)}
       />
     )
   } else if (last?.mode === 'dialog' && last.action.dialog) {
@@ -65,13 +96,15 @@ export function useActionRunner<Ctx>(ctx: Ctx): { trigger: (action: ActionDef<Ct
       </Suspense>
     )
   }
-  return { trigger, host }
+  return { trigger, host, busy }
 }
 
 interface ActionBarProps<Ctx> {
   actions: readonly ActionDef<Ctx>[]
   ctx: Ctx
   trigger: (action: ActionDef<Ctx>) => void
+  /** Ids of actions in flight (from useActionRunner): shown busy and not triggered again. */
+  busy?: ReadonlySet<string>
   /** 'toolbar': desktop header buttons. 'dock': mobile floating bottom bar. */
   variant: 'toolbar' | 'dock'
   /** Max primary buttons before the rest moves into "更多" (dock: 3). */
@@ -85,7 +118,7 @@ function disabledReason<Ctx>(a: ActionDef<Ctx>, ctx: Ctx): string | null {
 }
 
 /** Primary actions as buttons plus a "更多" menu, from an action registry. */
-export function ActionBar<Ctx>({ actions, ctx, trigger, variant, maxPrimary, className }: ActionBarProps<Ctx>) {
+export function ActionBar<Ctx>({ actions, ctx, trigger, busy = NONE, variant, maxPrimary, className }: ActionBarProps<Ctx>) {
   const limit = maxPrimary ?? (variant === 'dock' ? 3 : 4)
   const primaries = actions.filter((a) => a.placement === 'primary')
   const shown = primaries.slice(0, limit)
@@ -106,7 +139,7 @@ export function ActionBar<Ctx>({ actions, ctx, trigger, variant, maxPrimary, cla
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side={variant === 'dock' ? 'top' : 'bottom'} className="min-w-48">
-        <ActionMenuItems actions={overflow} ctx={ctx} trigger={trigger} />
+        <ActionMenuItems actions={overflow} ctx={ctx} trigger={trigger} busy={busy} />
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -116,16 +149,18 @@ export function ActionBar<Ctx>({ actions, ctx, trigger, variant, maxPrimary, cla
       <div className={cn('flex flex-wrap items-center justify-end gap-2', className)}>
         {shown.map((a) => {
           const reason = disabledReason(a, ctx)
+          const inFlight = busy.has(a.id)
           return (
             <Button
               key={a.id}
               variant="outline"
-              disabled={!!reason}
+              disabled={!!reason || inFlight}
+              aria-busy={inFlight || undefined}
               title={reason ?? undefined}
               onClick={() => trigger(a)}
               className={cn(a.destructive && 'text-destructive hover:text-destructive')}
             >
-              {a.icon && <a.icon />}
+              {inFlight ? <Loader2 className="animate-spin" /> : a.icon && <a.icon />}
               {actionLabel(a, ctx)}
             </Button>
           )
@@ -150,16 +185,22 @@ export function ActionBar<Ctx>({ actions, ctx, trigger, variant, maxPrimary, cla
     >
       {shown.map((a) => {
         const reason = disabledReason(a, ctx)
+        const inFlight = busy.has(a.id)
         const Icon = a.icon
         return (
           <DockButton
             key={a.id}
             label={actionLabel(a, ctx)}
-            icon={Icon ? <Icon /> : null}
+            icon={inFlight ? <Loader2 className="animate-spin" /> : Icon ? <Icon /> : null}
             // Still tappable when unavailable: touch has no tooltip, so a tap says why.
-            aria-disabled={reason ? true : undefined}
+            aria-disabled={reason || inFlight ? true : undefined}
+            aria-busy={inFlight || undefined}
             destructive={a.destructive}
-            onClick={() => (reason ? toast.info(`暂时不能${actionLabel(a, ctx)}`, { description: reason }) : trigger(a))}
+            onClick={() => {
+              if (inFlight) return
+              if (reason) toast.info(`暂时不能${actionLabel(a, ctx)}`, { description: reason })
+              else trigger(a)
+            }}
           />
         )
       })}
@@ -196,10 +237,12 @@ export function ActionMenuItems<Ctx>({
   actions,
   ctx,
   trigger,
+  busy = NONE,
 }: {
   actions: readonly ActionDef<Ctx>[]
   ctx: Ctx
   trigger: (action: ActionDef<Ctx>) => void
+  busy?: ReadonlySet<string>
 }) {
   const sections: { name: string | undefined; items: ActionDef<Ctx>[] }[] = []
   for (const a of actions) {
@@ -215,16 +258,17 @@ export function ActionMenuItems<Ctx>({
           {s.name && sections.length > 1 && <DropdownMenuLabel className="text-xs text-muted-foreground">{s.name}</DropdownMenuLabel>}
           {s.items.map((a) => {
             const reason = disabledReason(a, ctx)
+            const inFlight = busy.has(a.id)
             return (
               <DropdownMenuItem
                 key={a.id}
                 variant={a.destructive ? 'destructive' : 'default'}
-                disabled={!!reason}
+                disabled={!!reason || inFlight}
                 title={reason ?? undefined}
                 onSelect={() => trigger(a)}
                 className="min-h-9 pointer-coarse:min-h-11"
               >
-                {a.icon && <a.icon />}
+                {inFlight ? <Loader2 className="animate-spin" /> : a.icon && <a.icon />}
                 {reason ? (
                   // The reason as a second line: `title` never shows on touch.
                   <span className="grid">

@@ -7,6 +7,24 @@ import { splitTags } from '@/lib/tags'
 
 export type TreeGrouping = 'node' | 'pool' | 'tag'
 
+/**
+ * Whether a tree row would render the same: it shows status, VMID, name, tags
+ * and the template mark, not the usage figures that change on every poll.
+ */
+export function sameTreeGuest(a: GuestResource, b: GuestResource): boolean {
+  return (
+    a === b ||
+    (a.id === b.id &&
+      a.vmid === b.vmid &&
+      a.type === b.type &&
+      a.node === b.node &&
+      a.name === b.name &&
+      a.status === b.status &&
+      a.template === b.template &&
+      a.tags === b.tags)
+  )
+}
+
 export interface TreePrefs {
   group: TreeGrouping
   showStorage: boolean

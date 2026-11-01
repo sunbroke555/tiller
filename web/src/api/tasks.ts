@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query'
 
-import { del, get, p, requestEnvelope } from './client'
+import { del, get, isClientError, p, requestEnvelope } from './client'
 import type { TaskStatus } from './types'
 
 // ------------------------------------------------------------------ UPID
@@ -184,7 +184,9 @@ export function useTaskStatus(node: string | null | undefined, upid: string | nu
     queryKey: taskKeys.status(node ?? '', upid ?? ''),
     queryFn: ({ signal }) => fetchTaskStatus(node!, upid!, signal),
     enabled: !!node && !!upid,
-    refetchInterval: (q) => (q.state.data?.status === 'stopped' ? false : TASK_POLL_MS),
+    // Stops once the task ended, or when its status cannot be read (403
+    // without Sys.Audit, 404 after the log was pruned): polling will not help.
+    refetchInterval: (q) => (q.state.data?.status === 'stopped' || isClientError(q.state.error) ? false : TASK_POLL_MS),
     refetchIntervalInBackground: true,
     staleTime: 0,
     ...options,

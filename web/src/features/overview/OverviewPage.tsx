@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Box, ListChecks, Monitor, Plus, SearchX, Server, Settings2 } from 'lucide-react'
 
@@ -86,13 +86,17 @@ export function OverviewPage() {
   const [selecting, setSelecting] = useState(false)
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const selectedGuests = useMemo(() => guests.filter((g) => selected.has(g.id)), [guests, selected])
-  const toggleSelected = (g: { id: string }) =>
-    setSelected((s) => {
-      const next = new Set(s)
-      if (next.has(g.id)) next.delete(g.id)
-      else next.add(g.id)
-      return next
-    })
+  // Stable: memoized rows compare it by identity.
+  const toggleSelected = useCallback(
+    (g: { id: string }) =>
+      setSelected((s) => {
+        const next = new Set(s)
+        if (next.has(g.id)) next.delete(g.id)
+        else next.add(g.id)
+        return next
+      }),
+    [],
+  )
   const exitSelection = () => {
     setSelecting(false)
     setSelected(new Set())

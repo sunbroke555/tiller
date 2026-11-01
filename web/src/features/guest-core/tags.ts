@@ -2,6 +2,7 @@
 // UI's colour hash for tags without an override, validation and editing.
 
 import type { ClusterOptions } from '@/api/guest-core'
+import type { PermissionChecker } from '@/lib/permissions'
 
 export type Rgb = [number, number, number]
 
@@ -143,6 +144,15 @@ export function tagError(tag: string, existing: readonly string[], caseSensitive
 }
 
 export type UserTagAccess = 'none' | 'list' | 'existing' | 'free'
+
+/**
+ * Whether user-tag-access does not apply: PVE lets users with Sys.Modify on
+ * "/" set any tag. Sys.Modify further down (e.g. on /nodes/<node>) is not
+ * enough, so the ticket cap table ("anywhere under /nodes") cannot decide it.
+ */
+export function bypassesTagAccess(perms: PermissionChecker, username: string | undefined): boolean {
+  return username === 'root@pam' || perms.can({ privs: 'Sys.Modify', path: '/' })
+}
 
 /** user-tag-access from /cluster/options (default: free). */
 export function parseUserTagAccess(options: ClusterOptions | null | undefined): { mode: UserTagAccess; list: string[] } {
