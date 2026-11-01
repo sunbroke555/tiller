@@ -134,5 +134,71 @@ for (const theme of THEMES) {
     await page.goto(`/storage/${node}/local/import`)
     await expect(page.getByText(/还没有导入|导入/).first()).toBeVisible()
     await shot(page, `${theme}-import`, mobile)
+
+    // The lab has no Proxmox Backup Server: mock one for the file browser.
+    await mockPbs(page, node)
+    await page.goto(`/storage/${node}/${PBS}/backup`)
+    await page.getByRole('button', { name: /vm\/100\/.* 的操作/ }).click()
+    await page.getByRole('menuitem', { name: '文件级恢复' }).click()
+    const fr = page.getByRole('dialog', { name: '文件级恢复' })
+    await fr.getByRole('button', { name: '打开 drive-scsi0.img.fidx' }).click()
+    await fr.getByRole('button', { name: '打开 part' }).click()
+    await fr.getByRole('button', { name: '打开 1' }).click()
+    await expect(fr.getByRole('button', { name: '打开 etc' })).toBeVisible()
+    await shot(page, `${theme}-file-restore`, mobile)
+  })
+}
+
+const PBS = 'pbs-demo'
+
+async function mockPbs(page: Page, node: string) {
+  const b64 = (s: string) => Buffer.from(s).toString('base64')
+  const now = Math.floor(Date.now() / 1000)
+  await page.route('**/api2/json/cluster/resources*', async (route) => {
+    const res = await route.fetch()
+    const body = (await res.json()) as { data: unknown[] }
+    body.data.push({
+      id: `storage/${node}/${PBS}`,
+      type: 'storage',
+      node,
+      storage: PBS,
+      plugintype: 'pbs',
+      content: 'backup',
+      status: 'available',
+      shared: 1,
+      disk: 412 * 2 ** 30,
+      maxdisk: 2 * 2 ** 40,
+    })
+    await route.fulfill({ response: res, json: body })
+  })
+  await page.route(`**/api2/json/nodes/${node}/storage/${PBS}/content*`, (route) =>
+    route.fulfill({
+      json: {
+        data: [
+          { volid: `${PBS}:backup/vm/100/2026-10-30T02:00:00Z`, content: 'backup', format: 'pbs-vm', subtype: 'qemu', vmid: 100, ctime: now - 86400, size: 2.1 * 2 ** 30, verification: { state: 'ok' } },
+          { volid: `${PBS}:backup/ct/200/2026-10-30T02:10:00Z`, content: 'backup', format: 'pbs-ct', subtype: 'lxc', vmid: 200, ctime: now - 80000, size: 310 * 2 ** 20, protected: 1, notes: '升级前' },
+        ],
+      },
+    }),
+  )
+  const dir = (p: string, text: string, type = 'd', extra: object = {}) => ({ filepath: b64(p), text, type, leaf: false, ...extra })
+  const file = (p: string, text: string, size: number) => ({ filepath: b64(p), text, type: 'f', leaf: true, size, mtime: now - 3600 * 30 })
+  const root = '/drive-scsi0.img.fidx/part/1'
+  const tree: Record<string, unknown[]> = {
+    '/': [dir('/drive-scsi0.img.fidx', 'drive-scsi0.img.fidx', 'v'), dir('/drive-efidisk0.img.fidx', 'drive-efidisk0.img.fidx', 'v')],
+    [b64('/drive-scsi0.img.fidx')]: [dir('/drive-scsi0.img.fidx/part', 'part', 'v')],
+    [b64('/drive-scsi0.img.fidx/part')]: [dir(root, '1', 'v'), dir('/drive-scsi0.img.fidx/part/2', '2', 'v')],
+    [b64(root)]: [
+      dir(`${root}/etc`, 'etc', 'd', { mtime: now - 7200 }),
+      dir(`${root}/home`, 'home', 'd', { mtime: now - 7200 }),
+      dir(`${root}/var`, 'var', 'd', { mtime: now - 7200 }),
+      file(`${root}/vmlinuz`, 'vmlinuz', 11.4 * 2 ** 20),
+      { filepath: b64(`${root}/initrd.img`), text: 'initrd.img', type: 'l', leaf: true },
+      file(`${root}/swap.img`, 'swap.img', 2 ** 30),
+    ],
+  }
+  await page.route('**/file-restore/list*', (route) => {
+    const fp = new URL(route.request().url()).searchParams.get('filepath') ?? '/'
+    return route.fulfill({ json: { data: tree[fp] ?? [] } })
   })
 }

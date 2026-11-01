@@ -132,13 +132,14 @@ export function PruneDialog({ node, storage, backups, group, open, onOpenChange 
         <div className="text-sm font-medium text-foreground">保留数量</div>
         <FormRow cols={3} className="grid-cols-3 gap-x-2.5 gap-y-3 sm:gap-x-4">
           {PRUNE_KEYS.map((k) => (
-            <FormField key={k} label={
-                <span className="text-xs font-normal text-muted-foreground">
-                  <span className="sr-only">保留</span>
-                  {PRUNE_LABEL[k]}
-                </span>
-              } name={k} className="gap-1.5">
+            <FormField
+              key={k}
+              label={<span className="text-xs font-normal text-muted-foreground">{PRUNE_LABEL[k]}</span>}
+              name={k}
+              className="gap-1.5"
+            >
               <NumberInput
+                aria-label={`保留${PRUNE_LABEL[k]}`}
                 value={keep[k]}
                 onChange={(v) => setKeep((prev) => ({ ...prev, [k]: v && v > 0 ? v : undefined }))}
                 min={0}

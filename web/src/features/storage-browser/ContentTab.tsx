@@ -36,6 +36,7 @@ import { cn } from '@/lib/utils'
 
 import { BackupConfigDialog, VolumeDetailsDialog } from './VolumeDetailsDialog'
 import { DownloadUrlDialog } from './DownloadUrlDialog'
+import { FileRestoreDialog } from './FileRestoreDialog'
 import { ImportDialog } from './ImportDialog'
 import { CONTENT_ICON, CONTENT_ITEM } from './labels'
 import { NotesDialog } from './NotesDialog'
@@ -281,6 +282,9 @@ export default function ContentTab({ node, storage, resource, content }: Storage
           open={dialog === d}
           onOpenChange={close}
         />
+      )}
+      {d?.kind === 'file-restore' && (
+        <FileRestoreDialog key={d.volume.volid} node={node} storage={storage} volume={d.volume} open={dialog === d} onOpenChange={close} />
       )}
       {d?.kind === 'import' && (
         <ImportDialog node={node} storage={storage} volume={d.volume} open={dialog === d} onOpenChange={close} />

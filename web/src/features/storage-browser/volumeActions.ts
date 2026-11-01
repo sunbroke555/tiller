@@ -16,7 +16,7 @@ import type { StorageVolume } from '@/api/storage-browser'
 
 import { backupGuestType, importKind, volumeVmid } from './volumes'
 
-export type VolumeDialogKind = 'details' | 'delete' | 'notes' | 'restore' | 'prune' | 'config' | 'import'
+export type VolumeDialogKind = 'details' | 'delete' | 'notes' | 'restore' | 'prune' | 'config' | 'import' | 'file-restore'
 
 export interface VolumeAction {
   id: string
@@ -47,8 +47,7 @@ export function volumeActions(v: StorageVolume, env: VolumeActionEnv): VolumeAct
     if (type) out.push({ id: 'restore', label: '恢复', icon: History, run: () => env.open('restore', v) })
     out.push({ id: 'config', label: '查看配置', icon: FileText, run: () => env.open('config', v) })
     if (env.isPbs) {
-      // PBS file-level restore (file-restore/list|download) is not built yet.
-      out.push({ id: 'file-restore', label: '文件级恢复', icon: FolderSearch, disabled: '文件级恢复即将推出', run: () => {} })
+      out.push({ id: 'file-restore', label: '文件级恢复', icon: FolderSearch, run: () => env.open('file-restore', v) })
     }
     out.push({ id: 'notes', label: '编辑备注', icon: StickyNote, run: () => env.open('notes', v) })
     out.push(

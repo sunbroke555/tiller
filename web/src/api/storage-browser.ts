@@ -141,6 +141,21 @@ export interface ImportMetadata {
   warnings: ImportWarning[]
 }
 
+/** pxar entry types of the PBS file browser (Proxmox.Schema.pxarFileTypes). */
+export type FileRestoreType = 'b' | 'c' | 'd' | 'f' | 'h' | 'l' | 'p' | 's' | 'v' | (string & {})
+
+/** One entry of GET /nodes/{node}/storage/{storage}/file-restore/list. */
+export interface FileRestoreEntry {
+  /** Base64 of the path inside the backup; pass back as `filepath`. */
+  filepath: string
+  text: string
+  type: FileRestoreType
+  leaf?: PveBool | boolean
+  size?: number
+  /** Unix seconds. */
+  mtime?: number
+}
+
 export const CHECKSUM_ALGORITHMS = ['md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512'] as const
 export type ChecksumAlgorithm = (typeof CHECKSUM_ALGORITHMS)[number]
 
@@ -165,6 +180,8 @@ export const storageKeys = {
     [...queryKeys.storage(node, storage), 'prune', JSON.stringify(params)] as const,
   importMeta: (node: string, storage: string, volume: string) =>
     [...queryKeys.storage(node, storage), 'import-metadata', volume] as const,
+  fileRestore: (node: string, storage: string, volume: string, filepath: string) =>
+    [...queryKeys.storage(node, storage), 'file-restore', volume, filepath] as const,
   backupConfig: (node: string, volume: string) => [...queryKeys.node(node), 'extractconfig', volume] as const,
 }
 
@@ -289,6 +306,46 @@ export function useImportMetadata(node: string, storage: string, volume: string 
     retry: false,
     ...options,
   })
+}
+
+/** Root of a PBS backup's file tree (the official browser's defaultRootId). */
+export const FILE_RESTORE_ROOT = '/'
+
+export function fetchFileRestoreList(node: string, storage: string, volume: string, filepath: string, signal?: AbortSignal) {
+  return get<FileRestoreEntry[]>(p`/nodes/${node}/storage/${storage}/file-restore/list`, { volume, filepath }, { signal })
+}
+
+/**
+ * One directory of a PBS backup. VM backups start a small restore VM on the
+ * first request; meanwhile PVE answers 503, which the official browser
+ * retries up to 10 times — so do we.
+ */
+export function useFileRestoreList(
+  node: string,
+  storage: string,
+  volume: string | null,
+  filepath: string,
+  options?: QueryOpts<FileRestoreEntry[]>,
+) {
+  return useQuery({
+    queryKey: storageKeys.fileRestore(node, storage, volume ?? '', filepath),
+    queryFn: ({ signal }) => fetchFileRestoreList(node, storage, volume!, filepath, signal),
+    enabled: !!volume,
+    staleTime: 5 * 60_000,
+    retry: (count, e) => isPveApiError(e) && e.status === 503 && count < 10,
+    retryDelay: 2_000,
+    ...options,
+  })
+}
+
+/**
+ * Download URL of a file (or a directory as .zip, or .tar.zst with `tar`).
+ * Plain GET: the browser sends the session cookie, the server streams it.
+ */
+export function fileRestoreDownloadUrl(node: string, storage: string, volume: string, filepath: string, tar = false): string {
+  const q = new URLSearchParams({ volume, filepath })
+  if (tar) q.set('tar', '1')
+  return apiUrl(p`/nodes/${node}/storage/${storage}/file-restore/download`, q)
 }
 
 // ---------------------------------------------------------------- writes

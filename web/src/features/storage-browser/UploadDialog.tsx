@@ -307,7 +307,7 @@ export function UploadDialog({ node, storage, contents, initialContent, open, on
           )}
         </FormSection>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          上传期间请保持此页面打开。文件先暂存到节点的 /var/tmp，再由任务移动到 {storage} 的
+          上传期间请保持此页面打开。文件先暂存到节点的 /var/tmp，再由任务移动到 {storage} 的{' '}
           {STORAGE_CONTENT_LABEL[content]}目录。
         </p>
       </div>
