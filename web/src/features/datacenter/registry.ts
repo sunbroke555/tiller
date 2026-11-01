@@ -92,7 +92,17 @@ export const datacenterSections: DatacenterSectionDef[] = [
     ready: true,
     component: lazy(() => import('@/features/resource-mappings/ResourceMappingsPage')),
   },
-  { id: 'options', title: '数据中心选项', hint: '默认值、标签、订阅', icon: Settings2, order: 130, phase: 3, component: comingSoonTab('数据中心选项、标签样式和订阅。', 3) },
+  {
+    id: 'options',
+    title: '数据中心选项',
+    hint: '默认值、标签、订阅',
+    icon: Settings2,
+    order: 130,
+    phase: 3,
+    ready: true,
+    permission: { privs: 'Sys.Audit' },
+    component: lazy(() => import('@/features/dc-options/DcOptionsPage')),
+  },
 ]
 
 export function datacenterSectionPath(id: string, sub?: string): string {

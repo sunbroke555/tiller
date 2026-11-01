@@ -8,8 +8,18 @@ import { cn } from '@/lib/utils'
 /** The datacenter tag style (colour overrides, shape, ordering); defaults until loaded. */
 export function useTagStyle(): TagStyle {
   const { data } = useClusterOptions()
-  const raw = data?.['tag-style']
-  return useMemo(() => parseTagStyle(typeof raw === 'string' ? raw : undefined), [raw])
+  const raw: unknown = data?.['tag-style']
+  return useMemo(() => parseTagStyle(tagStyleString(raw)), [raw])
+}
+
+/** GET /cluster/options returns `tag-style` parsed ({ 'color-map': …, shape, … }); older hosts send the string. */
+function tagStyleString(raw: unknown): string | undefined {
+  if (typeof raw === 'string') return raw
+  if (!raw || typeof raw !== 'object') return undefined
+  return Object.entries(raw as Record<string, unknown>)
+    .filter(([, v]) => v !== undefined && v !== null && v !== '')
+    .map(([k, v]) => `${k}=${String(v)}`)
+    .join(',')
 }
 
 function chipStyle(tag: string, style: TagStyle): { css: CSSProperties; override: boolean; hasFg: boolean; darkText: boolean } {
