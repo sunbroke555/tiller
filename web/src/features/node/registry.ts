@@ -13,6 +13,7 @@ import {
   HardDrive,
   LayoutDashboard,
   ListChecks,
+  Monitor,
   Network,
   Repeat,
   Settings2,
@@ -37,6 +38,13 @@ export const nodeTabs: NodeTabDef[] = [
     icon: LayoutDashboard,
     order: 10,
     component: lazy(() => import('@/features/node-summary/SummaryTab')),
+  },
+  {
+    id: 'guests',
+    title: '客户机',
+    icon: Monitor,
+    order: 15,
+    component: lazy(() => import('@/features/node-summary/GuestsTab')),
   },
   {
     id: 'shell',

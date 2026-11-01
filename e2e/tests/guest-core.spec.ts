@@ -282,6 +282,42 @@ test.describe('bulk actions', { tag: '@lab' }, () => {
   })
 })
 
+// Container start in debug mode (status/start debug=1). Uses VMID 3790 (the
+// phase-1 follow-up range 3700–3799), destroyed afterwards.
+test.describe('container debug start', { tag: '@lab' }, () => {
+  test('starts a stopped container with debug=1 after confirming', async ({ page, pve, cleanup, mobile }) => {
+    test.setTimeout(150_000)
+    const vmid = 3790
+    const name = 'e2e-p1-debug-ct'
+    await pve.destroyGuest(vmid)
+    cleanup.guest(vmid)
+    const templates = await pve.get<{ volid: string }[]>(`/nodes/${pve.node}/storage/local/content`, { content: 'vztmpl' })
+    const ostemplate = templates.map((t) => t.volid).find((v) => /alpine.*amd64/.test(v))
+    test.skip(!ostemplate, '实验机上没有 alpine 模板')
+    await pve.run('POST', `/nodes/${pve.node}/lxc`, {
+      vmid,
+      hostname: name,
+      ostemplate: ostemplate!,
+      memory: 64,
+      swap: 0,
+      rootfs: 'local-lvm:0.5',
+      unprivileged: 1,
+    })
+    await pve.waitForGuest(vmid, (g) => g.name === name)
+
+    await page.goto(`/guest/${pve.node}/lxc/${vmid}`)
+    await expect(primary(page, mobile, '启动')).toBeVisible()
+    const start = page.waitForRequest((r) => r.method() === 'POST' && r.url().endsWith(`/lxc/${vmid}/status/start`))
+    await menu(page, mobile, '调试模式启动')
+    const confirm = page.getByRole('alertdialog', { name: `以调试模式启动 ${name}？` })
+    await expect(confirm).toContainText('调试日志')
+    await confirm.getByRole('button', { name: '启动' }).click()
+    expect((await start).postData()).toContain('debug=1')
+    await running(pve, vmid)
+    await pve.run('POST', `/nodes/${pve.node}/lxc/${vmid}/status/stop`)
+  })
+})
+
 // Phones: the action dock, its sheets and the bulk bar, on the shared samples
 // (every dialog is cancelled).
 test.describe('phone action dock', { tag: '@mobile' }, () => {

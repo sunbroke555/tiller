@@ -16,6 +16,8 @@ export const STATUS_LABEL: Record<string, string> = {
   online: '在线',
   offline: '离线',
   available: '可用',
+  /** StatusDot of templates (screen-reader text). */
+  template: '模板',
   unknown: '未知',
 }
 

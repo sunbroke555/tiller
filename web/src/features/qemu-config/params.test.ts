@@ -25,6 +25,7 @@ import {
   parseSmbios,
   parseUsb,
   pciFormFrom,
+  pciMdevSource,
   pciValue,
   processorFormFrom,
   processorValues,
@@ -174,6 +175,22 @@ describe('devices', () => {
     expect(pciValue('01:00', f)).toBe('01:00')
     expect(pciValue(undefined, { ...f, allFunctions: false, pcie: true, primaryGpu: true, rombar: false })).toBe('01:00.0,x-vga=1,pcie=1,rombar=0')
     expect(pciValue(undefined, { ...pciFormFrom(undefined), mapping: 'gpu' })).toBe('mapping=gpu')
+    expect(pciValue(undefined, { ...pciFormFrom(undefined), mapping: 'vgpu', mdev: 'nvidia-63' })).toBe('mapping=vgpu,mdev=nvidia-63')
+  })
+
+  it('loads mdev types for mdev devices and mdev mappings only', () => {
+    const devices = [{ id: '0000:01:00.0', mdev: 1 }, { id: '0000:02:00.0' }]
+    const maps = [{ id: 'vgpu', mdev: 1 }, { id: 'vgpu2', mdev: true }, { id: 'nic' }]
+    const raw = (host: string) => pciMdevSource({ mode: 'raw', host, mapping: undefined }, devices, maps)
+    const mapped = (mapping: string | undefined) => pciMdevSource({ mode: 'mapped', host: undefined, mapping }, devices, maps)
+    expect(raw('0000:01:00.0')).toBe('0000:01:00.0')
+    expect(raw('0000:02:00.0')).toBeUndefined()
+    expect(mapped('vgpu')).toBe('vgpu')
+    expect(mapped('vgpu2')).toBe('vgpu2')
+    expect(mapped('nic')).toBeUndefined()
+    expect(mapped(undefined)).toBeUndefined()
+    // Mappings not loaded yet: nothing to ask for.
+    expect(pciMdevSource({ mode: 'mapped', host: undefined, mapping: 'vgpu' }, devices, undefined)).toBeUndefined()
   })
 
   it('builds RNG and virtiofs values', () => {

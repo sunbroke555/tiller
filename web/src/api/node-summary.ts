@@ -9,7 +9,7 @@ import { useQuery, type UseQueryOptions } from '@tanstack/react-query'
 
 import { get, isPveApiError, p, post, put, requestEnvelope, type Params } from './client'
 import { POLL, queryKeys } from './queries'
-import type { NodeRrdPoint, PveBool, RrdTimeframe } from './types'
+import type { GuestResource, GuestType, NodeRrdPoint, PveBool, RrdTimeframe } from './types'
 import { getSession } from './session'
 
 type QueryOpts<TData, TSelected = TData> = Omit<UseQueryOptions<TData, Error, TSelected>, 'queryKey' | 'queryFn'>
@@ -686,4 +686,68 @@ export function journalLineText(l: JournalLine, host?: string): string {
   if (l.reboot) return `${formatJournalTime(l.time)} -- Reboot --`
   const pid = l.pid !== undefined ? `[${l.pid}]` : ''
   return `${formatJournalTime(l.time)} ${host ? `${host} ` : ''}${l.identifier ?? ''}${pid}: ${l.message}`
+}
+
+// ------------------------------------------------------------ node guests
+
+/** One entry of GET /nodes/{node}/qemu?full=1 or GET /nodes/{node}/lxc (fields the list uses). */
+export interface NodeGuestEntry {
+  vmid: number | string
+  name?: string
+  status: string
+  /** QEMU: the real run state (running, paused, prelaunch, suspended …). */
+  qmpstatus?: string
+  template?: PveBool
+  lock?: string
+  tags?: string
+  cpu?: number
+  cpus?: number
+  mem?: number
+  maxmem?: number
+  disk?: number
+  maxdisk?: number
+  uptime?: number
+}
+
+/**
+ * Per-node guest index (overview/guest-index) as /cluster/resources-shaped
+ * rows, so the overview's list and filters work on it. QEMU's "running" is
+ * refined with qmpstatus (paused / prelaunch / suspended), the way the
+ * cluster resources report it.
+ */
+export function nodeGuestRows(node: string, qemu: readonly NodeGuestEntry[], lxc: readonly NodeGuestEntry[]): GuestResource[] {
+  const row = (type: GuestType, g: NodeGuestEntry): GuestResource => {
+    const vmid = Number(g.vmid)
+    const status = type === 'qemu' && g.status === 'running' && g.qmpstatus && g.qmpstatus !== 'running' ? g.qmpstatus : g.status
+    const out: GuestResource = { id: `${type}/${vmid}`, type, vmid, node, status }
+    if (g.name !== undefined) out.name = g.name
+    if (Number(g.template) === 1) out.template = 1
+    if (g.lock) out.lock = g.lock
+    if (g.tags) out.tags = g.tags
+    if (g.cpu !== undefined) out.cpu = g.cpu
+    if (g.cpus !== undefined) out.maxcpu = g.cpus
+    if (g.mem !== undefined) out.mem = g.mem
+    if (g.maxmem !== undefined) out.maxmem = g.maxmem
+    if (g.disk !== undefined) out.disk = g.disk
+    if (g.maxdisk !== undefined) out.maxdisk = g.maxdisk
+    if (g.uptime !== undefined) out.uptime = g.uptime
+    return out
+  }
+  return [...qemu.map((g) => row('qemu', g)), ...lxc.map((g) => row('lxc', g))].sort((a, b) => a.vmid - b.vmid)
+}
+
+/** VMs and CTs of one node (GET /nodes/{node}/qemu?full=1 + /nodes/{node}/lxc), polled like the resources. */
+export function useNodeGuests(node: string, options?: QueryOpts<GuestResource[]>) {
+  return useQuery({
+    queryKey: [...queryKeys.node(node), 'guests'],
+    queryFn: async ({ signal }) => {
+      const [qemu, lxc] = await Promise.all([
+        get<NodeGuestEntry[]>(p`/nodes/${node}/qemu`, { full: 1 }, { signal }),
+        get<NodeGuestEntry[]>(p`/nodes/${node}/lxc`, undefined, { signal }),
+      ])
+      return nodeGuestRows(node, qemu, lxc)
+    },
+    refetchInterval: POLL.resources,
+    ...options,
+  })
 }

@@ -120,6 +120,11 @@ export function powerRequest(mode: PowerMode, opts: PowerOptions = {}): { comman
   }
 }
 
+/** CT start with lxc-start's debug log level (POST .../lxc/{vmid}/status/start). */
+export function debugStartParams(): Params {
+  return { debug: 1 }
+}
+
 /** Task title for the toast: "关机 web-01". */
 export function powerTitle(mode: PowerMode | 'start' | 'resume', name: string): string {
   const verb: Record<PowerMode | 'start' | 'resume', string> = {

@@ -437,33 +437,153 @@ export function restoreParams(f: RestoreForm): Record<string, string | number> {
 // ----------------------------------------------------------------- import
 
 export interface ImportDiskRow {
+  /** Drive key of the source guest (scsi0, sata1, efidisk0 …). */
   id: string
   volid: string
   size?: number
   enabled: boolean
+  /** Target storage; unset = the default storage. */
+  storage?: string | undefined
+  /** Format on that storage; unset = the default format. */
+  format?: string | undefined
 }
 
 export interface ImportNetRow {
   id: string
   model: string
-  macaddr?: string
-  bridge?: string
+  macaddr?: string | undefined
+  /** Bridge on this node; unset = the default bridge. */
+  bridge?: string | undefined
+  tag?: number | undefined
   enabled: boolean
 }
 
-/** Disk and NIC rows of an import-metadata answer. */
-export function importRows(meta: ImportMetadata): { disks: ImportDiskRow[]; nets: ImportNetRow[] } {
+export interface ImportCdRow {
+  /** Slot (ide2, sata0 …). */
+  id: string
+  enabled: boolean
+  /** ISO volume; unset = empty drive. */
+  iso?: string | undefined
+  /**
+   * Extra drive for the VirtIO driver ISO (only offered for Windows, like the
+   * official wizard when the source has no CD-ROM).
+   */
+  extra?: boolean
+}
+
+const byId = <T extends { id: string }>(a: T, b: T) => a.id.localeCompare(b.id, undefined, { numeric: true })
+
+/** Highest index used on a bus (ide/sata) by the given drive keys; -1 if none. */
+function maxIndex(bus: 'ide' | 'sata', keys: readonly string[]): number {
+  let max = -1
+  for (const k of keys) {
+    const m = new RegExp(`^${bus}(\\d+)$`).exec(k)
+    if (m) max = Math.max(max, Number(m[1]))
+  }
+  return max
+}
+
+/** SATA has slots 0–5 (PVE.Utils.diskControllerMaxIDs). */
+const SATA_SLOTS = 6
+
+/** Slot for the extra VirtIO driver CD (official calculateAdditionalCDIdx); '' when IDE and SATA are full. */
+export function extraCdSlot(keys: readonly string[]): string {
+  const ide = maxIndex('ide', keys)
+  if (ide < 0) return 'ide0'
+  if (ide < 2) return 'ide2'
+  const sata = maxIndex('sata', keys)
+  return sata < SATA_SLOTS - 1 ? `sata${sata + 1}` : ''
+}
+
+export interface ImportRows {
+  disks: ImportDiskRow[]
+  nets: ImportNetRow[]
+  cdroms: ImportCdRow[]
+}
+
+/** Disk, NIC and CD/DVD rows of an import-metadata answer (official GuestImport load). */
+export function importRows(meta: ImportMetadata): ImportRows {
   const disks: ImportDiskRow[] = Object.entries(meta.disks ?? {})
     .map(([id, value]) =>
       typeof value === 'object' && value
         ? { id, volid: value.volid, size: value.size, enabled: true }
         : { id, volid: '', enabled: true },
     )
-    .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }))
+    .sort(byId)
   const nets: ImportNetRow[] = Object.entries(meta.net ?? {})
-    .map(([id, n]) => ({ id, model: n.model ?? 'virtio', macaddr: n.macaddr, bridge: n.bridge, enabled: true }))
-    .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }))
-  return { disks, nets }
+    .map(([id, n]) => {
+      const tag = n.tag !== undefined && n.tag !== '' ? Number(n.tag) : undefined
+      return {
+        id,
+        model: n.model ?? 'virtio',
+        macaddr: n.macaddr,
+        bridge: n.bridge,
+        tag: tag !== undefined && Number.isFinite(tag) ? tag : undefined,
+        enabled: true,
+      }
+    })
+    .sort(byId)
+  // CD-ROMs point at the source host's media: keep the drive, pick an ISO here.
+  const cdroms: ImportCdRow[] = Object.entries(meta['create-args'])
+    .filter(([, v]) => typeof v === 'string' && /media=cdrom/.test(v))
+    .map(([id]) => ({ id, enabled: true }))
+    .sort(byId)
+  if (cdroms.length === 0) {
+    const slot = extraCdSlot([...Object.keys(meta['create-args']), ...disks.map((d) => d.id)])
+    if (slot) cdroms.push({ id: slot, enabled: true, extra: true })
+  }
+  return { disks, nets, cdroms }
+}
+
+/** NICs keep their source bridge only if it exists on the target node; others use the default bridge. */
+export function keepKnownBridges(nets: readonly ImportNetRow[], bridges: readonly string[]): ImportNetRow[] {
+  return nets.map((n) => (n.bridge && !bridges.includes(n.bridge) ? { ...n, bridge: undefined } : n))
+}
+
+export function isWindowsOs(ostype: string | undefined): boolean {
+  return /^(win|w2k|wxp|wvista)/.test(ostype ?? '')
+}
+
+/** The extra driver CD shows only for Windows guests. */
+export function visibleCdRows(cdroms: readonly ImportCdRow[], ostype: string | undefined): ImportCdRow[] {
+  return cdroms.filter((c) => !c.extra || isWindowsOs(ostype))
+}
+
+/**
+ * "VirtIO-SCSI 准备" (official onPrepareVirtioChange): SCSI disks move to
+ * free SATA slots so Windows boots without VirtIO drivers; the controller
+ * becomes VirtIO SCSI single for disks added later. A disk that finds no
+ * free SATA slot maps to itself (the dialog warns about it).
+ */
+export function virtioDiskMap(meta: ImportMetadata, rows: ImportRows, ostype: string | undefined): Record<string, string> {
+  const keys = [
+    ...Object.keys(meta['create-args']),
+    ...rows.disks.map((d) => d.id),
+    ...rows.cdroms.filter((c) => !c.extra).map((c) => c.id),
+  ]
+  const sata = maxIndex('sata', keys)
+  const extraSata = isWindowsOs(ostype) && rows.cdroms.some((c) => c.extra && c.id.startsWith('sata'))
+  const map: Record<string, string> = {}
+  for (const d of rows.disks) {
+    const m = /^scsi(\d+)$/.exec(d.id)
+    if (!m) continue
+    const idx = Number(m[1]) + sata + 1 + (extraSata ? 1 : 0)
+    map[d.id] = idx < SATA_SLOTS ? `sata${idx}` : d.id
+  }
+  return map
+}
+
+/** Controller to preselect: VirtIO SCSI single when preparing a Windows guest, else the source's ('' = PVE default). */
+export function importScsihw(meta: ImportMetadata, ostype: string | undefined, prepareVirtio: boolean): string {
+  if (prepareVirtio && isWindowsOs(ostype)) return 'virtio-scsi-single'
+  const src = meta['create-args'].scsihw
+  return typeof src === 'string' && src !== '__default__' ? src : ''
+}
+
+/** "VirtIO-SCSI 准备" starts on for Windows guests with UEFI (official default). */
+export function defaultPrepareVirtio(meta: ImportMetadata): boolean {
+  const args = meta['create-args']
+  return isWindowsOs(String(args.ostype ?? '')) && String(args.bios ?? '').includes('ovmf')
 }
 
 /** Storage types whose disks can be qcow2 (others store raw only). */
@@ -473,35 +593,50 @@ export function diskFormatFor(storageType: string | undefined): 'qcow2' | 'raw' 
   return storageType && QCOW2_STORAGE_TYPES.has(storageType) ? 'qcow2' : 'raw'
 }
 
+/** Official GuestImport CPU type default when the source names none. */
+export const IMPORT_DEFAULT_CPU = 'x86-64-v2-AES'
+
 export interface ImportForm {
   vmid: number
   name?: string
-  sockets?: number
-  cores?: number
-  memory?: number
-  /** Default target storage for the disks, and its plugin type (for the format). */
+  sockets?: number | undefined
+  cores?: number | undefined
+  memory?: number | undefined
+  /** Default target storage for the disks. */
   storage: string
-  storageType?: string
+  /** Default format; unset = from the storage type (storageType). */
+  format?: string | undefined
+  storageType?: string | undefined
   /** Default bridge for NICs without one. */
   bridge: string
+  /** OS type override; unset = the source's. */
+  ostype?: string | undefined
+  /** SCSI controller: unset = the source's, '' = PVE default. */
+  scsihw?: string | undefined
+  /** Map SCSI disks to SATA (Windows, see virtioDiskMap). */
+  prepareVirtio?: boolean
   liveImport: boolean
   /** OVA: where the archive is extracted while importing. */
-  workingStorage?: string
+  workingStorage?: string | undefined
   /** Let PVE generate new MAC addresses. */
   uniqueMacs: boolean
   disks: ImportDiskRow[]
   nets: ImportNetRow[]
+  /** CD/DVD drives; unset = keep the source's drives, empty. */
+  cdroms?: ImportCdRow[]
 }
 
 /**
  * POST /nodes/{node}/qemu parameters for an OVA/OVF/ESXi import (official
- * GuestImport): the metadata's create-args, overridden by the form, every
- * enabled disk as "<storage>:0,import-from=<volid>" and the NICs.
+ * GuestImport onGetValues): the metadata's create-args, overridden by the
+ * form; every enabled disk as "<storage>:0,import-from=<volid>,format=…" on
+ * its own or the default storage (moved to SATA when preparing for VirtIO,
+ * with the boot order following), NICs with model, MAC, bridge and VLAN,
+ * and CD/DVD drives with their ISO.
  */
 export function importParams(meta: ImportMetadata, f: ImportForm): Record<string, string | number> {
   const config: Record<string, string | number> = {}
   for (const [k, v] of Object.entries(meta['create-args'])) {
-    // CD-ROMs point at the source host's media: keep the drive, drop the image.
     if (typeof v === 'string' && /media=cdrom/.test(v)) config[k] = 'none,media=cdrom'
     else config[k] = v
   }
@@ -511,20 +646,51 @@ export function importParams(meta: ImportMetadata, f: ImportForm): Record<string
   if (f.sockets) config.sockets = f.sockets
   if (f.cores) config.cores = f.cores
   if (f.memory) config.memory = f.memory
-  const format = diskFormatFor(f.storageType)
+  if (f.ostype) config.ostype = f.ostype
+  if (config.cpu === undefined) config.cpu = IMPORT_DEFAULT_CPU
+  if (f.scsihw !== undefined) {
+    if (f.scsihw) config.scsihw = f.scsihw
+    else delete config.scsihw
+  }
+
+  const ostype = typeof config.ostype === 'string' ? config.ostype : undefined
+  const rows: ImportRows = { disks: f.disks, nets: f.nets, cdroms: f.cdroms ?? [] }
+  const diskMap = f.prepareVirtio && isWindowsOs(ostype) ? virtioDiskMap(meta, rows, ostype) : {}
+  const defaultFormat = f.format ?? diskFormatFor(f.storageType)
+  // Only "order=a;b" boot strings follow renamed disks (not the legacy "cdn" form).
+  const boot = tryParsePropertyString(typeof config.boot === 'string' && /(^|,)order=/.test(config.boot) ? config.boot : undefined)
+  const order = boot.order ? boot.order.split(';') : null
   for (const d of f.disks) {
     if (!d.enabled) continue
+    const id = diskMap[d.id] ?? d.id
+    if (id !== d.id && order) {
+      const i = order.indexOf(d.id)
+      if (i !== -1) order[i] = id
+    }
+    const file = `${d.storage || f.storage}:0`
+    const format = d.format ?? defaultFormat
     if (d.id === 'efidisk0') {
-      config[d.id] = stringifyPropertyString({ file: `${f.storage}:0`, efitype: '4m', format }, 'file')
+      config[id] = stringifyPropertyString({ file, efitype: '4m', format }, 'file')
       continue
     }
     if (!d.volid) continue
-    config[d.id] = stringifyPropertyString({ file: `${f.storage}:0`, 'import-from': d.volid, format }, 'file')
+    config[id] = stringifyPropertyString({ file, 'import-from': d.volid, format }, 'file')
   }
+  if (order) config.boot = stringifyPropertyString({ ...boot, order: order.join(';') })
+
   for (const n of f.nets) {
     if (!n.enabled) continue
     const head = !f.uniqueMacs && n.macaddr ? `${n.model}=${n.macaddr}` : n.model
-    config[n.id] = `${head},bridge=${n.bridge || f.bridge}`
+    config[n.id] = [head, `bridge=${n.bridge || f.bridge}`, n.tag !== undefined ? `tag=${n.tag}` : null].filter(Boolean).join(',')
+  }
+  if (f.cdroms) {
+    for (const c of visibleCdRows(f.cdroms, ostype)) {
+      if (!c.enabled) {
+        delete config[c.id]
+        continue
+      }
+      config[c.id] = `${c.iso || 'none'},media=cdrom`
+    }
   }
   if (f.liveImport) config['live-restore'] = 1
   if (f.workingStorage) config['import-working-storage'] = f.workingStorage
@@ -538,7 +704,9 @@ export interface DiskImportForm {
   cores: number
   memory: number
   storage: string
-  storageType?: string
+  /** Disk format; unset = from the storage type. */
+  format?: string | undefined
+  storageType?: string | undefined
   bridge: string
   volid: string
 }
@@ -552,7 +720,7 @@ export function diskImportParams(f: DiskImportForm): Record<string, string | num
     ostype: 'l26',
     scsihw: 'virtio-scsi-single',
     scsi0: stringifyPropertyString(
-      { file: `${f.storage}:0`, 'import-from': f.volid, format: diskFormatFor(f.storageType) },
+      { file: `${f.storage}:0`, 'import-from': f.volid, format: f.format ?? diskFormatFor(f.storageType) },
       'file',
     ),
     net0: `virtio,bridge=${f.bridge}`,

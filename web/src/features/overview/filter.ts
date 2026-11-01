@@ -1,23 +1,26 @@
 // Guest list filters of the overview (kept in the URL so links like
-// "/?type=qemu&filter=running" from the datacenter summary work).
+// "/?type=qemu&filter=running" or "/?type=lxc&filter=template" from the
+// datacenter summary work). Status partitions the guests the way the
+// datacenter counts them: running, stopped (not running, no template) and
+// templates; the type filter matches VMs or CTs including their templates.
 
 import { hasAllTags, splitTags } from '@/lib/tags'
 
-export type GuestFilter = 'all' | 'running' | 'stopped'
-export type GuestTypeFilter = 'all' | 'qemu' | 'lxc' | 'template'
+export type GuestFilter = 'all' | 'running' | 'stopped' | 'template'
+export type GuestTypeFilter = 'all' | 'qemu' | 'lxc'
 export type GuestSort = 'vmid' | 'name' | 'cpu' | 'mem' | 'status'
 
 export const FILTERS: { value: GuestFilter; label: string }[] = [
   { value: 'all', label: '全部' },
   { value: 'running', label: '运行中' },
   { value: 'stopped', label: '已停止' },
+  { value: 'template', label: '模板' },
 ]
 
 export const TYPE_FILTERS: { value: GuestTypeFilter; label: string }[] = [
   { value: 'all', label: '全部类型' },
   { value: 'qemu', label: '虚拟机' },
   { value: 'lxc', label: '容器' },
-  { value: 'template', label: '模板' },
 ]
 
 export const SORTS: { value: GuestSort; label: string }[] = [
@@ -28,10 +31,11 @@ export const SORTS: { value: GuestSort; label: string }[] = [
   { value: 'mem', label: '内存' },
 ]
 
-/** "stopped" means everything not running (paused, templates …). */
-export function filterGuests<T extends { status: string }>(guests: T[], filter: GuestFilter): T[] {
-  if (filter === 'running') return guests.filter((g) => g.status === 'running')
-  if (filter === 'stopped') return guests.filter((g) => g.status !== 'running')
+/** "stopped" means every non-template guest that is not running (also paused); templates are their own group. */
+export function filterGuests<T extends { status: string; template?: number | undefined }>(guests: T[], filter: GuestFilter): T[] {
+  if (filter === 'running') return guests.filter((g) => g.status === 'running' && g.template !== 1)
+  if (filter === 'stopped') return guests.filter((g) => g.status !== 'running' && g.template !== 1)
+  if (filter === 'template') return guests.filter((g) => g.template === 1)
   return guests
 }
 
@@ -54,8 +58,10 @@ function oneOf<T extends string>(v: string | null, values: readonly { value: T }
 }
 
 export function readGuestQuery(params: URLSearchParams): GuestQuery {
+  // Older links used type=template for "all templates".
+  const legacyTemplate = params.get('type') === 'template'
   return {
-    status: oneOf(params.get('filter'), FILTERS, 'all'),
+    status: legacyTemplate ? 'template' : oneOf(params.get('filter'), FILTERS, 'all'),
     type: oneOf(params.get('type'), TYPE_FILTERS, 'all'),
     tags: params.getAll('tag').flatMap((t) => splitTags(t)).map((t) => t.toLowerCase()),
     node: params.get('node') || null,
@@ -103,7 +109,7 @@ const STATUS_RANK: Record<string, number> = { running: 0, paused: 1, suspended: 
 export function narrowGuests<T extends FilterableGuest>(guests: readonly T[], q: GuestQuery): T[] {
   const text = q.q.trim().toLowerCase()
   return guests.filter((g) => {
-    if (q.type === 'template' ? g.template !== 1 : q.type !== 'all' && (g.type !== q.type || g.template === 1)) return false
+    if (q.type !== 'all' && g.type !== q.type) return false
     if (q.node && g.node !== q.node) return false
     if (q.pool && g.pool !== q.pool) return false
     if (!hasAllTags(g, q.tags)) return false

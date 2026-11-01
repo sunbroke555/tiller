@@ -189,6 +189,39 @@ test.describe.serial('console', { tag: '@lab' }, () => {
   })
 })
 
+// Datacenter default console (/cluster/options `console`), mocked on top of
+// the lab's real options; only the node shell is opened (no guest needed).
+test.describe('datacenter default console', { tag: '@desktop' }, () => {
+  async function mockConsoleOption(page: Page, value: string) {
+    await page.route('**/api2/json/cluster/options', async (route) => {
+      const res = await route.fetch()
+      const body = (await res.json()) as { data: Record<string, unknown> }
+      await route.fulfill({ response: res, json: { ...body, data: { ...body.data, console: value } } })
+    })
+  }
+
+  test('html5 opens the node shell tab in noVNC', async ({ page, pve }) => {
+    await mockConsoleOption(page, 'html5')
+    await page.goto(`/node/${pve.node}/shell`)
+    const panel = page.getByRole('tabpanel', { name: 'Shell' })
+    await expect(panel.getByRole('radiogroup', { name: '控制台类型' }).getByRole('radio', { name: 'VNC' })).toHaveAttribute('aria-checked', 'true')
+    await expect(panel.getByTestId('vnc-console').locator('canvas')).toBeVisible({ timeout: 30_000 })
+    await expectConnected(page)
+  })
+
+  test('vv (SPICE) offers the .vv download once and keeps the web shell', async ({ page, pve }) => {
+    await mockConsoleOption(page, 'vv')
+    await page.goto(`/console/${pve.node}/shell`)
+    const dialog = page.getByRole('dialog', { name: 'SPICE 远程查看' })
+    await expect(dialog).toBeVisible({ timeout: 20_000 })
+    await dialog.getByRole('button', { name: '取消' }).click()
+    await expect(dialog).toBeHidden()
+    await expect(page.getByRole('radiogroup', { name: '控制台类型' }).getByRole('radio', { name: '终端' })).toHaveAttribute('aria-checked', 'true')
+    await expectConnected(page)
+    await expect(dialog).toHaveCount(0)
+  })
+})
+
 test.describe('console on phones', { tag: '@mobile' }, () => {
   test('node shell key bar: Ctrl+C and sticky Ctrl', async ({ page, pve }) => {
     await page.goto(`/console/${pve.node}/shell`)
