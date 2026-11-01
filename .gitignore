@@ -17,3 +17,4 @@ e2e/.run/
 
 # Screenshots from the visual e2e specs stay local (e2e/test-results, fetched with rt --back)
 docs/screenshots/
+.claude/
