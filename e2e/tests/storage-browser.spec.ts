@@ -502,6 +502,8 @@ test.describe('lab content', { tag: '@lab' }, () => {
 
       await rowAction(page, file, '导入')
       const dlg = page.getByRole('dialog', { name: '用磁盘镜像创建虚拟机' })
+      // Let the suggested ID arrive first, then type ours.
+      await expect(dlg.getByRole('textbox', { name: 'VM ID' })).not.toHaveValue('')
       await dlg.getByRole('textbox', { name: 'VM ID' }).fill(String(id.imported))
       await expect(dlg.getByText('可用', { exact: true })).toBeVisible({ timeout: 10_000 })
       await dlg.getByRole('textbox', { name: '名称' }).fill(vmName)
