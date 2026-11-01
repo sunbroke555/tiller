@@ -31,7 +31,10 @@ export function BottomNav({ className }: { className?: string }) {
           >
             {({ isActive }) => (
               <>
-                <item.icon className={cn('size-5', isActive && 'text-brand')} strokeWidth={isActive ? 2.2 : 1.8} />
+                <span className="relative">
+                  <item.icon className={cn('size-5', isActive && 'text-brand')} strokeWidth={isActive ? 2.2 : 1.8} />
+                  {item.badge && <item.badge className="absolute -top-1.5 left-3.5 ring-2 ring-(--glass-solid-strong)" />}
+                </span>
                 <span>{item.label}</span>
               </>
             )}

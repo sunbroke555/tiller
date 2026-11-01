@@ -87,6 +87,8 @@ interface LogTarget {
   node: string
   upid: string
   title?: string
+  /** End time (Unix seconds) when known from a task list, to show the duration. */
+  endtime?: number
 }
 
 interface Snapshot {

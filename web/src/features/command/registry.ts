@@ -6,6 +6,7 @@ import { guestCoreCommands } from '@/features/guest-core/commands'
 import { guestCreateCommands } from '@/features/guest-create/commands'
 import { guestLifecycleCommands } from '@/features/guest-lifecycle/commands'
 import { nodeSummaryCommands } from '@/features/node-summary/commands'
+import { tasksCommands } from '@/features/tasks/commands'
 
 import type { CommandDef, GlobalCommand, GuestCommand, NodeCommand } from './types'
 
@@ -15,6 +16,7 @@ export const commands: CommandDef[] = [
   ...guestLifecycleCommands,
   ...guestCreateCommands,
   ...nodeSummaryCommands,
+  ...tasksCommands,
 ]
 
 export const globalCommands = (): GlobalCommand[] =>

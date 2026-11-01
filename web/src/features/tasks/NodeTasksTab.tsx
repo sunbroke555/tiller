@@ -1,7 +1,8 @@
-import { AreaPlaceholder } from '@/components/page/AreaPlaceholder'
 import type { NodeTabProps } from '@/features/node/types'
 
-/** Placeholder owned by area `tasks-logs`: replace with the real tab. */
-export default function NodeTasksTab(_props: NodeTabProps) {
-  return <AreaPlaceholder area="tasks-logs">这个节点的任务历史与日志。</AreaPlaceholder>
+import { TaskHistoryView } from './TaskHistoryView'
+
+/** Node → 任务历史: the node's full task history with filters. */
+export default function NodeTasksTab({ node }: NodeTabProps) {
+  return <TaskHistoryView fixed={{ node }} />
 }

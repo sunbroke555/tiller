@@ -44,7 +44,7 @@ export function BottomDock({ children }: { children: ReactNode }) {
     <DockSlotContext value={slot}>
       {children}
       <div
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex flex-col items-center gap-2.5 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:inset-x-auto lg:right-6 lg:bottom-6 lg:w-[23rem] lg:px-0 lg:pb-0"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex flex-col items-center gap-2.5 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:inset-x-auto lg:right-6 lg:bottom-[calc(var(--task-footer-h,0px)+1rem)] lg:w-[23rem] lg:px-0 lg:pb-0"
       >
         <TaskToast className="pointer-events-auto w-full max-w-md lg:max-w-none" />
         <div ref={measured} className="flex w-full flex-col items-center gap-2.5 lg:hidden">

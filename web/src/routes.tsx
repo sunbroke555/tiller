@@ -43,6 +43,7 @@ export const routes: RouteObject[] = [
       { path: 'storage', element: <StoragePage /> },
       { path: 'storage/:node/:storage/:tab?', ...page(() => import('@/features/storage/StorageDetailPage')) },
       { path: 'tasks', ...page(() => import('@/features/tasks/TasksPage')) },
+      { path: 'cluster/log', ...page(() => import('@/features/tasks/ClusterLogPage')) },
       { path: 'create/qemu', ...page(() => import('@/features/guest-create/CreateQemuPage')) },
       { path: 'create/lxc', ...page(() => import('@/features/guest-create/CreateLxcPage')) },
       { path: 'shell', element: <ShellPage /> },
