@@ -64,7 +64,17 @@ export const datacenterSections: DatacenterSectionDef[] = [
   { id: 'cluster', title: '集群', hint: '创建、加入、节点管理', icon: Server, order: 100, phase: 3, component: comingSoonTab('创建集群、加入信息、节点和 corosync 链路。', 3) },
   { id: 'notifications', title: '通知与指标', hint: '通知目标、匹配器、指标服务器', icon: Bell, order: 110, phase: 3, component: comingSoonTab('通知目标、匹配器和指标服务器。', 3) },
   { id: 'mappings', title: '资源映射', hint: 'PCI、USB、目录映射与自定义 CPU', icon: Boxes, order: 120, phase: 3, component: comingSoonTab('PCI、USB、目录映射和自定义 CPU 模型。', 3) },
-  { id: 'options', title: '数据中心选项', hint: '默认值、标签、订阅', icon: Settings2, order: 130, phase: 3, component: comingSoonTab('数据中心选项、标签样式和订阅。', 3) },
+  {
+    id: 'options',
+    title: '数据中心选项',
+    hint: '默认值、标签、订阅',
+    icon: Settings2,
+    order: 130,
+    phase: 3,
+    ready: true,
+    permission: { privs: 'Sys.Audit' },
+    component: lazy(() => import('@/features/dc-options/DcOptionsPage')),
+  },
 ]
 
 export function datacenterSectionPath(id: string, sub?: string): string {
