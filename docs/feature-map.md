@@ -31,7 +31,7 @@
 7. **登录前的同意横幅（consent-text）由 Go 服务抓取 PVE 首页中注入的 `ConsentText` 后提供**。官方 UI 从 index.html 注入，未登录时 API 读不到。如果实现成本高，可退化为登录后再显示。
 8. **官方 UI 未使用的接口默认不实现**，见附录 B，包括 remote_migrate、agent exec/file-write、`/nodes/{node}/execute`、`pvecm delnode` 对应接口、存储卷复制等。Guest Agent 的写操作（exec、设密码）即使以后实现，也排在最后，并要求二次确认。
 9. **HA 组（/cluster/ha/groups）在 9.x 已废弃**，改用 HA 规则。本项目只读展示旧组，不提供新建。
-10. **所有对生产 PVE 的测试只读**。写操作只针对实验机（VMID 9900 的嵌套 PVE），见 ARCHITECTURE.md。
+10. **所有对生产 PVE 的测试只读**。写操作只针对实验集群（192.168.0.5 上的嵌套 PVE），见 docs/LAB.md。
 
 ## 0. 实现区域（area）一览
 

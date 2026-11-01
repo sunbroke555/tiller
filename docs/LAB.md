@@ -1,28 +1,18 @@
-# 实验机（嵌套 PVE）
+# 实验环境（嵌套 PVE 集群）
 
-所有写操作测试只对这台实验机做。生产 PVE（192.168.0.6）只读，任何测试都不能指向它写入。
+所有写操作测试只对实验集群做。生产 PVE（192.168.0.6）只读，任何测试都不能指向它写入。
 
-## 概况
-
-| 项目 | 值 |
-| --- | --- |
-| 宿主 | 生产 PVE 上的 VM 9900 “pve-web-lab”（嵌套 PVE，宿主侧由编排脚本管理，测试不要碰） |
-| 地址 | `https://192.168.0.245:8006`（自签证书） |
-| 节点名 | **`pve-lab`**（fqdn `pve-lab.lan`） |
-| 版本 | Proxmox VE 9.2（Debian trixie），apt 已切到 no-subscription 源（pve + ceph-squid），企业源已停用 |
-| 资源 | 3 GiB 内存（客户机实际可用约 1.4 GiB）、2 GiB swap；嵌套 KVM 可用（`/dev/kvm`，nested=Y） |
-| 存储 | `local`（dir，约 16 GB，放 ISO/CT 模板/备份）、`local-lvm`（lvmthin，约 21.6 GB，放磁盘） |
-| 网络 | `vmbr0` 桥接到局域网（192.168.0.0/24）。客户机网卡默认用 `ip=manual` 或不配 IP，避免和局域网地址冲突 |
+> 2026-11-01 起只有一套实验环境：192.168.0.5 上的 3 节点集群（见文末“实验集群”）。原来生产主机上的单机实验机（VM 9900，`pve-lab`，192.168.0.245）已删除。下面的用户、样例客户机、规格和号段规则都适用于这个集群，样例客户机在 `pvelab-c1` 上。
 
 ## 访问方式
 
-- 连接信息存在测试服务器 `~/.config/pve-web/lab.env`（权限 600，**不入库**）。用法：`set -a; . ~/.config/pve-web/lab.env; set +a`。
-  - `PVE_LAB_URL`、`PVE_LAB_HOST`、`PVE_LAB_NODE`（= `pve-lab`）
+- 连接信息在测试服务器 `~/.config/pve-web/lab.env`（软链接到 `lab-cluster.env`，权限 600，**不入库**）。`scripts/with-lab-env.sh` 默认读它：`rt -- scripts/with-lab-env.sh make e2e-area AREA=<id> PORT=<port>`。
+  - `PVE_LAB_URL`、`PVE_LAB_HOST`、`PVE_LAB_NODE`（= `pvelab-c1`）、`PVE_LAB_NODES`、`PVE_LAB_NODE_IPS`
   - `PVE_LAB_USER`（`root@pam`）/ `PVE_LAB_PASSWORD`
   - `PVE_LAB_TESTER_USER`（`tester@pve`）/ `PVE_LAB_TESTER_PASSWORD`
-  - `PVE_LAB_FINGERPRINT`：pve-ssl 证书的 SHA-256 指纹（冒号分隔的大写十六进制），用于校验证书
-- 在测试服务器上执行 `ssh pvelab` 可以 root 登录实验机，用于准备或清理测试数据（如 `qm`、`pct`、`pvesh`、`pveum`）。
-- 本地开发示例：`rt -- bash -c 'set -a; . ~/.config/pve-web/lab.env; PVE_URL=$PVE_LAB_URL PVE_INSECURE_TLS=1 make dev'`。
+  - `PVE_LAB_FINGERPRINT`：c1 的 pve-ssl 证书 SHA-256 指纹，用于校验证书
+- 在测试服务器上 `ssh pvelab`（= c1）或 `ssh pvelab-c1/c2/c3` 可以 root 登录节点，用于准备或清理测试数据。
+- 本地开发示例：`rt -- scripts/with-lab-env.sh bash -c 'PVE_URL=$PVE_LAB_URL PVE_TLS_FINGERPRINT=$PVE_LAB_FINGERPRINT make dev'`。
 
 ## 用户与权限
 
@@ -49,7 +39,7 @@
 - ISO：`local:iso/alpine-virt-3.24.3-x86_64.iso`（约 67MB，用于创建向导）
 - CT 模板：`local:vztmpl/alpine-3.24-default_20260714_amd64.tar.xz`
 
-样例被改乱时的恢复方式（在 `ssh pvelab` 中执行）：
+样例被改乱时的恢复方式（在 `ssh pvelab`（c1）中执行）：
 
 ```sh
 qm stop 100 2>/dev/null; qm rollback 100 base      # VM 100 回到 base 快照
@@ -90,8 +80,8 @@ qm start 101 2>/dev/null; pct start 200 2>/dev/null  # 101 和 200 应保持运�
 
 ## 安全约束
 
-- 只有实验机（192.168.0.245）可以写。生产主机 192.168.0.6 及其上的客户机绝不写入，应用也不能以可写方式连到它。
-- 实验机宿主侧（生产主机上的 VM 9900）由编排脚本管理，测试不要关闭、重启或修改它。
+- 只有实验集群（192.168.0.246–248）可以写。生产主机 192.168.0.6 及其上的客户机绝不写入，应用也不能以可写方式连到它。
+- 实验集群的宿主侧（192.168.0.5 上的 VM 9901–9903）只用于快照回滚，测试不要关闭、重启或修改它们。
 - 密码只放在测试服务器的 `lab.env` 中。不要打印，也不要写进仓库、日志、截图或测试报告。
 - 不要在实验机上做 `apt full-upgrade`、重启节点、修改 `vmbr0` 或管理网络等可能导致失联的操作。节点重启类测试只在界面上验证确认流程，不真的提交。
 
@@ -118,7 +108,7 @@ qm start 101 2>/dev/null; pct start 200 2>/dev/null  # 101 和 200 应保持运�
 - 磁盘管理（`node-disks` 区）只写 c3 的 `sdc`、`sdd`（序列号 `drive-scsi2`、`drive-scsi3`），在上面建/删 GPT、ZFS、LVM、LVM-Thin、目录存储（`e2e-disks-*`），结束后擦除，平时保持空白。写之前 `e2e/tests/node-disks.spec.ts` 的 `assertTargets` 会核对大小、序列号，并确认两块盘完全空闲（没有 `used`、没有分区、不是 LVM 物理卷 / ZFS 成员 / Ceph OSD），否则拒绝运行。
 - 连接信息：测试服务器 `~/.config/pve-web/lab-cluster.env`（变量名同 `lab.env`，另有 `PVE_LAB_NODES`、`PVE_LAB_NODE_IPS`），`PVE_LAB_URL` 指向 c1。
 - SSH：测试服务器上 `ssh pvelab-c1` / `pvelab-c2` / `pvelab-c3`；宿主 `ssh pve5`（只用于快照回滚，测试不要直接操作宿主）。
-- 样例客户机和用户与单机实验机相同（在 c1 上：100、101、200、9000 模板、`tester@pve`、`lab-pool`）。VMID 在整个集群内唯一，号段规则同上。
+- 样例客户机和用户见上文（在 c1 上：100、101、200、9000 模板、`tester@pve`、`lab-pool`）。VMID 在整个集群内唯一，号段规则同上。
 - 回滚：在测试服务器上 `ssh pve5 'for i in 9901 9902 9903; do qm rollback $i fresh; qm start $i; done'`。
 - 重建：`~/pvelab-build/cluster/cluster-setup.sh`（需要先用自动安装 ISO 装好 3 台节点）。
 - 存储复制（`replication` 区，VMID 5700–5799）：c1、c2 的 `sdb` 上各有一个 ZFS 池 `e2erep`，集群存储 `e2e-rep`（zfspool，节点 pvelab-c1、pvelab-c2，content images,rootdir）。由 `e2e/tests/replication.spec.ts` 按需创建（幂等），测试结束后**保留**，留给后续阶段（HA、迁移）使用；c1、c2 的 `sdc` 现在是 Ceph OSD（见下）。不需要时：`pvesm remove e2e-rep`，再在 c1、c2 上 `zpool destroy e2erep && wipefs -a /dev/sdb`。

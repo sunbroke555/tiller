@@ -67,7 +67,7 @@ make clean
 ```
 
 `make dev` 需要设置 `PVE_URL` 等变量，例如 `PVE_URL=https://<实验机>:8006 PVE_INSECURE_TLS=1 make dev`，然后访问 `http://<主机>:5173`。
-写操作只对实验机（VMID 9900）做，连接信息在测试服务器 `~/.config/pve-web/lab.env`。
+写操作只对实验集群（192.168.0.5 上的 3 节点嵌套 PVE，见 docs/LAB.md）做，连接信息在测试服务器 `~/.config/pve-web/lab.env`。
 
 端到端测试在 `e2e/`（Playwright，headless 跑在测试服务器上，对接实验机）。每个 make 目标都会按需构建、在 `PORT` 上启动 pve-web、跑测试，最后无论成败都停掉服务器。按改动大小选测试层级：
 
