@@ -164,11 +164,14 @@ export function CreateOsdDialog({ apiNode, defaultNode, open, onOpenChange }: Di
 export function FlagsDialog({ open, onOpenChange }: DialogProps) {
   const flags = useCephFlags(open)
   const [values, setValues] = useState<Record<string, boolean>>({})
+  const [touched, setTouched] = useState(false)
   useEffect(() => {
-    if (open && flags.data) setValues(Object.fromEntries(flags.data.map((f) => [f.name, flagIsSet(f)])))
-    // Only when the dialog opens or the first data arrives, not on every poll.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, !!flags.data])
+    if (open) setTouched(false)
+  }, [open])
+  // Follow the server (cached data first, then the refetch on open) until the user changes something.
+  useEffect(() => {
+    if (open && flags.data && !touched) setValues(Object.fromEntries(flags.data.map((f) => [f.name, flagIsSet(f)])))
+  }, [open, flags.data, touched])
   const changes = flags.data ? flagChanges(flags.data, values) : null
 
   return (
@@ -199,7 +202,10 @@ export function FlagsDialog({ open, onOpenChange }: DialogProps) {
               }
               description={f.description}
               checked={values[f.name] ?? false}
-              onCheckedChange={(v) => setValues((s) => ({ ...s, [f.name]: v }))}
+              onCheckedChange={(v) => {
+                setTouched(true)
+                setValues((s) => ({ ...s, [f.name]: v }))
+              }}
             />
           ))}
         </div>

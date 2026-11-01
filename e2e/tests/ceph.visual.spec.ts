@@ -100,7 +100,7 @@ test('ceph screens (dark)', async ({ page, pve }, info) => {
   await expect(page.locator('[data-device="block"]')).toBeVisible()
   await shot('osd-details', false)
   await page.keyboard.press('Escape')
-  await page.getByRole('button', { name: '全局标志' }).click()
+  await page.getByRole('button', { name: '全局标志', exact: true }).click()
   await shot('osd-flags', false)
   await page.keyboard.press('Escape')
 

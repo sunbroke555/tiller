@@ -4,7 +4,7 @@
 // network, size, min_size) with the first monitor, and show the next steps.
 // Only root@pam may run the install shell.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Check, CircleCheck, Loader2, SquareTerminal } from 'lucide-react'
 
@@ -264,9 +264,9 @@ function ConfigStep({ node, onBack, onDone }: { node: string; onBack: () => void
     return out
   }, [networks.data])
   // Preselect the network of the first interface with an address (official: none; this saves a tap).
+  const touched = useRef(false)
   useEffect(() => {
-    if (!form.network && detected[0]) set('network', detected[0].cidr)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!touched.current && detected[0]) setForm((f) => (f.network ? f : { ...f, network: detected[0]!.cidr }))
   }, [detected])
 
   const formError = initFormError(form)
@@ -293,7 +293,12 @@ function ConfigStep({ node, onBack, onDone }: { node: string; onBack: () => void
         <p className="mt-1 text-sm text-muted-foreground">创建 /etc/pve/ceph.conf，并在 {node} 上创建第一个监视器（和管理器）。</p>
       </div>
       <FormField label="公共网络" required hint="Ceph 客户端和监视器使用的网络（CIDR）" error={form.network && !isCidr(form.network) ? '应为 CIDR，例如 10.10.10.0/24' : undefined}>
-        <FieldInput value={form.network} onChange={(e) => set('network', e.target.value)} placeholder="10.10.10.0/24" autoCapitalize="off" spellCheck={false} aria-label="公共网络" />
+        <FieldInput
+          value={form.network}
+          onChange={(e) => {
+            touched.current = true
+            set('network', e.target.value)
+          }} placeholder="10.10.10.0/24" autoCapitalize="off" spellCheck={false} aria-label="公共网络" />
       </FormField>
       {detected.length > 0 && (
         <div className="-mt-2 flex flex-wrap gap-1.5" aria-label="检测到的网络">

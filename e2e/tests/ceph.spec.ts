@@ -148,7 +148,7 @@ test.describe('ceph (lab cluster)', { tag: '@lab' }, () => {
       const dialog = page.getByRole('dialog', { name: '创建 OSD' })
       await dialog.getByRole('combobox').first().click()
       await page.getByRole('option', { name: new RegExp(`^${node}`) }).click()
-      await dialog.getByRole('combobox', { name: '磁盘' }).click()
+      await dialog.getByRole('combobox', { name: '磁盘', exact: true }).click()
       await page.getByRole('option', { name: new RegExp(`^${disk}`) }).click()
       await dialog.getByRole('button', { name: '创建', exact: true }).click()
       await expect(dialog).toBeHidden({ timeout: 30_000 })
@@ -175,7 +175,7 @@ test.describe('ceph (lab cluster)', { tag: '@lab' }, () => {
     await expect(page.getByText(`已要求 osd.${id} 清洗`)).toBeVisible()
 
     // noout on, then off again.
-    await page.getByRole('button', { name: '全局标志' }).click()
+    await page.getByRole('button', { name: '全局标志', exact: true }).click()
     let dialog = page.getByRole('dialog', { name: '全局 OSD 标志' })
     await dialog.getByRole('checkbox', { name: /noout/ }).click()
     await dialog.getByRole('button', { name: '应用' }).click()
@@ -183,7 +183,7 @@ test.describe('ceph (lab cluster)', { tag: '@lab' }, () => {
     await expect(page.getByTestId('osd-flags')).toContainText('noout', { timeout: 30_000 })
     expect((await pve.get<{ name: string; value: number }[]>('/cluster/ceph/flags')).find((f) => f.name === 'noout')?.value).toBe(1)
 
-    await page.getByRole('button', { name: '全局标志' }).click()
+    await page.getByRole('button', { name: '全局标志', exact: true }).click()
     dialog = page.getByRole('dialog', { name: '全局 OSD 标志' })
     await expect(dialog.getByRole('checkbox', { name: /noout/ })).toBeChecked()
     await dialog.getByRole('checkbox', { name: /noout/ }).click()
@@ -360,6 +360,8 @@ test('安装向导：版本、安装 Shell 的参数、初始配置', async ({ p
   await expect(page.getByTestId('ceph-install-next')).toBeEnabled({ timeout: 15_000 })
   await page.getByTestId('ceph-install-next').click()
 
+  // The node's own network is preselected.
+  await expect(page.getByLabel('公共网络')).toHaveValue(/^\d+\.\d+\.\d+\.0\/\d+$/)
   await page.getByLabel('公共网络').fill('10.99.0.0/24')
   await page.getByLabel('集群网络').fill('bad')
   await expect(page.getByText('应为 CIDR', { exact: true })).toBeVisible()
