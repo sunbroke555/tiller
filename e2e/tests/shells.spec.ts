@@ -23,7 +23,7 @@ test.describe('page shells', () => {
     await expect(page.getByRole('tabpanel', { name: '选项' })).toContainText('开机自启')
 
     await tabs.getByRole('link', { name: '防火墙' }).click()
-    await expect(page.getByRole('tabpanel', { name: '防火墙' })).toContainText('第 2 阶段提供')
+    await expect(page.getByRole('tabpanel', { name: '防火墙' })).toContainText('规则')
 
     // Unknown tab → default tab.
     await page.goto(`${base}/nope`)

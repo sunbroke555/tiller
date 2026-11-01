@@ -406,6 +406,6 @@ test('phone: datacenter, pools and tag chips (lab samples)', { tag: '@mobile' },
     await page.goto('/')
     await page.getByRole('group', { name: '按标签筛选' }).getByRole('button', { name: /^demo/ }).click()
     await expect(page).toHaveURL(/[?&]tag=demo/)
-    await expect(page.locator('section[aria-labelledby="guests-heading"]').getByRole('link', { name: new RegExp(tagged.name!) })).toBeVisible()
+    await expect(page.locator('section[aria-labelledby="guests-heading"]').getByRole('link', { name: new RegExp(`${tagged.name!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`) })).toBeVisible()
   }
 })

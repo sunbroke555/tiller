@@ -223,6 +223,14 @@ test.describe('replication on phones', { tag: '@mobile' }, () => {
   })
 
   test('添加对话框：常用计划和预览', async ({ page }) => {
+    // Adding needs at least two nodes; on the single-node lab pretend there is a second one.
+    await page.route('**/api2/json/cluster/resources*', async (route) => {
+      const res = await route.fetch()
+      const body = (await res.json()) as { data: { type: string; node?: string; id: string }[] }
+      const nodes = body.data.filter((r) => r.type === 'node')
+      if (nodes.length === 1) body.data.push({ ...nodes[0], id: 'node/pvelab-fake', node: 'pvelab-fake' })
+      await route.fulfill({ response: res, json: body })
+    })
     await page.goto('/datacenter/replication')
     await page.getByRole('button', { name: '添加', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: '添加复制任务' })

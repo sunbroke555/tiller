@@ -94,7 +94,8 @@ test.describe('node disks (lab)', { tag: '@lab' }, () => {
     await resetDisks(pve)
   })
   test.afterAll(async ({ pve }) => {
-    await resetDisks(pve)
+    const nodes = await pve.get<{ node: string }[]>('/nodes')
+    if (nodes.some((n) => n.node === NODE)) await resetDisks(pve)
   })
 
   test('disk list, SMART, initialise GPT and wipe', async ({ page, pve }) => {
