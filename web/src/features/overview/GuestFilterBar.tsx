@@ -166,7 +166,7 @@ function FilterPanel({
         ))}
       </Group>
       <div className="flex justify-end">
-        <Button variant="ghost" size="sm" onClick={onReset} disabled={activeFilterCount(query) === 0}>
+        <Button variant="ghost" size="sm" onClick={onReset} disabled={activeFilterCount(query) === 0} className="pointer-coarse:h-11">
           重置
         </Button>
       </div>

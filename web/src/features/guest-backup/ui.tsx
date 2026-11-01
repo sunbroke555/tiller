@@ -158,7 +158,7 @@ export function ChoiceCards<V extends string>({
           >
             <span
               className={cn(
-                'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border border-input group-data-[state=checked]/choice:border-brand paper:group-data-[state=checked]/choice:border-foreground',
+                'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border border-control group-data-[state=checked]/choice:border-brand paper:group-data-[state=checked]/choice:border-foreground',
                 dense && 'max-sm:hidden',
               )}
             >

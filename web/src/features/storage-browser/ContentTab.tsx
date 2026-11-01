@@ -367,7 +367,7 @@ function VolumeRow({
         aria-label={`${name} 详情`}
         className={cn(
           'group flex min-h-14 min-w-0 flex-1 items-center gap-3 py-(--row-py) pl-(--card-p) text-left transition-colors outline-none compact:min-h-12',
-          'hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.05] active:bg-foreground/[0.05] paper:hover:bg-secondary/50',
+          'hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset active:bg-foreground/[0.05] paper:hover:bg-secondary/50',
         )}
       >
         <span className="hidden size-9 shrink-0 items-center justify-center rounded-xl bg-foreground/[0.05] text-muted-foreground sm:inline-flex paper:bg-secondary">
@@ -400,7 +400,7 @@ function VolumeRow({
           <button
             type="button"
             aria-label={`${name} 的操作`}
-            className="flex w-12 shrink-0 items-center justify-center text-muted-foreground transition-colors outline-none hover:bg-foreground/[0.03] hover:text-foreground focus-visible:bg-foreground/[0.05] lg:w-14"
+            className="flex w-12 shrink-0 items-center justify-center text-muted-foreground transition-colors outline-none hover:bg-foreground/[0.03] hover:text-foreground focus-visible:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset lg:w-14"
           >
             <Ellipsis className="size-4" />
           </button>

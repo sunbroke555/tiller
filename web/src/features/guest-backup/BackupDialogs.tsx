@@ -197,7 +197,7 @@ export function BackupDetailDialog({
         <div className="grid gap-1.5">
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-medium">备注</span>
-            <Button type="button" size="sm" variant="ghost" onClick={actions.notes} className="-mr-2 text-muted-foreground">
+            <Button type="button" size="sm" variant="ghost" onClick={actions.notes} className="-mr-2 text-muted-foreground pointer-coarse:h-11">
               <NotebookPen />
               编辑
             </Button>

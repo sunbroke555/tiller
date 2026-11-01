@@ -372,7 +372,7 @@ export function ConfigRow({
           onClick={onEdit}
           className={cn(
             rowCls,
-            'min-w-0 transition-colors outline-none hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.05] active:bg-foreground/[0.05] paper:hover:bg-secondary/50',
+            'min-w-0 transition-colors outline-none hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset active:bg-foreground/[0.05] paper:hover:bg-secondary/50',
           )}
         >
           {body}

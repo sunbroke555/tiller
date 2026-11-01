@@ -205,7 +205,7 @@ function ModeCard({ value, selected, title, description }: { value: string; sele
     >
       <span
         aria-hidden
-        className={cn('mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border-2', selected ? 'border-brand' : 'border-input')}
+        className={cn('mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border-2', selected ? 'border-brand' : 'border-control')}
       >
         <RadioGroupPrimitive.Indicator className="block size-2.5 rounded-full bg-brand" />
       </span>

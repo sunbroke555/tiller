@@ -177,7 +177,7 @@ export function OverviewPage() {
                   aria-label="状态"
                 >
                   {FILTERS.map((f) => (
-                    <ToggleGroupItem key={f.value} value={f.value} className="gap-1.5 px-3 text-xs">
+                    <ToggleGroupItem key={f.value} value={f.value} className="gap-1.5 px-3 text-xs pointer-coarse:h-11">
                       {f.label}
                       <span className="text-muted-foreground tabular">{counts[f.value]}</span>
                     </ToggleGroupItem>
@@ -190,7 +190,7 @@ export function OverviewPage() {
                     size="sm"
                     aria-pressed={selecting}
                     onClick={() => (selecting ? exitSelection() : setSelecting(true))}
-                    className="text-xs"
+                    className="text-xs pointer-coarse:h-11"
                   >
                     <ListChecks /> {selecting ? '完成' : '多选'}
                   </Button>

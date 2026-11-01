@@ -243,7 +243,7 @@ function EntryRow({
           type="button"
           onClick={onOpen}
           aria-label={`打开 ${e.text}`}
-          className="flex min-h-14 min-w-0 flex-1 items-center gap-3 py-2 pl-5 text-left transition-colors outline-none hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.05] active:bg-foreground/[0.05] lg:pl-6 paper:hover:bg-secondary/50"
+          className="flex min-h-14 min-w-0 flex-1 items-center gap-3 py-2 pl-5 text-left transition-colors outline-none hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset active:bg-foreground/[0.05] lg:pl-6 paper:hover:bg-secondary/50"
         >
           {body}
         </button>

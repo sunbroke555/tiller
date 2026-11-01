@@ -159,7 +159,7 @@ export function ConfigRow({
   )
 
   const rowClass =
-    'flex min-h-16 compact:min-h-13 min-w-0 flex-1 items-start gap-3 px-(--card-p) py-(--row-py) text-left transition-colors outline-none hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.05] active:bg-foreground/[0.05] paper:hover:bg-secondary/50'
+    'flex min-h-16 compact:min-h-13 min-w-0 flex-1 items-start gap-3 px-(--card-p) py-(--row-py) text-left transition-colors outline-none hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset active:bg-foreground/[0.05] paper:hover:bg-secondary/50'
 
   const menu = hasMenu ? (
     <RowMenu actions={visibleActions} label={typeof title === 'string' ? `${title} 的更多操作` : '更多操作'} />

@@ -91,7 +91,7 @@ export default function AccountPage() {
               description={canChangePassword(userid) ? '修改登录密码' : `${realm} 认证域的密码由外部系统管理`}
               action={
                 canChangePassword(userid) && (
-                  <Button variant="outline" size="sm" onClick={() => setPasswordOpen(true)}>
+                  <Button variant="outline" size="sm" onClick={() => setPasswordOpen(true)} className="pointer-coarse:h-11">
                     修改密码
                   </Button>
                 )
@@ -195,7 +195,7 @@ function TfaSection({ userid }: { userid: string }) {
   const addMenu = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button size="sm" variant="outline" className="gap-1.5">
+        <Button size="sm" variant="outline" className="gap-1.5 pointer-coarse:h-11">
           <Plus /> 添加
         </Button>
       </DropdownMenuTrigger>
@@ -265,6 +265,8 @@ function TfaSection({ userid }: { userid: string }) {
                     </div>
                     {e.type !== 'recovery' && (
                       <Switch
+                        // 44px touch area around the 18px switch (the row has no label to tap).
+                        className="relative pointer-coarse:after:absolute pointer-coarse:after:-inset-x-1.5 pointer-coarse:after:-inset-y-3.5"
                         checked={enabled}
                         aria-label={enabled ? `停用 ${e.description || meta.label}` : `启用 ${e.description || meta.label}`}
                         onCheckedChange={(v) => setChange({ entry: e, mode: v ? 'enable' : 'disable' })}

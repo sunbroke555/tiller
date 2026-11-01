@@ -34,7 +34,7 @@ export function NotesCard({ text, onSave, title = '备注', emptyHint = '还没�
         <NotebookPen className="size-4 text-muted-foreground" aria-hidden />
         <h3 className="text-sm font-medium">{title}</h3>
         {onSave && (
-          <Button variant="ghost" size="sm" className="ml-auto -mr-2 h-8 gap-1.5 text-muted-foreground" onClick={() => setOpen(true)} disabled={loading}>
+          <Button variant="ghost" size="sm" className="ml-auto -mr-2 h-8 gap-1.5 text-muted-foreground pointer-coarse:-my-1.5 pointer-coarse:h-11" onClick={() => setOpen(true)} disabled={loading}>
             <Pencil className="size-3.5" /> 编辑
           </Button>
         )}

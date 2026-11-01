@@ -22,6 +22,10 @@ import { useIsDesktop } from '@/hooks/useMediaQuery'
 import { useKeyboardBox } from '@/hooks/useVisualViewport'
 import { cn } from '@/lib/utils'
 
+// Sheets span the full width: keep content clear of the notch and rounded
+// corners on landscape phones.
+const SHEET_PX = 'pr-[max(1.25rem,env(safe-area-inset-right))] pl-[max(1.25rem,env(safe-area-inset-left))]'
+
 export type ResponsiveDialogSize = 'sm' | 'md' | 'lg' | 'xl'
 
 const DESKTOP_WIDTH: Record<ResponsiveDialogSize, string> = {
@@ -161,7 +165,8 @@ export function ResponsiveDialog({
       repositionInputs={false}
     >
       <DrawerContent
-        className={cn('max-h-[92dvh] outline-none', className)}
+        // Same variant as drawer.tsx's 80vh cap, so twMerge replaces it.
+        className={cn('outline-none data-[vaul-drawer-direction=bottom]:max-h-[92dvh]', className)}
         style={lifted ? { bottom: keyboard.inset, maxHeight: Math.round(keyboard.visible! * 0.94) } : undefined}
         onFocus={revealFocused}
         // vaul cancels Radix's open auto-focus (so no keyboard pops up); move
@@ -187,7 +192,9 @@ export function ResponsiveDialog({
       >
         {wrap(
           <>
-            <DrawerHeader className="shrink-0 gap-1 px-5 pt-3 pb-3 text-left group-data-[vaul-drawer-direction=bottom]/drawer-content:text-left">
+            <DrawerHeader
+              className={cn('shrink-0 gap-1 pt-3 pb-3 text-left group-data-[vaul-drawer-direction=bottom]/drawer-content:text-left', SHEET_PX)}
+            >
               <div className="flex items-start gap-3">
                 <DrawerTitle className="min-w-0 flex-1 text-lg leading-tight">{title}</DrawerTitle>
                 {headerExtra}
@@ -200,12 +207,17 @@ export function ResponsiveDialog({
             </DrawerHeader>
             <div
               data-slot="dialog-body"
-              className={cn('min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-3', !footer && 'safe-bottom', bodyClassName)}
+              className={cn('min-h-0 flex-1 overflow-y-auto overscroll-contain pb-3', SHEET_PX, !footer && 'safe-bottom', bodyClassName)}
             >
               {children}
             </div>
             {footer && (
-              <DrawerFooter className="mt-0 shrink-0 flex-row gap-2 border-t border-border/60 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] *:flex-1">
+              <DrawerFooter
+                className={cn(
+                  'mt-0 shrink-0 flex-row gap-2 border-t border-border/60 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] *:flex-1',
+                  SHEET_PX,
+                )}
+              >
                 {footer}
               </DrawerFooter>
             )}

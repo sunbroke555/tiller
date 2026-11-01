@@ -148,7 +148,7 @@ function NicCard({
           type="button"
           onClick={locked ? undefined : onEdit}
           disabled={locked}
-          className="flex min-h-16 min-w-0 flex-1 items-center gap-3 px-(--card-p) pt-(--card-p) pb-2 text-left outline-none hover:bg-foreground/[0.02] focus-visible:bg-foreground/[0.05] disabled:cursor-default"
+          className="flex min-h-16 min-w-0 flex-1 items-center gap-3 px-(--card-p) pt-(--card-p) pb-2 text-left outline-none hover:bg-foreground/[0.02] focus-visible:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset disabled:cursor-default"
           aria-label={api.readOnly ? `网卡 ${name}` : `编辑网卡 ${name}`}
         >
           <span

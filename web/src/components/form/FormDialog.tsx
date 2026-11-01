@@ -28,7 +28,11 @@ export interface FormDialogProps extends Omit<ResponsiveDialogProps, 'footer' | 
   submitDisabled?: boolean
   destructive?: boolean
   closeOnSuccess?: boolean
-  /** Extra footer content on the left (e.g. a "重置" button). */
+  /**
+   * Extra actions (e.g. a "重置" button): on the footer's left, or as a
+   * full-width row at the end of the body on phones, where the footer only
+   * has room for cancel and submit.
+   */
   footerExtra?: ReactNode
   /**
    * Unsaved input: closing by swipe, overlay tap or Escape asks first.
@@ -144,6 +148,7 @@ export function FormDialog({
           )}
           {error && <FormError>{error}</FormError>}
           {children}
+          {footerExtra && <div className="flex flex-col sm:hidden">{footerExtra}</div>}
         </div>
       </FormErrorsContext>
     </ResponsiveDialog>

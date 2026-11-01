@@ -42,7 +42,7 @@ export function InstallBanner({ className, force }: { className?: string; force?
         {state === 'available' && (
           <Button
             size="sm"
-            className="mt-3"
+            className="mt-3 pointer-coarse:h-11"
             onClick={() =>
               void install().then((ok) => {
                 if (ok) {
