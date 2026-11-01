@@ -23,8 +23,6 @@ import {
   Users,
 } from 'lucide-react'
 
-import { comingSoonTab } from '@/components/page/ComingSoonTab'
-
 import type { TabDef } from '@/components/page/registry'
 
 /** Props of a datacenter section component (it reads sub-paths from the router itself). */
