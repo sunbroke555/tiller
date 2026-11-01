@@ -222,12 +222,16 @@ test.describe('ceph (lab cluster)', { tag: '@lab' }, () => {
     await dialog.getByLabel('目标比例').fill('0.2')
     await dialog.getByRole('button', { name: '保存' }).click()
     await expect(dialog).toBeHidden({ timeout: 60_000 })
+    // The PUT is a task that applies the settings one after another.
     await expect
-      .poll(async () => (await pve.get<{ pg_autoscale_mode: string; target_size_ratio?: number }>(`/nodes/${pve.node}/ceph/pool/${POOL}/status`)).pg_autoscale_mode, {
-        timeout: 30_000,
-      })
-      .toBe('warn')
-    expect((await pve.get<{ target_size_ratio?: number }>(`/nodes/${pve.node}/ceph/pool/${POOL}/status`)).target_size_ratio).toBe(0.2)
+      .poll(
+        async () => {
+          const st = await pve.get<{ pg_autoscale_mode: string; target_size_ratio?: number | null }>(`/nodes/${pve.node}/ceph/pool/${POOL}/status`)
+          return [st.pg_autoscale_mode, st.target_size_ratio]
+        },
+        { timeout: 60_000 },
+      )
+      .toEqual(['warn', 0.2])
 
     await row.getByRole('button', { name: `${POOL} 操作` }).click()
     await page.getByRole('menuitem', { name: '销毁' }).click()
