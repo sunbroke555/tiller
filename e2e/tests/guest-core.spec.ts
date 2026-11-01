@@ -188,13 +188,32 @@ test.describe('lifecycle', () => {
     await expect.poll(async () => (await pve.guests()).some((g) => g.vmid === copy), { timeout: 30_000 }).toBe(false)
   })
 
-  test('migrate explains that there is no other node (read-only, VM 100)', async ({ page, pve, mobile }) => {
+  test('migrate offers the other online nodes, or explains there is none (read-only, VM 100)', async ({ page, pve, mobile }) => {
     test.skip(!(await pve.guests()).some((g) => g.vmid === 100), '没有 VM 100')
+    const others = (await pve.get<{ node: string; status: string }[]>('/nodes'))
+      .filter((n) => n.node !== pve.node && n.status === 'online')
+      .map((n) => n.node)
+      .sort()
     await page.goto(`/guest/${pve.node}/qemu/100`)
     await menu(page, mobile, '迁移')
     const dialog = page.getByRole('dialog')
-    await expect(dialog).toContainText('没有可以迁移到的节点')
-    await expect(dialog.getByRole('button', { name: '迁移', exact: true })).toBeDisabled()
+    const submit = dialog.getByRole('button', { name: '迁移', exact: true })
+    if (others.length === 0) {
+      await expect(dialog).toContainText('没有可以迁移到的节点')
+      await expect(submit).toBeDisabled()
+    } else {
+      // Cluster: the target list is exactly the other online nodes; VM 100
+      // (stopped, 1G on local-lvm) can go offline with its disk. Not submitted.
+      await expect(dialog).toContainText('虚拟机已停止，会离线迁移')
+      await expect(dialog).not.toContainText('没有可以迁移到的节点')
+      const target = dialog.getByRole('combobox', { name: '目标节点' })
+      await target.click()
+      await expect(page.getByRole('option')).toHaveText(others.map((n) => new RegExp(`^${n}`)))
+      await page.getByRole('option', { name: others[0] }).click()
+      await expect(dialog).toContainText('1 块本地磁盘会一起迁移')
+      await expect(dialog).toContainText('local-lvm:vm-100-disk-0')
+      await expect(submit).toBeEnabled({ timeout: 15_000 })
+    }
     await dialog.getByRole('button', { name: '取消' }).click()
     await expect(dialog).toBeHidden()
   })

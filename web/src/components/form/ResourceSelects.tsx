@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 
-import { useClusterResources, useNodeNetworks, useNodeStorages } from '@/api/queries'
+import { useClusterResources, useClusterStatus, useNodeNetworks, useNodeStorages } from '@/api/queries'
 import { isNode, type NodeStorage, type StorageContent } from '@/api/types'
 import { StatusDot } from '@/components/StatusDot'
 import { formatBytes, formatPercent, ratio } from '@/lib/format'
@@ -73,9 +73,10 @@ export function StorageSelect({
         : s.type,
     disabled: s.active === 0,
   }))
-  // Prefer the storage with the most free space.
-  const best = [...storages].sort((a, b) => (b.avail ?? 0) - (a.avail ?? 0))[0]?.storage
-  useAutoSelect(autoSelect && !emptyOption, value, best, onValueChange)
+  // The first one by name, like the official StorageSelector (autoSelect
+  // picks the first record of its name-sorted store).
+  const first = storages[0]?.storage
+  useAutoSelect(autoSelect && !emptyOption, value, first, onValueChange)
   return (
     <SelectField
       value={value}
@@ -140,6 +141,12 @@ export interface NodeSelectProps extends CommonProps {
   onlineOnly?: boolean
   /** Nodes to leave out (e.g. the migration source). */
   exclude?: readonly string[]
+  /**
+   * With several nodes, preselect the node pve-web is connected to
+   * (/cluster/status `local`), else the first online one, like the official
+   * create wizards. Without it only a single node is preselected.
+   */
+  preferLocal?: boolean
 }
 
 /** Cluster nodes with status and load. */
@@ -150,6 +157,7 @@ export function NodeSelect({
   emptyOption,
   onlineOnly = true,
   exclude,
+  preferLocal = false,
   placeholder = '选择节点',
   disabled,
   className,
@@ -157,6 +165,8 @@ export function NodeSelect({
   const { data, isPending } = useClusterResources({
     select: (all) => all.filter(isNode).sort((a, b) => a.node.localeCompare(b.node)),
   })
+  const status = useClusterStatus({ enabled: preferLocal && autoSelect && !emptyOption })
+  const localNode = status.data?.find((e) => e.type === 'node' && !!e.local)?.name
   const nodes = (data ?? []).filter((n) => !exclude?.includes(n.node) && (!onlineOnly || n.status === 'online'))
   const options: SelectOption[] = nodes.map((n) => ({
     value: n.node,
@@ -168,8 +178,11 @@ export function NodeSelect({
         : '离线',
     disabled: n.status !== 'online',
   }))
+  const online = nodes.filter((n) => n.status === 'online').map((n) => n.node)
   const single = nodes.length === 1 ? nodes[0]?.node : undefined
-  useAutoSelect(autoSelect && !emptyOption, value, single, onValueChange)
+  // Wait for /cluster/status (or its failure) so the local node wins over the first one.
+  const preferred = preferLocal && !status.isPending ? (online.find((n) => n === localNode) ?? online[0]) : undefined
+  useAutoSelect(autoSelect && !emptyOption, value, single ?? preferred, onValueChange)
   return (
     <SelectField
       value={value}

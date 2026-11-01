@@ -453,7 +453,10 @@ export function runNowTargets(
   job: Pick<BackupJob, 'node'>,
   nodes: readonly { node: string; status?: string }[],
 ): { nodes: string[]; errors: string[] } {
-  const online = nodes.filter((n) => n.status === 'online').map((n) => n.node)
+  const online = nodes
+    .filter((n) => n.status === 'online')
+    .map((n) => n.node)
+    .sort((a, b) => a.localeCompare(b))
   if (job.node) {
     return online.includes(job.node) ? { nodes: [job.node], errors: [] } : { nodes: [], errors: [`节点 ${job.node} 不在线`] }
   }

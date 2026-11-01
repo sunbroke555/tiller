@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, Loader2, RefreshCw } from 'lucide-react'
 
 import { checkVmidFree, fetchNextId } from '@/api/queries'
@@ -31,12 +31,15 @@ export function VmidInput({ value, onChange, autoFill = true, onValidityChange, 
   const [validity, setValidity] = useState<VmidValidity>('unknown')
   const [message, setMessage] = useState<string | null>(null)
   const [filling, setFilling] = useState(false)
+  const latest = useRef(value)
+  latest.current = value
 
-  const fill = async () => {
+  /** `onlyIfEmpty`: the automatic suggestion must not replace an id typed meanwhile. */
+  const fill = async (onlyIfEmpty = false) => {
     setFilling(true)
     try {
       const next = await fetchNextId()
-      if (Number.isFinite(next)) onChange(next)
+      if (Number.isFinite(next) && !(onlyIfEmpty && latest.current !== undefined)) onChange(next)
     } catch (e) {
       setMessage(errorMessage(e))
       setValidity('unknown')
@@ -46,7 +49,7 @@ export function VmidInput({ value, onChange, autoFill = true, onValidityChange, 
   }
 
   useEffect(() => {
-    if (autoFill && value === undefined) void fill()
+    if (autoFill && value === undefined) void fill(true)
     // Only on mount: clearing the field later must not refill it.
   }, [])
 

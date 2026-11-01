@@ -123,7 +123,13 @@ export function StoragePage() {
               {nodes.length > 1 && <SectionHeader title={g.node} />}
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {g.list.map((s) => (
-                  <StorageCard key={s.id} storage={s} state={states.get(`${s.node}/${s.storage}`)} highlight={filter} />
+                  <StorageCard
+                    key={s.id}
+                    storage={s}
+                    state={states.get(`${s.node}/${s.storage}`)}
+                    highlight={filter}
+                    showNode={nodes.length > 1}
+                  />
                 ))}
               </div>
             </section>
@@ -138,10 +144,13 @@ function StorageCard({
   storage: s,
   state,
   highlight,
+  showNode,
 }: {
   storage: StorageResource
   state: NodeStorage | undefined
   highlight: StorageContent | 'all'
+  /** Several nodes: the same storage appears once per node, so the link names its node. */
+  showNode: boolean
 }) {
   const contents = storageContents(s.content)
   const used = state?.used ?? s.disk
@@ -152,7 +161,7 @@ function StorageCard({
   const shared = (state?.shared ?? s.shared) === 1
   return (
     <GlassCard asChild interactive>
-      <Link to={storagePath(s.node, s.storage)} className="grid gap-3" aria-label={`存储 ${s.storage}`}>
+      <Link to={storagePath(s.node, s.storage)} className="grid gap-3" aria-label={showNode ? `存储 ${s.storage}（${s.node}）` : `存储 ${s.storage}`}>
         <div className="flex items-center gap-3">
           <ResourceIcon type="storage" variant="tile" />
           <div className="min-w-0 flex-1">

@@ -104,9 +104,18 @@ qm start 101 2>/dev/null; pct start 200 2>/dev/null  # 101 和 200 应保持运�
 | 宿主 | 192.168.0.5 上的 VM 9901–9903（标签 `pve-web-lab`，快照 `fresh`） |
 | 集群名 | `pve-web-lab` |
 | 节点 | `pvelab-c1` 192.168.0.246、`pvelab-c2` 192.168.0.247、`pvelab-c3` 192.168.0.248 |
-| 资源 | 每节点 2 核、3 GiB 内存；32G 系统盘 + 两块 16G 空盘（`sdb`、`sdc`，留给磁盘管理 / ZFS / Ceph OSD 测试） |
+| 资源 | 每节点 2 核、3 GiB 内存；32G 系统盘 `sda` + 16G 数据盘（c1、c2 各两块 `sdb`、`sdc`；c3 三块 `sdb`、`sdc`、`sdd`），分配见下表 |
 | 软件源 | pve-no-subscription、ceph-squid no-subscription（企业源已停用）；Ceph Squid 19.2 已安装（见下面“Ceph”） |
 
+16G 数据盘的分配（别的测试不要动不属于自己的盘）：
+
+| 节点 | `sdb` | `sdc` | `sdd` |
+| --- | --- | --- | --- |
+| `pvelab-c1` | ZFS 池 `e2erep`（存储复制） | Ceph OSD | — |
+| `pvelab-c2` | ZFS 池 `e2erep`（存储复制） | Ceph OSD | — |
+| `pvelab-c3` | Ceph OSD | 磁盘管理测试盘 | 磁盘管理测试盘 |
+
+- 磁盘管理（`node-disks` 区）只写 c3 的 `sdc`、`sdd`（序列号 `drive-scsi2`、`drive-scsi3`），在上面建/删 GPT、ZFS、LVM、LVM-Thin、目录存储（`e2e-disks-*`），结束后擦除，平时保持空白。写之前 `e2e/tests/node-disks.spec.ts` 的 `assertTargets` 会核对大小、序列号，并确认两块盘完全空闲（没有 `used`、没有分区、不是 LVM 物理卷 / ZFS 成员 / Ceph OSD），否则拒绝运行。
 - 连接信息：测试服务器 `~/.config/pve-web/lab-cluster.env`（变量名同 `lab.env`，另有 `PVE_LAB_NODES`、`PVE_LAB_NODE_IPS`），`PVE_LAB_URL` 指向 c1。
 - SSH：测试服务器上 `ssh pvelab-c1` / `pvelab-c2` / `pvelab-c3`；宿主 `ssh pve5`（只用于快照回滚，测试不要直接操作宿主）。
 - 样例客户机和用户与单机实验机相同（在 c1 上：100、101、200、9000 模板、`tester@pve`、`lab-pool`）。VMID 在整个集群内唯一，号段规则同上。

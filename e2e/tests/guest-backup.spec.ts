@@ -1,4 +1,4 @@
-import { expect, test, type PveApi } from '../fixtures'
+import { chooseOption, expect, test, type PveApi } from '../fixtures'
 
 // Area guest-snapshots-backup: snapshot timeline (take / edit / rollback /
 // delete) and the guest backup tab (backup now, protection, notes, config,
@@ -169,7 +169,7 @@ test.describe('guest backups', () => {
     await panel.getByRole('button', { name: '立即备份' }).first().click()
     let dialog = page.getByRole('dialog', { name: '立即备份' })
     await expect(dialog).toBeVisible()
-    await expect(dialog.getByRole('combobox', { name: '存储' })).toContainText(STORAGE)
+    await chooseOption(page, dialog.getByRole('combobox', { name: '存储' }), STORAGE)
     await expect(dialog.getByRole('radio', { name: /快照/ })).toBeChecked()
     await dialog.getByRole('radio', { name: /停止/ }).click()
     const notes = dialog.getByLabel('备注')
@@ -331,6 +331,7 @@ test.describe('container snapshots and backups', { tag: '@lab' }, () => {
     await panel.getByRole('button', { name: '立即备份' }).first().click()
     dialog = page.getByRole('dialog', { name: '立即备份' })
     await expect(dialog).toContainText(`容器 ${hostname}`)
+    await chooseOption(page, dialog.getByRole('combobox', { name: '存储' }), STORAGE)
     await dialog.getByRole('button', { name: '开始备份' }).click()
     const row = panel.getByTestId('backup-row').first()
     await expect(row).toBeVisible({ timeout: 120_000 })
@@ -343,7 +344,7 @@ test.describe('container snapshots and backups', { tag: '@lab' }, () => {
     dialog = page.getByRole('dialog', { name: `恢复并覆盖 CT ${vmid}` })
     await dialog.getByRole('radio', { name: /恢复为新客户机/ }).click()
     dialog = page.getByRole('dialog', { name: '从备份恢复容器' })
-    await expect(dialog.getByRole('combobox', { name: '目标存储' })).toContainText('local-lvm')
+    await chooseOption(page, dialog.getByRole('combobox', { name: '目标存储' }), 'local-lvm')
     await expect(dialog.getByRole('radio', { name: /与备份相同/ })).toBeChecked()
     // Wait for the suggested ID first: it would overwrite a typed one (VmidInput autofill).
     const ctVmidBox = dialog.getByLabel('新 CT 的 ID')

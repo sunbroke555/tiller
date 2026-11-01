@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test'
 
-import { expect, test, type PveApi } from '../fixtures'
+import { chooseOption, expect, test, type PveApi } from '../fixtures'
 
 // Container configuration tabs (area lxc-config) against the lab. Every @lab
 // test (desktop) creates its own tiny Alpine CT in the VMID range 3500–3599
@@ -138,7 +138,7 @@ test.describe('lxc-config', { tag: '@lab' }, () => {
     // Add a 0.1 GiB volume at /data.
     await panel.getByRole('button', { name: '添加挂载点' }).click()
     const d = dialog(page)
-    await expect(d.getByRole('combobox').first()).toContainText('local-lvm')
+    await chooseOption(page, d.getByRole('combobox').first(), 'local-lvm')
     await d.getByLabel('大小').fill('0.1')
     await d.getByLabel('容器内路径').fill('/data')
     await submit(page, '添加')

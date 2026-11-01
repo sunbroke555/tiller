@@ -1,8 +1,6 @@
-import { execFile } from 'node:child_process'
-
 import type { Page, Route } from '@playwright/test'
 
-import { expect, test, type PveApi } from '../fixtures'
+import { expect, labNodes, labSsh, test, type PveApi } from '../fixtures'
 
 // Storage configuration (area storage-config, /datacenter/storage).
 //
@@ -30,10 +28,8 @@ interface StorageDef {
 async function sweep(pve: PveApi) {
   const list = await pve.get<StorageDef[]>('/storage')
   for (const s of list.filter((x) => x.storage.startsWith(PREFIX))) await pve.del(`/storage/${s.storage}`)
-  await new Promise<void>((resolve) => {
-    // Best effort: the test server reaches the lab as `ssh pvelab`.
-    execFile('ssh', ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=5', 'pvelab', 'rm -rf /var/lib/e2e-sc-*'], { timeout: 15_000 }, () => resolve())
-  })
+  // Best effort, on every lab node (a storage without node restriction is activated on all of them).
+  for (const node of labNodes) await labSsh('rm -rf /var/lib/e2e-sc-*', node).catch(() => undefined)
 }
 
 const getDef = (pve: PveApi, id: string) => pve.get<StorageDef>(`/storage/${id}`).catch(() => null)
@@ -139,10 +135,11 @@ test.describe('存储配置', () => {
     await expect(edit).toBeHidden()
 
     // Real scans (GET only): VG "pve" holds the thin pool "data".
+    // On a cluster a "扫描用节点" select comes first (the first node by name); every lab node has VG pve.
     const add = await openAdd(page, 'LVM-Thin')
-    await add.getByRole('combobox').first().click()
+    await add.getByRole('combobox', { name: '卷组', exact: true }).click()
     await page.getByRole('option', { name: /^pve/ }).click()
-    await add.getByRole('combobox').nth(1).click()
+    await add.getByRole('combobox', { name: '精简池', exact: true }).click()
     await expect(page.getByRole('option', { name: /^data/ })).toBeVisible()
     await page.keyboard.press('Escape')
     await add.getByRole('button', { name: '取消' }).click()
@@ -213,7 +210,7 @@ test.describe('存储配置', () => {
     await expect(keyDialog).toBeHidden()
   })
 
-  test('只读用户：没有添加和修改入口，只能浏览', { tag: '@desktop' }, async ({ page }) => {
+  test('只读用户：没有添加和修改入口，只能浏览', { tag: '@desktop' }, async ({ page, pve }) => {
     await page.route('**/api2/json/access/permissions*', (route) =>
       route.fulfill({ json: { data: { '/': { 'Datastore.Audit': 1, 'Sys.Audit': 1 }, '/storage': { 'Datastore.Audit': 1 } } } }),
     )
@@ -222,7 +219,17 @@ test.describe('存储配置', () => {
     await expect(row).toBeVisible()
     await expect(page.getByRole('button', { name: '添加存储' })).toHaveCount(0)
     await expect(row.getByRole('button', { name: '编辑 local' })).toHaveCount(0)
-    await expect(row.getByRole('link', { name: '浏览 local 的内容' })).toBeVisible()
+    const nodes = (await pve.get<{ node: string }[]>('/nodes')).map((n) => n.node).sort()
+    if (nodes.length === 1) {
+      await expect(row.getByRole('link', { name: '浏览 local 的内容' })).toBeVisible()
+    } else {
+      // Several nodes: the row menu lists a browse link per node and nothing to change.
+      await row.getByRole('button', { name: 'local 的操作' }).click()
+      const menu = page.getByRole('menu')
+      await expect(menu.getByRole('menuitem')).toHaveText(nodes)
+      await expect(menu.getByRole('menuitem', { name: pve.node })).toHaveAttribute('href', `/storage/${pve.node}/local`)
+      await page.keyboard.press('Escape')
+    }
   })
 
   test('手机布局：列表、类型选择和表单在底部抽屉里', { tag: '@mobile' }, async ({ page }) => {

@@ -255,11 +255,11 @@ export function DiskTargetFields({
   const current = storages.find((s) => s.storage === value.storage)
   const { formats, preferred } = storageFormats(current)
 
-  // Preselect the storage with the most free space, then its preferred format.
+  // Preselect the first storage by name (as the official selector does), then its preferred format.
   useEffect(() => {
     if (!value.storage && storages.length) {
-      const best = [...storages].sort((a, b) => (b.avail ?? 0) - (a.avail ?? 0))[0]!
-      onChange({ ...value, storage: best.storage, format: storageFormats(best).preferred })
+      const first = storages[0]!
+      onChange({ ...value, storage: first.storage, format: storageFormats(first).preferred })
     }
   }, [storages, value, onChange])
 

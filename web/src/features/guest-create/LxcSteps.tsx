@@ -119,7 +119,7 @@ export function LxcGeneralStep({ form, set, onVmidValidity }: LxcStepProps & { o
       <TemplateShortcut type="lxc" />
       <FormRow>
         <FormField label="节点" name="node" required>
-          <NodeSelect value={form.node} onValueChange={(node) => set({ node: node ?? '' })} />
+          <NodeSelect value={form.node} onValueChange={(node) => set({ node: node ?? '' })} preferLocal />
         </FormField>
         <FormField label="CT ID" name="vmid" required>
           <VmidInput value={form.vmid} onChange={(vmid) => set({ vmid })} onValidityChange={onVmidValidity} />

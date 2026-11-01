@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 
-import { expect, test, type PveApi } from '../fixtures'
+import { chooseOption, expect, test, type PveApi } from '../fixtures'
 
 // Area guest-create: the VM and CT creation wizards. Guests are created
 // (@lab, desktop) in the VMID range 3700–3799 only, named e2e-guest-create-*,
@@ -76,7 +76,7 @@ test.describe('创建向导', () => {
 
     // Disks: one 1 GiB disk on scsi0
     await expect(page.getByRole('region', { name: '磁盘 scsi0', exact: true })).toBeVisible()
-    await expect(page.getByRole('combobox', { name: '存储' })).toContainText('local-lvm')
+    await chooseOption(page, page.getByRole('combobox', { name: '存储' }), 'local-lvm')
     await setSize(page, '大小', '1', 'GiB')
     await next(page, 'CPU')
     await next(page, '内存')
@@ -136,7 +136,7 @@ test.describe('创建向导', () => {
     await page.getByRole('option', { name: /alpine/ }).first().click()
     await next(page, '磁盘')
 
-    await expect(page.getByRole('combobox', { name: '存储' })).toContainText('local-lvm')
+    await chooseOption(page, page.getByRole('combobox', { name: '存储' }), 'local-lvm')
     await setSize(page, '大小', '1', 'GiB')
     await next(page, 'CPU')
     await next(page, '内存')
@@ -178,7 +178,7 @@ test.describe('创建向导', () => {
     await next(page, '系统')
     await next(page, '磁盘')
     // The step is invalid until the storages have loaded.
-    await expect(page.getByRole('combobox', { name: '存储' })).toContainText('local-lvm')
+    await chooseOption(page, page.getByRole('combobox', { name: '存储' }), 'local-lvm')
     await setSize(page, '大小', '1', 'GiB') // the default 32 GiB does not fit the lab
     await next(page, 'CPU')
     await next(page, '内存')

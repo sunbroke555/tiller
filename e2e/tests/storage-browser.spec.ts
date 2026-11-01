@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 
 import type { Page } from '@playwright/test'
 
-import { env, expect, test, type PveApi } from '../fixtures'
+import { chooseOption, env, expect, test, type PveApi } from '../fixtures'
 
 // Storage browser (area storage-browser) against the lab: storage list,
 // summary, upload / URL download / templates / OCI pull, backups (notes,
@@ -99,8 +99,10 @@ test.describe('storage list and summary', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('存储')
     // Scoped to the page: on desktop the sidebar resource tree has links with the same names.
     const main = page.getByRole('main')
-    const local = main.getByRole('link', { name: '存储 local', exact: true })
-    const lvm = main.getByRole('link', { name: '存储 local-lvm', exact: true })
+    // On a cluster the same storage has a card per node, named "存储 local（<node>）".
+    const card = (storage: string) => main.getByRole('link', { name: new RegExp(`^存储 ${storage}(（${pve.node}）)?$`) })
+    const local = card('local')
+    const lvm = card('local-lvm')
     await expect(local).toContainText('目录')
     await expect(local).toContainText('ISO 镜像')
     await expect(lvm).toContainText('LVM-Thin')
@@ -124,11 +126,11 @@ test.describe('storage list and summary', () => {
     await expect(page).toHaveURL(new RegExp(`/storage/${pve.node}/local/iso$`))
   })
 
-  test('bottom navigation lands on the storage list', { tag: '@mobile' }, async ({ page }) => {
+  test('bottom navigation lands on the storage list', { tag: '@mobile' }, async ({ page, pve }) => {
     await page.goto('/')
     await page.getByRole('navigation', { name: '主导航' }).getByRole('link', { name: '存储' }).click()
     await expect(page).toHaveURL(/\/storage$/)
-    await expect(page.getByRole('link', { name: '存储 local', exact: true })).toBeVisible()
+    await expect(page.getByRole('link', { name: new RegExp(`^存储 local(（${pve.node}）)?$`) })).toBeVisible()
   })
 
   test('container template catalog marks downloaded templates', async ({ page, pve, mobile }) => {
@@ -275,8 +277,14 @@ test('guest import maps disks, NICs, CD drives, OS type and VirtIO (mocked OVA)'
   expect(posted[0]).not.toHaveProperty('scsi0')
 
   // Linux instead: SCSI stays, no driver CD, the source's controller comes back.
-  await dlg.getByRole('combobox', { name: '操作系统' }).click()
-  await page.getByRole('option', { name: /^Linux 6\.x/ }).click()
+  // Pick it by typing: on the phone sheet the popover sometimes opens off-screen
+  // after the failed submit above, so clicking the option can time out.
+  const os = dlg.getByRole('combobox', { name: '操作系统' })
+  await os.click()
+  await page.keyboard.type('l26')
+  await expect(page.getByRole('option')).toHaveCount(1)
+  await page.keyboard.press('Enter')
+  await expect(os).toContainText('Linux 6.x')
   await expect(dlg.getByRole('group', { name: '光驱 ide0' })).toHaveCount(0)
   await expect(dlg.getByRole('group', { name: '磁盘 scsi0' })).not.toContainText('→')
   await expect(dlg.getByRole('combobox', { name: 'SCSI 控制器' })).toContainText('VMware PVSCSI')
@@ -494,11 +502,13 @@ test.describe('lab content', { tag: '@lab' }, () => {
 
       await rowAction(page, file, '导入')
       const dlg = page.getByRole('dialog', { name: '用磁盘镜像创建虚拟机' })
+      // Let the suggested ID arrive first, then type ours.
+      await expect(dlg.getByRole('textbox', { name: 'VM ID' })).not.toHaveValue('')
       await dlg.getByRole('textbox', { name: 'VM ID' }).fill(String(id.imported))
       await expect(dlg.getByText('可用', { exact: true })).toBeVisible({ timeout: 10_000 })
       await dlg.getByRole('textbox', { name: '名称' }).fill(vmName)
       await dlg.getByRole('textbox', { name: '内存' }).fill('64')
-      await expect(dlg.getByRole('combobox', { name: '目标存储' })).not.toHaveText(/选择存储|加载中/)
+      await chooseOption(page, dlg.getByRole('combobox', { name: '目标存储' }), 'local-lvm')
       await dlg.getByRole('button', { name: '导入', exact: true }).click()
       await expect(dlg).toBeHidden({ timeout: 20_000 })
       await pve.waitForGuest(id.imported, (g) => g.name === vmName, 60_000)

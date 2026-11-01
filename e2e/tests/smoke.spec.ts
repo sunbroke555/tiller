@@ -58,7 +58,8 @@ test.describe('smoke', { tag: '@smoke' }, () => {
 
   test('storage list opens a storage', async ({ page, pve }) => {
     await page.goto('/storage')
-    const local = page.getByRole('main').getByRole('link', { name: '存储 local', exact: true })
+    // On a cluster every node has its own card "存储 local（<node>）".
+    const local = page.getByRole('main').getByRole('link', { name: new RegExp(`^存储 local(（${pve.node}）)?$`) })
     await expect(local).toContainText('目录')
     await local.click()
     await expect(page).toHaveURL(new RegExp(`/storage/${pve.node}/local$`))
