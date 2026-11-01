@@ -17,6 +17,7 @@ case $area in
   auth | app-shell | overview) specs=(shell-polish shells permissions smoke) ;;
   node-system) specs=(node-system) ;; # writes go to pvelab-c3: needs lab-cluster.env
   node-updates) specs=(node-updates) ;;
+  sdn-fabrics) specs=(sdn) ;; # one spec for both SDN areas (lab cluster)
   *) specs=("$area") ;;
 esac
 

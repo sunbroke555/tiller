@@ -88,7 +88,17 @@ export const datacenterSections: DatacenterSectionDef[] = [
     permission: { privs: 'Sys.Audit' },
     component: lazy(() => import('@/features/ha/HaPage')),
   },
-  { id: 'sdn', title: 'SDN', hint: 'Zone、VNet、子网、Fabrics', icon: Network, order: 80, phase: 3, component: comingSoonTab('SDN Zone、VNet、子网、控制器、IPAM、DNS 和 Fabrics。', 3) },
+  {
+    id: 'sdn',
+    title: 'SDN',
+    hint: 'Zone、VNet、子网、Fabrics',
+    icon: Network,
+    order: 80,
+    phase: 3,
+    ready: true,
+    permission: { privs: 'SDN.Audit', path: '/sdn', anywhere: true },
+    component: lazy(() => import('@/features/sdn/SdnPage')),
+  },
   { id: 'ceph', title: 'Ceph', hint: '集群存储', icon: Database, order: 90, phase: 3, component: comingSoonTab('Ceph 安装、监视器、OSD、存储池和 CephFS。', 3) },
   {
     id: 'cluster',
