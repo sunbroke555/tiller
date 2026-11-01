@@ -4,6 +4,7 @@ import { Search } from 'lucide-react'
 import { useClusterStatus, useVersion } from '@/api/queries'
 import { useSession } from '@/api/useSession'
 import { Logo } from '@/components/Logo'
+import { InstanceSwitcher } from '@/features/instances/InstanceSwitcher'
 import { cn } from '@/lib/utils'
 
 import { useCommandPalette } from './CommandPalette'
@@ -62,6 +63,7 @@ export function Sidebar({ className }: { className?: string }) {
         </div>
       </div>
 
+      <div className="px-2"><InstanceSwitcher /></div>
       <button
         type="button"
         onClick={() => setOpen(true)}

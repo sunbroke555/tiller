@@ -10,7 +10,43 @@
 
 架构约定见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
+## 使用文档
+
+运行 Tiller 后，访问同一地址的 **`/docs/`**，或点击登录页 / 账户菜单里的「使用文档」。文档无需登录，随程序内嵌发布，支持中文本地搜索、章节导航、手机目录和深浅色切换。
+
+文档源码在 [doc/index.md](doc/index.md)，包含安装配置、首次登录、客户机、存储与备份、控制台、节点与数据中心、权限及常见问题。`docs/` 仍存放开发资料，不会发布到用户文档站。
+
+```sh
+rt -- make docs          # 只构建文档 → doc/.vitepress/dist
+rt -- make docs-dev      # 文档热更新：http://192.168.0.32:5174/docs/
+rt -- make server        # 构建并内嵌管理界面 + 文档
+rt -- make test-docs     # 桌面 / 手机文档测试，不连接 PVE
+```
+
+`make dev` 会预先构建文档，并通过 Vite 转发 `/docs/` 到 Go 服务。编辑文档时可单独使用 `make docs-dev` 获得热更新。
+
 ## 快速开始
+
+### Docker 部署
+
+仓库的 GitHub Actions 在检查通过后，自动构建 `linux/amd64` 和 `linux/arm64` 镜像到 `ghcr.io/sunbroke555/tiller`。`latest` 跟随 `main`，`v1.2.3` 等 Git 标签生成 `1.2.3` 和 `1.2` 镜像标签。
+
+使用仓库的 [compose.yaml](compose.yaml)，在同目录创建不入库的 `.env`：
+
+```dotenv
+PVE_URL=https://pve.example.internal:8006
+PVE_TLS_FINGERPRINT=替换为完整的SHA256证书指纹
+```
+
+```sh
+docker compose up -d
+```
+
+默认端口只发布到宿主机的 `127.0.0.1:8080`，供同机 HTTPS 反向代理访问。浏览器通过代理的 HTTPS 地址使用 Tiller，文档位于 `/docs/`。代理在其他容器或主机上时，按实际拓扑调整端口 / 网络和 `TRUSTED_PROXIES`。连接元数据保存在 `tiller-data` 数据卷中。
+
+更新镜像：`docker compose pull && docker compose up -d`。首次发布后，仓库所有者需要在 GitHub 的包设置中确认镜像可见性；公开包可匿名拉取，私有包需要登录 GHCR。
+
+### 从源码运行
 
 需要 Go 1.25+、Node 22.12+（推荐 Node 26 / npm 11）、make。
 
@@ -60,6 +96,16 @@ LISTEN=:8443 \
 - 连不上 PVE 时，返回给浏览器的错误不含 PVE 的地址和证书细节，细节只写进服务端日志。
 
 ## 开发
+
+### GitHub 自动化
+
+- [Checks and Docker image](.github/workflows/build.yml)：PR 和 `main` / `v*` 标签推送时运行 Go、前端、文档检查；PR 仅构建镜像，`main` / 版本标签发布到 GHCR。默认使用工作流自带的 `GITHUB_TOKEN`，无需填写 Docker Hub 密码。
+- [Documentation](.github/workflows/docs.yml)：文档变更合并到 `main` 时，自动发布 GitHub Pages。仓库的 Settings → Pages → Build and deployment 选择 **GitHub Actions**。也可以在 Actions 中手动运行该工作流。
+- 文档默认构建在 `/docs/` 供 Tiller 内嵌；Pages 工作流自动设置站点子路径和项目主页入口。仅发布 `doc/`，开发用的 `docs/` 不进入文档站。
+
+GitHub 上的这些检查不需要连接 PVE，也不需要上传实验环境的密码或 SSH 密钥。完整 PVE 端到端测试仍在测试服务器上运行。
+
+### 本地开发命令
 
 ```sh
 make dev       # Go 服务（-tags dev，前端读 web/dist）+ Vite dev server（:5173，HMR，/api2 代理到 :8080）

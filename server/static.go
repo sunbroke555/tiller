@@ -40,7 +40,7 @@ type staticFile struct {
 	etag    string
 	ctype   string
 	modTime time.Time
-	csp     string // index.html only
+	csp     string // HTML documents only
 }
 
 const indexFile = "index.html"
@@ -97,7 +97,7 @@ func isClientRoute(name string) bool {
 func (h *spaHandler) serveFile(w http.ResponseWriter, r *http.Request, f *staticFile) {
 	hdr := w.Header()
 	hdr.Set("Content-Type", f.ctype)
-	if strings.HasPrefix(f.name, "assets/") {
+	if strings.HasPrefix(f.name, "assets/") || strings.HasPrefix(f.name, "docs/assets/") {
 		// Vite puts content hashes in every file name under assets/.
 		hdr.Set("Cache-Control", "public, max-age=31536000, immutable")
 	} else {
@@ -177,7 +177,7 @@ func buildStaticFile(name string, data []byte, modTime time.Time) *staticFile {
 			f.gz = buf.Bytes()
 		}
 	}
-	if name == indexFile {
+	if path.Ext(name) == ".html" {
 		f.csp = buildCSP(data)
 	}
 	return f
@@ -244,7 +244,7 @@ func acceptsGzip(header string) bool {
 
 var inlineScriptRe = regexp.MustCompile(`(?is)<script(\s[^>]*)?>(.*?)</script>`)
 
-// buildCSP returns the Content-Security-Policy for index.html. Inline scripts
+// buildCSP returns the Content-Security-Policy for an HTML document. Inline scripts
 // (the theme boot script that prevents a flash of the wrong theme) are allowed
 // by their SHA-256 hash; everything else must come from this origin.
 func buildCSP(html []byte) string {

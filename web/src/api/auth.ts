@@ -6,6 +6,7 @@
 // (totp, recovery, yubico or webauthn) and returns the real ticket.
 
 import { PveApiError, get, post } from './client'
+import { instanceApiBase } from './instance-scope'
 import {
   RENEW_FROM_COOKIE,
   TICKET_COOKIE_HEADERS,
@@ -202,7 +203,7 @@ export async function renewTicket(): Promise<void> {
 export function logout(): void {
   // Only the server can drop the HttpOnly ticket cookie; best effort.
   Promise.resolve()
-    .then(() => fetch('/api/logout', { method: 'POST', headers: TICKET_COOKIE_HEADERS, credentials: 'same-origin' }))
+    .then(() => fetch(instanceApiBase() + '/api/logout', { method: 'POST', headers: TICKET_COOKIE_HEADERS, credentials: 'same-origin' }))
     .catch(() => {})
   clearSession('logout')
 }

@@ -12,6 +12,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { createQueryClient } from '@/lib/queryClient'
 import { ThemeProvider } from '@/theme/ThemeProvider'
+import { InstanceBoundary } from '@/features/instances/InstanceBoundary'
 
 import { createRouter } from './routes'
 
@@ -58,8 +59,10 @@ export function App() {
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider delayDuration={300}>
-          <SessionEffects queryClient={queryClient} />
-          <RouterProvider router={router} />
+          <InstanceBoundary>
+            <SessionEffects queryClient={queryClient} />
+            <RouterProvider router={router} />
+          </InstanceBoundary>
           {/* Below the notch / Dynamic Island in the installed PWA (viewport-fit=cover). */}
           <Toaster
             position="top-center"

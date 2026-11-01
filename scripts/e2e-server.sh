@@ -46,6 +46,9 @@ stop() {
 
 needs_build() {
   [[ -x $BIN ]] || return 0
+  # Documentation is embedded too; changes must invalidate the binary.
+  [[ -n $(find "$ROOT/doc" -type d \( -name node_modules -o -name dist -o -name cache \) -prune -o \
+    -type f -newer "$BIN" -print -quit) ]] && return 0
   # Any source newer than the binary (server/web/dist is build output).
   [[ -n $(find "$ROOT/web/src" "$ROOT/web/public" "$ROOT/web/index.html" "$ROOT/web/package.json" \
     "$ROOT/web/vite.config.ts" "$ROOT/server" -type f -newer "$BIN" \
@@ -75,8 +78,10 @@ start() {
     }
   fi
 
+  # rt holds its project lock on fd 9. A persistent preview must not inherit
+  # that descriptor, otherwise all later rt commands wait until it stops.
   LISTEN=":$PORT" PVE_URL="$PVE_LAB_URL" PVE_TLS_FINGERPRINT="$PVE_LAB_FINGERPRINT" \
-    setsid nohup "$BIN" >"$LOG_FILE" 2>&1 </dev/null &
+    setsid nohup "$BIN" >"$LOG_FILE" 2>&1 </dev/null 9>&- &
   echo $! >"$PID_FILE"
 
   for _ in $(seq 100); do

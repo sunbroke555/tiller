@@ -4,6 +4,7 @@
 
 import { isGuest, isNode, isStorage, type ClusterResource, type GuestResource, type NodeResource, type StorageResource } from '@/api/types'
 import { splitTags } from '@/lib/tags'
+import { instanceStorageKey } from '@/api/instance-scope'
 
 export type TreeGrouping = 'node' | 'pool' | 'tag'
 
@@ -35,7 +36,7 @@ export interface TreePrefs {
 
 export const DEFAULT_TREE_PREFS: TreePrefs = { group: 'node', showStorage: true, showTemplates: true, collapsed: {} }
 
-const PREFS_KEY = 'tiller:resource-tree'
+const PREFS_KEY = instanceStorageKey('tiller:resource-tree')
 
 export function loadTreePrefs(): TreePrefs {
   try {

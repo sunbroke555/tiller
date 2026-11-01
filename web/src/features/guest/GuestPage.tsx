@@ -14,12 +14,12 @@ import { TabBar, TabPanel, TabSkeleton } from '@/components/page/RegistryTabs'
 import { sortByOrder, visibleActions } from '@/components/page/registry'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { StatusDot } from '@/components/StatusDot'
-import { TagList } from '@/components/TagChip'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { allowedFor } from '@/lib/permissions'
 import { GUEST_TYPE_LABEL, guestName, guestPath, isVmidParam, nodePath, statusLabel } from '@/lib/resources'
+import { GuestHeaderTags } from '@/features/guest-core/GuestHeaderTags'
 
 import { guestActions, guestTabs } from './registry'
 import { GuestContextProvider, type GuestActionContext, type GuestTabProps } from './types'
@@ -127,7 +127,7 @@ function GuestPageBody({ ctx, tabParam }: { ctx: GuestActionContext; tabParam: s
               </Badge>
             )}
             {guest.hastate && <Badge variant="outline">HA：{guest.hastate}</Badge>}
-            <TagList tags={guest.tags} size="md" />
+            <GuestHeaderTags guest={guest} />
           </span>
         }
         actions={<ActionBar variant="toolbar" actions={actions} ctx={ctx} trigger={trigger} busy={busy} className="hidden lg:flex" />}

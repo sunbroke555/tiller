@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { ScrollText } from 'lucide-react'
 
 import { useAppConfig } from '@/api/shell'
+import { instanceStorageKey } from '@/api/instance-scope'
 import { Markdown } from '@/components/Markdown'
 import { ResponsiveDialog } from '@/components/ResponsiveDialog'
 import { Button } from '@/components/ui/button'
 
-const ACCEPTED_KEY = 'tiller:consent-accepted'
+const ACCEPTED_KEY = instanceStorageKey('tiller:consent-accepted')
 
 /** Cheap stable fingerprint of the text, so a changed consent text is shown again. */
 export function consentFingerprint(text: string): string {

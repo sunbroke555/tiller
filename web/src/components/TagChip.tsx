@@ -25,6 +25,7 @@ function tagStyleString(raw: unknown): string | undefined {
 function chipStyle(tag: string, style: TagStyle): { css: CSSProperties; override: boolean; hasFg: boolean; darkText: boolean } {
   const c = tagColors(tag, style)
   const css: Record<string, string> = { '--tag': rgbCss(c.base) }
+  if (c.override) css['--tag-tone'] = rgbCss(c.base)
   if (c.fg) css['--tag-fg'] = rgbCss(c.fg)
   return { css: css as CSSProperties, override: c.override, hasFg: !!c.fg, darkText: contrastText(c.base) === 'dark' }
 }
@@ -39,10 +40,8 @@ interface TagChipProps extends Omit<ComponentProps<'span'>, 'children'> {
 }
 
 /**
- * One tag in its colour. Hash colours follow the official UI; in the dark
- * glass theme they render as a tinted glass chip with coloured text, in the
- * light themes as the familiar pastel chip. Datacenter colour overrides are
- * used exactly as configured.
+ * One tag with a subtle theme-aware tint of the official hashed hue.
+ * Datacenter colour overrides are used exactly as configured.
  */
 export function TagChip({ tag, tagStyle, size = 'sm', shape, className, ...props }: TagChipProps) {
   const fromDc = useTagStyle()
@@ -59,12 +58,12 @@ export function TagChip({ tag, tagStyle, size = 'sm', shape, className, ...props
     )
   }
   if (kind === 'dense') {
-    return <span title={tag} aria-label={`标签 ${tag}`} style={s.css} className={cn('inline-block h-2 w-4 shrink-0 rounded-full bg-(--tag)', className)} {...props} />
+    return <span title={tag} aria-label={`标签 ${tag}`} style={s.css} className={cn('tag-palette inline-block h-2 w-4 shrink-0 rounded-full bg-(--tag-tone)', className)} {...props} />
   }
   if (kind === 'circle') {
     return (
-      <span className={cn('inline-flex max-w-40 shrink-0 items-center gap-1 text-foreground/80', text, className)} style={s.css} {...props}>
-        <span aria-hidden className="size-2 shrink-0 rounded-full bg-(--tag)" />
+      <span className={cn('tag-palette inline-flex max-w-40 shrink-0 items-center gap-1 text-foreground/80', text, className)} style={s.css} {...props}>
+        <span aria-hidden className="size-2 shrink-0 rounded-full bg-(--tag-tone)" />
         <span className="truncate">{tag}</span>
       </span>
     )
@@ -73,17 +72,11 @@ export function TagChip({ tag, tagStyle, size = 'sm', shape, className, ...props
     <span
       style={s.css}
       className={cn(
-        'inline-flex max-w-40 shrink-0 items-center rounded-full px-2 font-medium',
+        'tag-palette inline-flex max-w-40 shrink-0 items-center rounded-full px-2 font-medium',
         text,
         s.override
           ? cn('bg-(--tag)', s.hasFg ? 'text-(--tag-fg)' : s.darkText ? 'text-[#141413]' : 'text-white')
-          : cn(
-              // light glass / paper: pastel chip with dark text (as in the official UI)
-              'bg-(--tag) text-[#1b1d24] ring-1 ring-black/5 ring-inset',
-              'paper:bg-[color-mix(in_oklab,var(--tag)_70%,var(--secondary))] paper:ring-black/[0.06]',
-              // dark glass: tinted glass with coloured text
-              'dark:bg-[color-mix(in_oklab,var(--tag)_16%,transparent)] dark:text-(--tag) dark:ring-[color-mix(in_oklab,var(--tag)_32%,transparent)]',
-            ),
+          : 'tag-tint',
         className,
       )}
       {...props}
@@ -135,13 +128,13 @@ export function TagFilterChip({
       onClick={onToggle}
       style={s.css}
       className={cn(
-        'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors pointer-coarse:h-11 pointer-coarse:px-3.5',
+        'tag-palette inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors pointer-coarse:h-11 pointer-coarse:px-3.5',
         selected
-          ? 'border-transparent bg-[color-mix(in_oklab,var(--tag)_28%,transparent)] text-foreground ring-1 ring-[color-mix(in_oklab,var(--tag)_60%,transparent)] paper:bg-[color-mix(in_oklab,var(--tag)_45%,var(--card))]'
+          ? 'border-[color-mix(in_oklab,var(--tag-tone)_40%,var(--border))] bg-[color-mix(in_oklab,var(--tag-tone)_18%,var(--field))] text-foreground'
           : 'border-border bg-(--field) text-foreground/80 hover:text-foreground',
       )}
     >
-      {selected ? <Check className="size-3.5" aria-hidden /> : <span aria-hidden className="size-2 rounded-full bg-(--tag)" />}
+      {selected ? <Check className="size-3.5" aria-hidden /> : <span aria-hidden className="size-2 rounded-full bg-(--tag-tone)" />}
       <span className="max-w-32 truncate">{tag}</span>
       {count !== undefined && <span className="text-muted-foreground tabular">{count}</span>}
     </button>

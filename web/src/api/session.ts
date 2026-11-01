@@ -1,16 +1,18 @@
-// Login state. The ticket lives only in the PVEAuthCookie cookie, which the Go
-// server sets HttpOnly, as a session cookie, for /api2/ (the browser sends it
-// with API calls; JavaScript never sees it). The CSRF token and the user name
+// Login state. The ticket lives only in an instance-scoped HttpOnly session
+// cookie (PVEAuthCookie for the default instance). The browser sends it with
+// that instance's API calls; JavaScript never sees it. The CSRF token and user name
 // are kept in localStorage so a reload keeps the user logged in; a session
 // marker cookie tells whether the browser still has the ticket cookie (both
 // end when the browser closes).
 
 import type { Capabilities } from './types'
+import { getInstanceScope, instanceStorageKey } from './instance-scope'
 
 export const AUTH_COOKIE = 'PVEAuthCookie'
 /** Not secret: only says "the HttpOnly ticket cookie was set in this browser session". */
-export const SESSION_MARKER_COOKIE = 'tiller-session'
-const SESSION_KEY = 'tiller:session'
+const scope = getInstanceScope()
+export const SESSION_MARKER_COOKIE = scope ? `tiller-session-${scope.id}-${scope.version}` : 'tiller-session'
+const SESSION_KEY = instanceStorageKey('tiller:session')
 
 /**
  * Sent with login, two-factor, OpenID and renewal requests: the Go server

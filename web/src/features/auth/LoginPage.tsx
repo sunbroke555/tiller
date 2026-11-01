@@ -1,11 +1,12 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router'
-import { ArrowLeft, ExternalLink, Eye, EyeOff, Fingerprint, KeyRound, Loader2, ShieldCheck, WifiOff } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BookOpen, ExternalLink, Eye, EyeOff, Fingerprint, KeyRound, Loader2, LockKeyhole, ShieldCheck, WifiOff } from 'lucide-react'
 
 import { completeTfa, login, loginWithOpenId, type PendingTfa, type TfaMethod } from '@/api/auth'
 import { isPveApiError } from '@/api/client'
 import { useDomains } from '@/api/queries'
 import { getLogoutReason } from '@/api/session'
+import { instanceStorageKey } from '@/api/instance-scope'
 import { openIdAuthUrl, openIdRedirectUrl, readOpenIdCallback } from '@/api/shell'
 import { useSession } from '@/api/useSession'
 import { AmbientBackground } from '@/components/AmbientBackground'
@@ -22,9 +23,10 @@ import { assertionToPve, loginRequestOptions, webauthnChallengeOf, webauthnError
 
 import { ConsentGate } from './ConsentGate'
 import { ThemeQuickSwitch } from './ThemeQuickSwitch'
+import { InstanceSwitcher } from '@/features/instances/InstanceSwitcher'
 
-const LAST_LOGIN_KEY = 'tiller:last-login'
-const LAST_TFA_KEY = 'tiller:last-tfa-method'
+const LAST_LOGIN_KEY = instanceStorageKey('tiller:last-login')
+const LAST_TFA_KEY = instanceStorageKey('tiller:last-tfa-method')
 
 function loadLastLogin(): { username: string; realm: string } {
   try {
@@ -75,32 +77,58 @@ export function LoginPage() {
   const done = () => navigate(next, { replace: true })
 
   return (
-    <div className="relative flex min-h-dvh flex-col">
+    <div className="relative isolate flex min-h-dvh flex-col">
       <AmbientBackground />
-      <div className="relative z-10 flex justify-end p-4 pt-[max(1rem,env(safe-area-inset-top))]">
+      <header className="relative mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-6 pt-[max(1.5rem,env(safe-area-inset-top))] sm:px-10 sm:pt-8">
+        <div className="flex items-center gap-3">
+          <Logo className="size-10" />
+          <h1 className="font-sans text-xl font-semibold tracking-tight">Tiller</h1>
+          <span className="ml-1 hidden border-l border-border pl-4 text-xs text-muted-foreground sm:block">Proxmox VE 管理界面</span>
+        </div>
         <ThemeQuickSwitch />
-      </div>
-      <main className="relative z-10 flex flex-1 items-start justify-center px-4 pt-[6vh] pb-16 sm:items-center sm:pt-0">
-        <div className="w-full max-w-[400px]">
-          <div className="mb-8 flex flex-col items-center gap-4 text-center">
-            <Logo className="size-14 rounded-2xl" />
-            <div>
-              <h1 className="text-2xl font-semibold paper:text-3xl">Tiller</h1>
-              <p className="mt-1 text-sm text-muted-foreground">登录 Proxmox VE</p>
+      </header>
+      <main className="relative flex flex-1 items-center justify-center px-5 py-10 sm:px-10 sm:py-14">
+        <div className="mx-auto w-full max-w-[440px] min-w-0">
+          <GlassCard strong className="overflow-hidden rounded-3xl p-0">
+            <div className="h-1 bg-brand/70" aria-hidden />
+            <div className="p-6 sm:p-9">
+              {!pending && (
+                <div className="mb-8 grid justify-items-start gap-2 text-left">
+                  <h2 className="font-sans text-2xl leading-tight font-semibold">{oidc ? '正在连接账户' : '登录 Tiller'}</h2>
+                  <p className="text-sm leading-relaxed text-muted-foreground">
+                    {oidc ? '身份验证完成后将自动进入管理界面。' : '使用 Proxmox VE 账户登录'}
+                  </p>
+                </div>
+              )}
+              {oidc ? (
+                <OpenIdCallback code={oidc.code} state={oidc.state} onDone={done} />
+              ) : pending ? (
+                <TfaForm pending={pending} onBack={() => setPending(null)} onDone={done} />
+              ) : (
+                <>
+                  <div className="mb-6 border-b border-border pb-6"><InstanceSwitcher login /></div>
+                  <PasswordForm notice={notice} onTfa={setPending} onDone={done} />
+                </>
+              )}
             </div>
-          </div>
-          <GlassCard strong className="p-6 sm:p-7">
-            {oidc ? (
-              <OpenIdCallback code={oidc.code} state={oidc.state} onDone={done} />
-            ) : pending ? (
-              <TfaForm pending={pending} onBack={() => setPending(null)} onDone={done} />
-            ) : (
-              <PasswordForm notice={notice} onTfa={setPending} onDone={done} />
-            )}
+            <div className="flex items-start gap-2.5 border-t border-border bg-foreground/[0.02] px-6 py-4 text-xs leading-relaxed text-muted-foreground sm:px-9">
+              <LockKeyhole className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              <p>使用现有账户认证，Tiller 不保存你的密码。</p>
+            </div>
           </GlassCard>
           <OfflineHint />
+          <div className="mt-4 flex justify-center">
+            <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
+              <a href="/docs/" target="_blank" rel="noopener noreferrer">
+                <BookOpen aria-hidden /> 使用文档
+              </a>
+            </Button>
+          </div>
         </div>
       </main>
+      <footer className="relative px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center text-xs text-muted-foreground sm:pb-8">
+        基于 Proxmox VE 官方 API
+      </footer>
       {/* The official UI shows the consent before login, except on the OpenID callback. */}
       {!oidc && <ConsentGate />}
     </div>
@@ -188,7 +216,7 @@ function PasswordForm({
   }
 
   return (
-    <form onSubmit={submit} className="grid gap-5" noValidate>
+    <form onSubmit={submit} className="grid grid-cols-1 gap-5" noValidate aria-busy={busy}>
       {notice && !error && (
         <p className="rounded-xl bg-warning/10 px-3 py-2.5 text-sm text-warning-strong ring-1 ring-warning/20 ring-inset">{notice}</p>
       )}
@@ -206,6 +234,7 @@ function PasswordForm({
               autoCorrect="off"
               spellCheck={false}
               placeholder="root"
+              className="h-12 rounded-xl px-3.5 pointer-coarse:h-12"
               autoFocus={!username}
             />
           </div>
@@ -218,14 +247,16 @@ function PasswordForm({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
-                className="pr-11"
+                className="h-12 rounded-xl pr-12 pl-3.5 pointer-coarse:h-12"
+                placeholder="输入账户密码"
                 autoFocus={!!username}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((s) => !s)}
                 aria-label={showPassword ? '隐藏密码' : '显示密码'}
-                className="absolute inset-y-0 right-0 inline-flex w-11 items-center justify-center text-muted-foreground hover:text-foreground"
+                aria-pressed={showPassword}
+                className="absolute inset-y-0 right-0 inline-flex w-12 items-center justify-center rounded-xl text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
               >
                 {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
               </button>
@@ -236,14 +267,14 @@ function PasswordForm({
       <div className="grid gap-2">
         <Label htmlFor={ids.realm}>认证域</Label>
         <Select value={realm} onValueChange={setRealm} disabled={!domains.data && domains.isPending}>
-          <SelectTrigger id={ids.realm} className="w-full">
+          <SelectTrigger id={ids.realm} className="w-full min-w-0 rounded-xl px-3.5 data-[size=default]:h-12 pointer-coarse:data-[size=default]:h-12 *:data-[slot=select-value]:min-w-0">
             <SelectValue placeholder={domains.isPending ? '加载中…' : '选择认证域'} />
           </SelectTrigger>
           <SelectContent>
             {realms.map((d) => (
               <SelectItem key={d.realm} value={d.realm}>
-                <span>{d.comment || d.realm}</span>
-                <span className="text-xs text-muted-foreground">@{d.realm}</span>
+                <span className="truncate">{d.comment || d.realm}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">@{d.realm}</span>
               </SelectItem>
             ))}
           </SelectContent>
@@ -253,9 +284,10 @@ function PasswordForm({
       {openid && (
         <p className="text-sm text-muted-foreground">这个认证域使用 OpenID Connect：将跳转到身份提供方登录，完成后自动回到这里。</p>
       )}
-      <Button type="submit" size="lg" className="mt-1 w-full" disabled={busy}>
+      <Button type="submit" size="lg" className="mt-2 h-12 w-full gap-2.5" disabled={busy}>
         {busy ? <Loader2 className="animate-spin" /> : openid ? <ExternalLink /> : null}
-        {openid ? `使用 ${realm} 登录` : '登录'}
+        {busy ? (openid ? '正在跳转…' : '正在登录…') : openid ? `使用 ${realm} 登录` : '登录'}
+        {!busy && !openid && <ArrowRight aria-hidden />}
       </Button>
     </form>
   )
@@ -379,15 +411,15 @@ function TfaForm({ pending, onBack, onDone }: { pending: PendingTfa; onBack: () 
         if (method === 'webauthn') void signWithKey()
         else void submit(method, code)
       }}
-      className="grid gap-5"
+      className="grid grid-cols-1 gap-5"
     >
       <div className="flex items-start gap-3">
         <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-strong paper:bg-secondary paper:text-foreground">
           <ShieldCheck className="size-5" />
         </span>
-        <div>
-          <h2 className="text-lg font-semibold">两步验证</h2>
-          <p className="text-sm text-muted-foreground">{pending.username}</p>
+        <div className="min-w-0">
+          <h2 className="font-sans text-lg font-semibold">两步验证</h2>
+          <p className="text-sm break-all text-muted-foreground">{pending.username}</p>
         </div>
       </div>
 
@@ -400,9 +432,9 @@ function TfaForm({ pending, onBack, onDone }: { pending: PendingTfa; onBack: () 
             setError(null)
           }}
         >
-          <TabsList className="w-full">
+          <TabsList className="grid w-full grid-cols-2 group-data-[orientation=horizontal]/tabs:h-auto sm:auto-cols-fr sm:grid-flow-col sm:grid-cols-none">
             {methods.map((m) => (
-              <TabsTrigger key={m} value={m}>
+              <TabsTrigger key={m} value={m} className="h-10 min-w-0 text-xs pointer-coarse:h-11">
                 {METHOD_LABEL[m]}
               </TabsTrigger>
             ))}
@@ -436,7 +468,7 @@ function TfaForm({ pending, onBack, onDone }: { pending: PendingTfa; onBack: () 
             autoComplete={method === 'totp' ? 'one-time-code' : 'off'}
             autoCapitalize="none"
             spellCheck={false}
-            className={method === 'totp' ? 'text-center text-lg tracking-[0.4em] tabular' : 'tabular'}
+            className={`h-12 rounded-xl pointer-coarse:h-12 ${method === 'totp' ? 'text-center text-lg tracking-[0.4em] tabular' : 'tabular'}`}
             placeholder={method === 'totp' ? '000000' : method === 'recovery' ? 'xxxx-xxxx-xxxx-xxxx' : ''}
             autoFocus
           />

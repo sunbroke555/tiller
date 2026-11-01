@@ -8,6 +8,7 @@
 // Failures throw PveApiError.
 
 import { clearSession, getSession } from './session'
+import { instanceApiBase } from './instance-scope'
 
 export const API_PREFIX = '/api2/json'
 export const CSRF_HEADER = 'CSRFPreventionToken'
@@ -97,7 +98,7 @@ export function encodeParams(params?: Params): URLSearchParams {
 
 export function apiUrl(path: string, query?: URLSearchParams): string {
   if (!path.startsWith('/')) throw new Error(`API path must start with "/": ${path}`)
-  const base = path.startsWith('/api2/') ? path : API_PREFIX + path
+  const base = instanceApiBase() + (path.startsWith('/api2/') ? path : API_PREFIX + path)
   const qs = query?.toString()
   return qs ? `${base}${base.includes('?') ? '&' : '?'}${qs}` : base
 }

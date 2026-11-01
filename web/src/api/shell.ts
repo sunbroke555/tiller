@@ -5,6 +5,7 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { del, get, isPveApiError, p, post, put } from './client'
+import { instanceApiBase, instanceBase } from './instance-scope'
 import { POLL } from './queries'
 import type { GuestResource, PveBool, StorageResource } from './types'
 
@@ -184,7 +185,7 @@ export function canChangePassword(userid: string): boolean {
 
 /** The redirect URL PVE and the IdP see: this app's origin (per API docs). */
 export function openIdRedirectUrl(): string {
-  return window.location.origin
+  return window.location.origin + (instanceBase() ? instanceBase() + '/' : '')
 }
 
 export async function openIdAuthUrl(realm: string): Promise<string> {
@@ -221,7 +222,7 @@ export interface AppConfig {
 }
 
 export async function fetchAppConfig(signal?: AbortSignal): Promise<AppConfig> {
-  const res = await fetch('/api/config', { signal, credentials: 'same-origin', headers: { Accept: 'application/json' } })
+  const res = await fetch(instanceApiBase() + '/api/config', { signal, credentials: 'same-origin', headers: { Accept: 'application/json' } })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const data = (await res.json()) as Partial<AppConfig>
   return { consentText: typeof data.consentText === 'string' ? data.consentText : '' }

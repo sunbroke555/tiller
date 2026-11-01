@@ -1,0 +1,24 @@
+services:
+  tiller:
+    image: ghcr.io/sunbroke555/tiller:latest
+    restart: unless-stopped
+    ports:
+      # Same-host HTTPS reverse proxy connects here.
+      - "127.0.0.1:8080:8080"
+    environment:
+      PVE_URL: ${PVE_URL:?Set the PVE HTTPS URL in .env}
+      PVE_TLS_FINGERPRINT: ${PVE_TLS_FINGERPRINT:?Set the full SHA-256 certificate fingerprint in .env}
+      LISTEN: :8080
+      PVE_NAME: ${PVE_NAME:-默认 PVE}
+      TILLER_INSTANCES_FILE: /data/tiller-instances.json
+      # Set this to the actual reverse proxy address/network when applicable.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+    volumes:
+      - tiller-data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  tiller-data:

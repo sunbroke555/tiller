@@ -121,6 +121,12 @@ func NewProxy(target *url.URL, transport http.RoundTripper, logger *slog.Logger,
 			// client-supplied X-Forwarded-*/Forwarded headers.
 			pr.SetURL(target)
 			pr.Out.Host = target.Host
+			// Forward only this instance's ticket, never another instance's
+			// cookie or Tiller's session markers / management credentials.
+			pr.Out.Header.Del("Cookie")
+			if ticket := cookieTicket(pr.In); ticket != "" {
+				pr.Out.AddCookie(&http.Cookie{Name: authCookieName, Value: url.QueryEscape(ticket)})
+			}
 			// Our own view of the client (not a header the client could forge).
 			if ip := clientIP(pr.In, trusted); ip != nil {
 				pr.Out.Header.Set("X-Forwarded-For", ip.String())
@@ -143,6 +149,8 @@ func NewProxy(target *url.URL, transport http.RoundTripper, logger *slog.Logger,
 			}
 		},
 		ModifyResponse: func(resp *http.Response) error {
+			// Only authGuard may create browser cookies, with the correct scope.
+			resp.Header.Del("Set-Cookie")
 			// securityHeaders already set these on the response writer; the
 			// proxy would otherwise append PVE's copies as duplicates.
 			for _, k := range securityHeaderNames {

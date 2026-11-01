@@ -3,6 +3,7 @@ import { Database, Download, Keyboard, Languages, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useClusterOptions } from '@/api/shell'
+import { instanceStorageKey } from '@/api/instance-scope'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { GlassCard } from '@/components/GlassCard'
 import { openShortcutsHelp } from '@/components/layout/KeyboardShortcuts'
@@ -30,9 +31,9 @@ const LANGUAGE_NAMES: Record<string, string> = {
 /** Local data the "清除本地设置" button removes (never the login session). */
 export const LOCAL_SETTING_KEYS = [
   'tiller:appearance',
-  'tiller:resource-tree',
-  'tiller:last-login',
-  'tiller:last-tfa-method',
+  instanceStorageKey('tiller:resource-tree'),
+  instanceStorageKey('tiller:last-login'),
+  instanceStorageKey('tiller:last-tfa-method'),
   'tiller:install-dismissed',
   COUNTED_STORAGES_KEY,
 ]

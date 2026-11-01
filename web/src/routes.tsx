@@ -2,6 +2,7 @@ import type { ComponentType } from 'react'
 import { Navigate, createBrowserRouter, type RouteObject } from 'react-router'
 
 import { AppShell } from '@/components/layout/AppShell'
+import { instanceBase } from '@/api/instance-scope'
 import { RequireAuth } from '@/components/layout/RequireAuth'
 import { RouteError } from '@/components/layout/RouteError'
 import { LoginPage } from '@/features/auth/LoginPage'
@@ -25,6 +26,7 @@ function page(load: () => Promise<{ default: ComponentType }>): Pick<RouteObject
 // load the old lazy chunks, and render errors outside tab panels must not
 // fall through to React Router's default screen.
 export const routes: RouteObject[] = [
+  { path: '/instances', ...page(() => import('@/features/instances/InstancesPage')), errorElement: <RouteError fullScreen /> },
   { path: '/login', element: <LoginPage />, errorElement: <RouteError fullScreen /> },
   // Full-screen pages (no app frame).
   {
@@ -74,5 +76,5 @@ export const routes: RouteObject[] = [
 ]
 
 export function createRouter() {
-  return createBrowserRouter(routes)
+  return createBrowserRouter(routes, { basename: instanceBase() || '/' })
 }

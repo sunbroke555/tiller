@@ -14,6 +14,7 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { get, p, post, put } from './client'
+import { instanceApiBase } from './instance-scope'
 import { POLL, queryKeys } from './queries'
 import type { GuestType, PveBool } from './types'
 
@@ -102,7 +103,7 @@ export function vncWebsocketUrl(
 ): string {
   const scheme = loc.protocol === 'https:' ? 'wss:' : 'ws:'
   const qs = `port=${encodeURIComponent(String(t.port))}&vncticket=${encodeURIComponent(t.ticket)}`
-  return `${scheme}//${loc.host}/api2/json${consoleApiBase(target)}/vncwebsocket?${qs}`
+  return `${scheme}//${loc.host}${instanceApiBase()}/api2/json${consoleApiBase(target)}/vncwebsocket?${qs}`
 }
 
 export function fetchSpiceConfig(target: ConsoleTarget, proxy?: string): Promise<SpiceConfig> {

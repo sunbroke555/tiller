@@ -4,6 +4,7 @@
 
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
+import { instanceAppUrl, instanceBase } from '@/api/instance-scope'
 import {
   ChevronLeft,
   ClipboardCopy,
@@ -494,7 +495,7 @@ export function ConsoleScreen({ target, variant, title, backTo, requestedViewer,
       onLandscape={() => void landscape()}
       onSpice={() => setDialog('spice')}
       onOpenPage={() => navigate(fullPath(target))}
-      onPopup={() => window.open(fullPath(target), `console-${targetKey(target)}`, 'popup,width=1100,height=760')}
+      onPopup={() => window.open(instanceAppUrl(fullPath(target)), `console-${instanceBase()}-${targetKey(target)}`, 'popup,width=1100,height=760')}
       refocus={() => {
         if (!coarse) sessionRef.current?.focus()
       }}

@@ -8,16 +8,33 @@ NPM ?= npm
 BIN := server/tiller
 GOFLAGS_BUILD := -trimpath -ldflags "-s -w"
 
-.PHONY: deps web server test test-go test-web typecheck dev e2e e2e-area e2e-smoke e2e-visual e2e-deps e2e-server e2e-stop clean
+.PHONY: deps docs-deps docs docs-dev test-docs web server test test-go test-web typecheck dev e2e e2e-area e2e-smoke e2e-visual e2e-deps e2e-server e2e-stop clean
 
 # Reinstall web dependencies only when the lockfile changes.
 web/node_modules/.package-lock.json: web/package-lock.json web/package.json
 	cd web && $(NPM) ci --no-audit --no-fund
 deps: web/node_modules/.package-lock.json
 
-## web: build the SPA into web/dist
-web: deps
+doc/node_modules/.package-lock.json: doc/package-lock.json doc/package.json
+	cd doc && $(NPM) ci --no-audit --no-fund
+docs-deps: doc/node_modules/.package-lock.json
+
+## docs: build the standalone user guide (served at /docs/)
+docs: docs-deps
+	cd doc && $(NPM) run build
+
+## docs-dev: edit the guide with HMR at :5174/docs/
+docs-dev: docs-deps
+	cd doc && $(NPM) run dev -- --port 5174
+
+## test-docs: document navigation, search, CSP and PWA routing; no PVE needed
+test-docs: server e2e-deps
+	cd e2e && npx playwright test --config docs.config.ts
+
+## web: build the SPA and user guide into web/dist
+web: deps docs
 	cd web && $(NPM) run build
+	cp -R doc/.vitepress/dist web/dist/docs
 
 ## server: build the single binary with the SPA embedded (server/tiller)
 server: web
@@ -41,7 +58,10 @@ typecheck: deps
 
 ## dev: Go server (dev build, proxies /api2 to PVE_URL) + Vite with HMR on :5173
 ## Example: PVE_URL=https://<lab>:8006 PVE_INSECURE_TLS=1 make dev
-dev: deps
+dev: deps docs
+	mkdir -p web/dist
+	rm -rf web/dist/docs
+	cp -R doc/.vitepress/dist web/dist/docs
 	trap 'kill 0' EXIT INT TERM; \
 	(cd server && LISTEN=127.0.0.1:8080 $(GO) run -tags dev .) & \
 	(cd web && $(NPM) run dev) & \
@@ -97,4 +117,4 @@ e2e-stop:
 	$(CURDIR)/scripts/e2e-server.sh stop $(PORT)
 
 clean:
-	rm -rf web/dist server/web/dist $(BIN) e2e/.run
+	rm -rf web/dist server/web/dist doc/.vitepress/dist doc/.vitepress/cache $(BIN) e2e/.run

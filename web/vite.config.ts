@@ -54,8 +54,9 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,webmanifest}'],
         navigateFallback: '/index.html',
-        // The API (and its websockets) must always hit the network.
-        navigateFallbackDenylist: [/^\/api2\//, /^\/api\//],
+        // The API and standalone documentation must reach their own handlers.
+        navigateFallbackDenylist: [/^\/api2\//, /^\/api\//, /^\/docs(?:\/|$)/],
+        globIgnores: ['docs/**'],
         runtimeCaching: [],
         cleanupOutdatedCaches: true,
       },
@@ -67,8 +68,9 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api2': { target: backend, ws: true, changeOrigin: false },
-      // Tiller's own endpoints (/api/config, /api/logout).
-      '/api/': { target: backend, changeOrigin: false },
+      // Tiller endpoints and scoped PVE APIs, including console WebSockets.
+      '/api/': { target: backend, ws: true, changeOrigin: false },
+      '/docs': { target: backend, changeOrigin: false },
     },
   },
   preview: { host: '0.0.0.0', port: 4173 },

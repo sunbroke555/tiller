@@ -1,6 +1,6 @@
 // Command tiller serves the Tiller single page app and reverse-proxies the
-// Proxmox VE API (/api2/) to PVE_URL. It is stateless: it never stores
-// credentials, it only forwards the browser's PVEAuthCookie and CSRF header.
+// Proxmox VE API to the selected instance. It stores connection metadata only,
+// and forwards each instance's browser ticket and CSRF header independently.
 package main
 
 import (
@@ -49,7 +49,7 @@ func run(logger *slog.Logger) error {
 	go CheckUpstream(ctx, cfg, transport, logger)
 
 	if cfg.PlainHTTPExposed() {
-		logger.Warn("SERVING PLAIN HTTP ON A NETWORK ADDRESS: PVE passwords, two-factor codes and tickets cross the network unencrypted. " +
+		logger.Warn("SERVING PLAIN HTTP ON A NETWORK ADDRESS: PVE passwords, two-factor codes and tickets cross the network unencrypted. "+
 			"Set TLS_CERT_FILE/TLS_KEY_FILE, put a TLS reverse proxy in front, or listen on 127.0.0.1 only.",
 			"listen", cfg.Listen)
 	}
@@ -105,6 +105,11 @@ func (emptyFS) Open(string) (fs.File, error) { return nil, fs.ErrNotExist }
 // NewHandler assembles the complete HTTP handler.
 func NewHandler(cfg *Config, web fs.FS, immutable bool, transport http.RoundTripper, logger *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
+	instances := newInstanceRegistry(cfg, transport, logger)
+	manageInstances := sameOrigin(cfg.TrustedProxies, logger, http.HandlerFunc(instances.Manage))
+	mux.Handle(instancesAPI, manageInstances)
+	mux.Handle(instancesAPI+"/", manageInstances)
+	mux.Handle("/api/instances/", sameOrigin(cfg.TrustedProxies, logger, http.HandlerFunc(instances.ServeInstance)))
 	// Only the JSON API (websockets included). PVE's other formatters
 	// (/api2/html with its own login form, /api2/extjs, /api2/png,
 	// /api2/spiceconfig) are not used by the SPA and stay off this origin.
@@ -121,6 +126,7 @@ func NewHandler(cfg *Config, web fs.FS, immutable bool, transport http.RoundTrip
 		w.Header().Set("Cache-Control", "no-store")
 		_, _ = w.Write([]byte("ok\n"))
 	})
+	mux.Handle("/docs/", http.StripPrefix("/docs/", newDocsHandler(web, immutable)))
 	mux.Handle("/", newSPAHandler(web, immutable))
 	return securityHeaders(allowFrom(cfg, logger, mux))
 }
@@ -132,7 +138,7 @@ var securityHeaderNames = []string{
 }
 
 // securityHeaders adds headers that apply to every response. The CSP is set
-// per document by the SPA handler because it depends on index.html.
+// per document by the static handlers because it depends on inline scripts.
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()

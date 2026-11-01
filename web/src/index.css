@@ -338,6 +338,23 @@
 
 /* -------------------------------------------------------------- utilities */
 
+/* Keep hashed tag hues recognisable without letting them overpower resources. */
+@utility tag-palette {
+  --tag-tone: color-mix(in oklab, var(--tag) 55%, var(--muted-foreground));
+  --tag-ink: color-mix(in oklab, var(--tag) 30%, var(--foreground));
+
+  @variant dark {
+    --tag-ink: color-mix(in oklab, var(--tag) 65%, var(--foreground));
+  }
+}
+
+/* Shared by overview chips and the guest's editable tags. */
+@utility tag-tint {
+  background-color: color-mix(in oklab, var(--tag-tone) 14%, transparent);
+  color: var(--tag-ink);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tag-tone) 20%, transparent);
+}
+
 /* Translucent card with a 1px inner highlight along the top edge. */
 @utility surface {
   background-color: var(--glass);

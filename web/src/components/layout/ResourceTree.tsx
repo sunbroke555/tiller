@@ -20,7 +20,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { poolPath } from '@/features/pool/paths'
-import { guestName, guestPath, nodePath, storagePath } from '@/lib/resources'
+import { GUEST_TYPE_LABEL, guestName, guestPath, nodePath, statusLabel, storagePath } from '@/lib/resources'
 import { orderTags, splitTags } from '@/lib/tags'
 import { cn } from '@/lib/utils'
 
@@ -124,7 +124,8 @@ export function ResourceTree() {
         </DropdownMenu>
       </div>
 
-      <ScrollArea className="min-h-0 flex-1 pr-1">
+      {/* Keep Radix's intrinsic-width content wrapper within the sidebar so long names truncate. */}
+      <ScrollArea className="min-h-0 flex-1 pr-1 [&_[data-slot=scroll-area-viewport]>div]:block!">
       {isPending ? (
         <div className="space-y-2 px-2 pt-1">
           {Array.from({ length: 6 }, (_, i) => (
@@ -197,10 +198,11 @@ function GroupLabel({ group, count }: { group: TreeGroup; count: number }) {
   switch (group.kind) {
     case 'node':
       return (
-        <NavLink to={nodePath(group.label)} className={cls} end={false}>
-          <ResourceIcon type="node" className="size-3.5" />
-          <span className="truncate">{group.label}</span>
-          <StatusDot status={group.node?.status} size="sm" pulse={false} className="ml-auto" />
+        <NavLink to={nodePath(group.label)} className={cls} end={false} title={`节点 · ${group.label} · ${statusLabel(group.node?.status)}`}>
+          <ResourceIcon type="node" className="size-4 text-foreground/80" />
+          <span className="min-w-0 flex-1 truncate">{group.label}</span>
+          <span className="shrink-0 text-[11px] font-normal text-muted-foreground">节点</span>
+          <StatusDot status={group.node?.status} size="sm" pulse={false} />
         </NavLink>
       )
     case 'pool':
@@ -233,16 +235,33 @@ function GroupLabel({ group, count }: { group: TreeGroup; count: number }) {
 const GuestRow = memo(function GuestRow({ guest: g, showNode }: { guest: GuestResource; showNode: boolean }) {
   const style = useTagStyle()
   const tags = orderTags(splitTags(g.tags), style).slice(0, 3)
+  const template = g.template === 1
+  const type = `${g.type === 'lxc' ? 'CT' : 'VM'}${template ? ' 模板' : ''}`
+  const title = [
+    `${GUEST_TYPE_LABEL[g.type]}${template ? '模板' : ''}`,
+    `${g.vmid} · ${guestName(g)}`,
+    g.node,
+    !template && statusLabel(g.status),
+  ].filter(Boolean).join(' · ')
   return (
-    <NavLink to={guestPath(g)} className={rowClass} title={showNode ? `${guestName(g)} · ${g.node}` : guestName(g)}>
-      <StatusDot status={g.template === 1 ? 'template' : g.status} size="sm" pulse={false} />
-      <span className="w-8 shrink-0 text-[11px] text-muted-foreground tabular">{g.vmid}</span>
-      <span className={cn('truncate', g.status !== 'running' && 'text-muted-foreground')}>{guestName(g)}</span>
-      <span className="ml-auto flex shrink-0 items-center gap-1">
-        {tags.map((t) => (
-          <TagChip key={t} tag={t} shape="dense" tagStyle={style} className="w-2.5" />
-        ))}
-        {g.template === 1 && <ResourceIcon type={g.type} template className="size-3" />}
+    <NavLink to={guestPath(g)} className={(s) => cn(rowClass(s), 'h-11')} title={title}>
+      <ResourceIcon type={g.type} template={template} className="size-4 text-foreground/80" />
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 flex-1 truncate leading-4">{guestName(g)}</span>
+          {!template && <StatusDot status={g.status} size="sm" pulse={false} />}
+        </span>
+        <span className="flex min-w-0 items-center gap-1.5 text-[11px] leading-3.5 text-muted-foreground">
+          <span className="shrink-0">{type} · <span className="tabular">{g.vmid}</span></span>
+          {showNode && <span className="truncate">· {g.node}</span>}
+          {tags.length > 0 && (
+            <span className="ml-auto flex shrink-0 items-center gap-1">
+              {tags.map((t) => (
+                <TagChip key={t} tag={t} shape="dense" tagStyle={style} className="w-2.5" />
+              ))}
+            </span>
+          )}
+        </span>
       </span>
     </NavLink>
   )
@@ -250,11 +269,12 @@ const GuestRow = memo(function GuestRow({ guest: g, showNode }: { guest: GuestRe
 
 function StorageRow({ storage: s, showNode }: { storage: StorageResource; showNode: boolean }) {
   return (
-    <NavLink to={storagePath(s.node, s.storage)} className={rowClass}>
-      <ResourceIcon type="storage" className="size-3.5" />
-      <span className={cn('truncate', s.status !== 'available' && 'text-muted-foreground')}>{s.storage}</span>
+    <NavLink to={storagePath(s.node, s.storage)} className={rowClass} title={`存储 · ${s.storage} · ${s.node} · ${statusLabel(s.status)}`}>
+      <ResourceIcon type="storage" className="size-4" />
+      <span className={cn('min-w-0 flex-1 truncate', s.status !== 'available' && 'text-muted-foreground')}>{s.storage}</span>
       {showNode && <span className="truncate text-[11px] text-muted-foreground">{s.node}</span>}
-      {s.status !== 'available' && <StatusDot status={s.status} size="sm" pulse={false} className="ml-auto" />}
+      <span className="shrink-0 text-[11px] text-muted-foreground">存储</span>
+      {s.status !== 'available' && <StatusDot status={s.status} size="sm" pulse={false} />}
     </NavLink>
   )
 }

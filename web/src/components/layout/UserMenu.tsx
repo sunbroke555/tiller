@@ -1,5 +1,5 @@
 import { Link } from 'react-router'
-import { Building2, Keyboard, LogOut, Palette, ShieldCheck, UserRound } from 'lucide-react'
+import { BookOpen, Building2, Keyboard, LogOut, Palette, Server, ShieldCheck, UserRound } from 'lucide-react'
 
 import { logout } from '@/api/auth'
 import { useSession } from '@/api/useSession'
@@ -55,6 +55,9 @@ export function UserMenu({ variant = 'icon', className }: { variant?: 'icon' | '
         <DropdownMenuLabel className="truncate font-normal text-muted-foreground">{user}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild className="pointer-coarse:min-h-11">
+          <Link to="/instances"><Server /> 实例管理</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="pointer-coarse:min-h-11">
           <Link to="/account">
             <ShieldCheck /> 账户与安全
           </Link>
@@ -72,6 +75,11 @@ export function UserMenu({ variant = 'icon', className }: { variant?: 'icon' | '
         <DropdownMenuItem onSelect={() => openShortcutsHelp()} className="pointer-coarse:hidden">
           <Keyboard /> 键盘快捷键
           <DropdownMenuShortcut>?</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="pointer-coarse:min-h-11">
+          <a href="/docs/" target="_blank" rel="noopener noreferrer">
+            <BookOpen /> 使用文档
+          </a>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onSelect={() => logout()} className="pointer-coarse:min-h-11">

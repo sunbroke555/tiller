@@ -257,7 +257,7 @@ func (g *authGuard) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if cookieMode && rec.status == http.StatusOK {
 		if out, ticket, ok := takeTicket(body); ok {
 			body = out
-			rec.header.Add("Set-Cookie", ticketCookie(ticket, isHTTPS(r, g.trusted), false).String())
+			rec.header.Add("Set-Cookie", scopedTicketCookie(r, ticket, isHTTPS(r, g.trusted), false).String())
 		}
 	}
 	for k, v := range rec.header {
@@ -290,7 +290,7 @@ func parseLoginBody(contentType string, body []byte) (url.Values, bool) {
 }
 
 func cookieTicket(r *http.Request) string {
-	c, err := r.Cookie(authCookieName)
+	c, err := r.Cookie(scopeOf(r).cookieName)
 	if err != nil || c.Value == "" {
 		return ""
 	}
@@ -371,7 +371,7 @@ func logoutHandler(trusted []*net.IPNet) http.Handler {
 			http.Error(w, "missing "+ticketModeHeader+" header", http.StatusBadRequest)
 			return
 		}
-		http.SetCookie(w, ticketCookie("", isHTTPS(r, trusted), true))
+		http.SetCookie(w, scopedTicketCookie(r, "", isHTTPS(r, trusted), true))
 		w.Header().Set("Cache-Control", "no-store")
 		w.WriteHeader(http.StatusNoContent)
 	})

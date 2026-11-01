@@ -11,8 +11,8 @@ import (
 	"strings"
 )
 
-// Config is the complete runtime configuration. It is read from environment
-// variables only; the server keeps no state and stores no credentials.
+// Config combines deployment environment variables with saved instance
+// connection metadata. Passwords and authentication tickets are never stored.
 type Config struct {
 	// Listen is the address the HTTP server binds to (LISTEN, default ":8080").
 	Listen string
@@ -41,6 +41,10 @@ type Config struct {
 	// X-Forwarded-For is believed when working out the client address
 	// (TRUSTED_PROXIES, IPs/CIDRs). Without them the socket peer counts.
 	TrustedProxies []*net.IPNet
+	// InstancesFile stores connection metadata only, never passwords or tickets.
+	InstancesFile string
+	InstanceName  string
+	Instances     []InstanceConfig
 }
 
 const defaultPVEURL = "https://127.0.0.1:8006"
@@ -106,6 +110,17 @@ func LoadConfig(getenv func(string) string) (*Config, error) {
 
 	if (cfg.TLSCert == "") != (cfg.TLSKey == "") {
 		return nil, errors.New("TLS_CERT_FILE 和 TLS_KEY_FILE 需要同时设置")
+	}
+	cfg.InstanceName = strings.TrimSpace(getenv("PVE_NAME"))
+	if cfg.InstanceName == "" {
+		cfg.InstanceName = "默认 PVE"
+	}
+	cfg.InstancesFile = strings.TrimSpace(getenv("TILLER_INSTANCES_FILE"))
+	if cfg.InstancesFile == "" {
+		cfg.InstancesFile = "tiller-instances.json"
+	}
+	if cfg.Instances, err = loadInstances(cfg.InstancesFile); err != nil {
+		return nil, err
 	}
 	return cfg, nil
 }

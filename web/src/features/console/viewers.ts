@@ -11,6 +11,7 @@
 // embedded view then shows our default viewer).
 
 import type { ConsoleTarget, ConsoleViewer, GuestConsoleConfig, GuestConsoleStatus } from '@/api/console'
+import { instanceStorageKey } from '@/api/instance-scope'
 
 export interface ConsoleCapabilities {
   viewers: ConsoleViewer[]
@@ -131,7 +132,7 @@ export function opensSpiceByDefault(
 
 const VIEWER_PREF_KEY = 'tiller:console-viewer'
 const FONT_PREF_KEY = 'tiller:console-font-size'
-const SPICE_PROXY_KEY = 'tiller:spice-proxy'
+const SPICE_PROXY_KEY = instanceStorageKey('tiller:spice-proxy')
 
 function readJson<T>(key: string): T | null {
   try {

@@ -4,10 +4,11 @@
 // an empty list counts every storage.
 
 import { useSyncExternalStore } from 'react'
+import { instanceStorageKey } from '@/api/instance-scope'
 
 import { isStorage, type ClusterResource, type StorageResource } from '@/api/types'
 
-export const COUNTED_STORAGES_KEY = 'tiller:dashboard-storages'
+export const COUNTED_STORAGES_KEY = instanceStorageKey('tiller:dashboard-storages')
 const EVENT = 'tiller:dashboard-storages'
 
 function parse(raw: string | null): string[] {

@@ -3,6 +3,7 @@ import { Outlet } from 'react-router'
 import { AmbientBackground } from '@/components/AmbientBackground'
 import { TaskLogHost } from '@/components/tasks/TaskLogSheet'
 import { TaskFooterBar } from '@/features/tasks/TaskShell'
+import { InstanceSwitcher } from '@/features/instances/InstanceSwitcher'
 
 import { BottomDock } from './BottomDock'
 import { CommandPaletteProvider } from './CommandPalette'
@@ -25,6 +26,7 @@ export function AppShell() {
           <Sidebar className="hidden lg:flex" />
           <main className="min-w-0 pt-[max(1.25rem,env(safe-area-inset-top))] pr-[max(1rem,env(safe-area-inset-right))] pb-[calc(var(--dock-h,4.5rem)+max(0.75rem,env(safe-area-inset-bottom))+1.75rem)] pl-[max(1rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] lg:px-10 lg:pt-8 lg:pb-[calc(var(--task-footer-h,0px)+3rem)]">
             <div className="mx-auto w-full max-w-6xl">
+              <div className="mb-5 lg:hidden"><InstanceSwitcher /></div>
               <Outlet />
             </div>
           </main>

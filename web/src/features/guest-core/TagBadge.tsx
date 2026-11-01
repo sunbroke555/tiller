@@ -44,8 +44,8 @@ export function TagBadge({ tag, style, size = 'sm', className, children }: TagBa
   const tint = { '--tag': rgbCss(stringToRgb(tag)) } as CSSProperties
   if (style.shape === 'circle' || style.shape === 'dense') {
     return (
-      <span className={cn(base, 'px-0 text-foreground/80')} style={tint}>
-        <span aria-hidden className="size-2 shrink-0 rounded-full bg-(--tag)" />
+      <span className={cn(base, 'tag-palette px-0 text-foreground/80')} style={tint}>
+        <span aria-hidden className="size-2 shrink-0 rounded-full bg-(--tag-tone)" />
         <span className="truncate">{tag}</span>
         {children}
       </span>
@@ -53,10 +53,7 @@ export function TagBadge({ tag, style, size = 'sm', className, children }: TagBa
   }
   return (
     <span
-      className={cn(
-        base,
-        'bg-[color-mix(in_oklab,var(--tag)_18%,transparent)] text-[color-mix(in_oklab,var(--tag)_50%,var(--foreground))] ring-1 ring-[color-mix(in_oklab,var(--tag)_30%,transparent)] ring-inset',
-      )}
+      className={cn(base, 'tag-palette tag-tint')}
       style={tint}
     >
       <span className="truncate">{tag}</span>
