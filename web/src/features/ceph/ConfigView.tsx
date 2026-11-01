@@ -51,7 +51,7 @@ function RawConfig({ apiNode }: { apiNode: string }) {
   const q = useCephConfigRaw(apiNode)
   return (
     <Section title="/etc/pve/ceph.conf" actions={<RefreshButton onClick={() => void q.refetch()} busy={q.isFetching} />}>
-      {q.isPending ? <LoadingRows rows={6} /> : q.error ? <ErrorState error={q.error} onRetry={() => void q.refetch()} compact /> : <CodeBlock aria-label="ceph.conf">{q.data}</CodeBlock>}
+      {q.isPending ? <LoadingRows rows={6} /> : q.error ? <ErrorState error={q.error} onRetry={() => void q.refetch()} compact /> : <CodeBlock aria-label="ceph.conf 内容">{q.data}</CodeBlock>}
     </Section>
   )
 }
@@ -60,7 +60,7 @@ function CrushMap({ apiNode }: { apiNode: string }) {
   const q = useCephCrush(apiNode)
   return (
     <Section title="CRUSH 映射" actions={<RefreshButton onClick={() => void q.refetch()} busy={q.isFetching} />}>
-      {q.isPending ? <LoadingRows rows={8} /> : q.error ? <ErrorState error={q.error} onRetry={() => void q.refetch()} compact /> : <CodeBlock aria-label="CRUSH 映射">{q.data}</CodeBlock>}
+      {q.isPending ? <LoadingRows rows={8} /> : q.error ? <ErrorState error={q.error} onRetry={() => void q.refetch()} compact /> : <CodeBlock aria-label="CRUSH 映射内容">{q.data}</CodeBlock>}
     </Section>
   )
 }
