@@ -152,6 +152,51 @@ async function testerPage(browser: Browser): Promise<Page> {
   return page
 }
 
+test('datacenter: per-type template links and the storages counted in the total', async ({ page, pve }) => {
+  const guests = await pve.guests()
+  const vmTemplates = guests.filter((g) => g.type === 'qemu' && g.template === 1)
+  await page.goto('/datacenter')
+  const card = page.locator('[aria-labelledby="dc-guests"]')
+  const list = page.locator('section[aria-labelledby="guests-heading"]')
+  // Row links read "<status> <type> <name> [tags] <vmid> · …".
+  const row = (name: string | undefined) => list.getByRole('link', { name: new RegExp(` ${name} .*· `) })
+
+  // VM column → only VM templates, with the 模板 status chip selected.
+  await card.getByRole('link', { name: /^模板/ }).first().click()
+  await expect(page).toHaveURL(/\/\?type=qemu&filter=template$/)
+  await expect(page.getByRole('radiogroup', { name: '状态' }).getByRole('radio', { name: /^模板/ })).toHaveAttribute('aria-checked', 'true')
+  for (const g of vmTemplates) await expect(row(g.name)).toBeVisible()
+  const ct = guests.find((g) => g.type === 'lxc' && g.template !== 1)
+  if (ct) await expect(row(ct.name)).toHaveCount(0)
+
+  // CT column → CT templates only (none of the VM templates).
+  await page.goto('/datacenter')
+  await card.getByRole('link', { name: /^模板/ }).nth(1).click()
+  await expect(page).toHaveURL(/\/\?type=lxc&filter=template$/)
+  for (const g of vmTemplates) await expect(row(g.name)).toHaveCount(0)
+
+  // Which storages count toward the storage total (kept in this browser only).
+  await page.goto('/datacenter')
+  const usage = page.locator('[aria-labelledby="dc-usage"]')
+  await expect(usage.getByText(/^存储 · \d+ 个$/)).toBeVisible()
+  await usage.getByRole('button', { name: '选择存储' }).click()
+  const dlg = page.getByRole('dialog', { name: '计入总量的存储' })
+  const lvm = dlg.getByRole('checkbox', { name: /^local-lvm/ })
+  await expect(lvm).toBeChecked()
+  await lvm.click()
+  await expect(lvm).not.toBeChecked()
+  await dlg.getByRole('button', { name: '完成' }).click()
+  await expect(dlg).toBeHidden()
+  await expect(usage.getByText(/^存储 · \d+ 个（已选）$/)).toBeVisible()
+  await page.reload()
+  await expect(usage.getByText(/（已选）$/)).toBeVisible()
+  await usage.getByRole('button', { name: '选择存储' }).click()
+  await dlg.getByRole('button', { name: '全部计入' }).click()
+  await expect(lvm).toBeChecked()
+  await dlg.getByRole('button', { name: '完成' }).click()
+  await expect(usage.getByText(/^存储 · \d+ 个$/)).toBeVisible()
+})
+
 test('actions and commands are hidden without privileges', async ({ browser, pve, mobile }) => {
   const g101 = (await pve.guests()).find((g) => g.vmid === 101)
   test.skip(!g101 || g101.status !== 'running', 'VM 101 不在运行')

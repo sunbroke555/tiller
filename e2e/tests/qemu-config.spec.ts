@@ -278,6 +278,47 @@ test.describe('qemu-config', { tag: '@lab' }, () => {
   })
 })
 
+// The lab has no vGPU: mappings and mdev types are mocked; the dialog on VM
+// 100 is cancelled.
+test('PCI: a cluster mapping marked mdev offers its mediated device types (mocked)', async ({ page, pve }) => {
+  test.skip(!(await pve.guests()).some((g) => g.vmid === 100 && g.type === 'qemu'), '实验机里没有 VM 100')
+  const mdevRequests: string[] = []
+  await page.route('**/api2/json/cluster/mapping/pci?*', (route) =>
+    route.fulfill({
+      json: {
+        data: [
+          { id: 'e2e-vgpu', description: 'vGPU 池', mdev: 1, map: [`node=${pve.node},path=0000:01:00.0,id=10de:1eb8`] },
+          { id: 'e2e-nic', description: '网卡', map: [`node=${pve.node},path=0000:02:00.0,id=8086:1521`] },
+        ],
+      },
+    }),
+  )
+  await page.route('**/api2/json/nodes/*/hardware/pci/*/mdev', (route) => {
+    mdevRequests.push(new URL(route.request().url()).pathname)
+    return route.fulfill({
+      json: { data: [{ type: 'nvidia-222', name: 'GRID T4-1Q', available: 16, description: 'num_heads=4, frl_config=60' }] },
+    })
+  })
+  await page.goto(`/guest/${pve.node}/qemu/100/hardware`)
+  const panel = page.getByRole('tabpanel', { name: '硬件' })
+  await panel.getByRole('button', { name: '添加硬件' }).click()
+  await dialog(page, '添加硬件').getByRole('button', { name: /PCI 设备/ }).click()
+  const d = dialog(page, '添加 PCI 设备')
+
+  await d.getByRole('combobox', { name: '设备', exact: true }).click()
+  await page.getByRole('option', { name: /^e2e-nic/ }).click()
+  await expect(d.getByText('MDev 类型')).toHaveCount(0)
+
+  await d.getByRole('combobox', { name: '设备', exact: true }).click()
+  await page.getByRole('option', { name: /^e2e-vgpu/ }).click()
+  await d.getByRole('combobox', { name: 'MDev 类型' }).click()
+  await page.getByRole('option', { name: /GRID T4-1Q/ }).click()
+  await expect(d.getByRole('combobox', { name: 'MDev 类型' })).toContainText('GRID T4-1Q')
+  expect(mdevRequests).toEqual([`/api2/json/nodes/${pve.node}/hardware/pci/e2e-vgpu/mdev`])
+  await d.getByRole('button', { name: '取消' }).click()
+  await expect(d).toBeHidden()
+})
+
 test.describe('VM config on phones', { tag: '@mobile' }, () => {
   test('hardware editors open as sheets (VM 100, cancelled)', async ({ page, pve }) => {
     test.skip(!(await pve.guests()).some((g) => g.vmid === 100 && g.type === 'qemu'), '实验机里没有 VM 100')

@@ -283,6 +283,32 @@ test.describe('node summary', () => {
     await expect(panel.getByRole('button', { name: '筛选', exact: true })).not.toContainText(/\d/)
   })
 
+  test('guests tab lists the node\'s VMs and CTs and links to the overview (lab samples)', async ({ page, pve }) => {
+    const index = page.waitForRequest((r) => r.method() === 'GET' && new RegExp(`/nodes/${pve.node}/qemu\\?full=1$`).test(r.url()))
+    await page.goto(`/node/${pve.node}/guests`)
+    await index
+    const panel = page.getByRole('tabpanel', { name: '客户机' })
+    const samples = (await pve.guests()).filter((g) => [100, 101, 200, 9000].includes(g.vmid) && g.node === pve.node)
+    // Row links read "<status> <type> <name> [tags] <vmid> · …".
+    const row = (name: string) => panel.getByRole('link', { name: new RegExp(` ${name} .*· `) })
+    for (const g of samples) await expect(row(g.name!)).toBeVisible()
+
+    // Status chips: templates on their own, text filter on top.
+    const status = panel.getByRole('radiogroup', { name: '状态' })
+    if (samples.some((g) => g.vmid === 9000)) {
+      await status.getByRole('radio', { name: /^模板/ }).click()
+      await expect(row('tpl-tiny')).toBeVisible()
+      await expect(row('alpine-ct')).toHaveCount(0)
+      await status.getByRole('radio', { name: /^全部/ }).click()
+    }
+    await panel.getByRole('searchbox', { name: '过滤客户机' }).fill('alpine')
+    await expect(row('alpine-ct')).toBeVisible()
+    await expect(row('tiny-vm')).toHaveCount(0)
+
+    await panel.getByRole('link', { name: '在概览中查看' }).click()
+    await expect(page).toHaveURL(new RegExp(`/\\?node=${pve.node}$`))
+  })
+
   test('palette offers node commands', async ({ page, pve, mobile }) => {
     await page.goto(`/node/${pve.node}`)
     if (mobile) await page.getByRole('button', { name: /搜索/ }).first().click()

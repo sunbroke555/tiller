@@ -170,6 +170,121 @@ test.describe('storage list and summary', () => {
   })
 })
 
+// Guest import (OVA / ESXi) needs a real appliance or an ESXi host the lab does
+// not have: the import volume, its metadata and the create request are
+// mocked; nothing reaches the lab.
+test('guest import maps disks, NICs, CD drives, OS type and VirtIO (mocked OVA)', async ({ page, pve }) => {
+  const ova = 'e2e-p1-win.ova'
+  const volid = `local:import/${ova}`
+  await page.route(`**/api2/json/nodes/${pve.node}/storage/local/content?*`, async (route) => {
+    if (new URL(route.request().url()).searchParams.get('content') !== 'import') return route.fallback()
+    const res = await route.fetch()
+    const body = (await res.json()) as { data: unknown[] }
+    const fake = { volid, content: 'import', format: 'ova', size: 1_610_612_736, ctime: Math.floor(Date.now() / 1000) }
+    return route.fulfill({ response: res, json: { data: [...body.data, fake] } })
+  })
+  await page.route(`**/api2/json/nodes/${pve.node}/storage/local/import-metadata?*`, (route) =>
+    route.fulfill({
+      json: {
+        data: {
+          type: 'vm',
+          source: volid,
+          'create-args': { name: 'e2e-p1-win', ostype: 'win11', bios: 'ovmf', machine: 'q35', memory: 64, cores: 1, sockets: 1, scsihw: 'pvscsi', boot: 'order=scsi0;net0' },
+          disks: {
+            efidisk0: 'efi',
+            scsi0: { volid: `${volid}/win-disk1.vmdk`, size: 1_073_741_824 },
+            scsi1: { volid: `${volid}/win-disk2.vmdk`, size: 536_870_912 },
+          },
+          net: { net0: { model: 'vmxnet3', macaddr: '00:50:56:AA:BB:01', bridge: 'VM Network' } },
+          warnings: [{ type: 'ova-needs-extracting' }],
+        },
+      },
+    }),
+  )
+  // The lab has one disk storage (local-lvm, raw only): add a file storage that can hold qcow2.
+  await page.route(`**/api2/json/nodes/${pve.node}/storage?*`, async (route) => {
+    const q = new URL(route.request().url()).searchParams
+    if (q.get('content') !== 'images' || q.get('format') !== '1') return route.fallback()
+    const res = await route.fetch()
+    const body = (await res.json()) as { data: unknown[] }
+    const dir = {
+      storage: 'e2e-dir',
+      type: 'dir',
+      content: 'images',
+      active: 1,
+      enabled: 1,
+      shared: 0,
+      total: 10 * 2 ** 30,
+      used: 9 * 2 ** 30,
+      avail: 2 ** 30,
+      formats: { default: 'qcow2', supported: ['raw', 'qcow2', 'vmdk'] },
+    }
+    return route.fulfill({ response: res, json: { data: [...body.data, dir] } })
+  })
+  const posted: Record<string, string>[] = []
+  await page.route(`**/api2/json/nodes/${pve.node}/qemu`, (route) => {
+    if (route.request().method() !== 'POST') return route.fallback()
+    posted.push(Object.fromEntries(new URLSearchParams(route.request().postData() ?? '')))
+    return route.fulfill({ status: 500, json: { data: null, message: 'e2e：已拦截，不创建' } })
+  })
+
+  await page.goto(`/storage/${pve.node}/local/import`)
+  await rowAction(page, ova, '导入')
+  const dlg = page.getByRole('dialog', { name: '导入虚拟机' })
+  await expect(dlg.getByRole('combobox', { name: '操作系统' })).toContainText('Windows 11')
+  await dlg.getByRole('textbox', { name: 'VM ID' }).fill('3795')
+  await expect(dlg.getByText('可用', { exact: true })).toBeVisible({ timeout: 10_000 })
+  await dlg.getByRole('combobox', { name: '默认存储' }).click()
+  await page.getByRole('option', { name: /^local-lvm/ }).click()
+
+  // Disks: SCSI → SATA for Windows (VirtIO preparation), the second one on its own storage.
+  await expect(dlg.getByRole('group', { name: '磁盘 scsi0' })).toContainText('→ sata0')
+  const disk2 = dlg.getByRole('group', { name: '磁盘 scsi1' })
+  await disk2.getByRole('combobox', { name: '存储' }).click()
+  await page.getByRole('option', { name: /^e2e-dir/ }).click()
+  await expect(disk2.getByRole('combobox', { name: '格式' })).toContainText('qcow2')
+
+  // NIC: the source's "VM Network" is no bridge here → default bridge; VLAN 20.
+  const nic = dlg.getByRole('group', { name: '网卡 net0' })
+  await expect(nic.getByRole('combobox', { name: '网桥' })).toContainText('默认（vmbr0）')
+  await nic.getByRole('textbox', { name: 'VLAN' }).fill('20')
+  // Windows: an extra CD drive for the VirtIO driver ISO.
+  await expect(dlg.getByRole('group', { name: '光驱 ide0' })).toBeVisible()
+
+  const advanced = dlg.getByRole('button', { name: '高级选项' })
+  if ((await advanced.getAttribute('aria-expanded')) === 'false') await advanced.click()
+  await expect(dlg.getByRole('switch', { name: '为 VirtIO-SCSI 做准备' })).toBeChecked()
+  await expect(dlg.getByRole('combobox', { name: 'SCSI 控制器' })).toContainText('VirtIO SCSI single')
+
+  await dlg.getByRole('button', { name: '导入', exact: true }).click()
+  await expect(dlg.getByText('e2e：已拦截，不创建')).toBeVisible()
+  expect(posted).toHaveLength(1)
+  expect(posted[0]).toMatchObject({
+    vmid: '3795',
+    name: 'e2e-p1-win',
+    ostype: 'win11',
+    cpu: 'x86-64-v2-AES',
+    scsihw: 'virtio-scsi-single',
+    efidisk0: 'local-lvm:0,efitype=4m,format=raw',
+    sata0: `local-lvm:0,import-from=${volid}/win-disk1.vmdk,format=raw`,
+    sata1: `e2e-dir:0,import-from=${volid}/win-disk2.vmdk,format=qcow2`,
+    boot: 'order=sata0;net0',
+    net0: 'vmxnet3=00:50:56:AA:BB:01,bridge=vmbr0,tag=20',
+    ide0: 'none,media=cdrom',
+  })
+  expect(posted[0]).not.toHaveProperty('scsi0')
+
+  // Linux instead: SCSI stays, no driver CD, the source's controller comes back.
+  await dlg.getByRole('combobox', { name: '操作系统' }).click()
+  await page.getByRole('option', { name: /^Linux 6\.x/ }).click()
+  await expect(dlg.getByRole('group', { name: '光驱 ide0' })).toHaveCount(0)
+  await expect(dlg.getByRole('group', { name: '磁盘 scsi0' })).not.toContainText('→')
+  await expect(dlg.getByRole('combobox', { name: 'SCSI 控制器' })).toContainText('VMware PVSCSI')
+
+  await dlg.getByRole('button', { name: '取消' }).click()
+  await expect(dlg).toBeHidden()
+})
+
 test.describe('lab content', { tag: '@lab' }, () => {
   test.beforeAll(async ({ pve }) => {
     await sweepArea(pve)
