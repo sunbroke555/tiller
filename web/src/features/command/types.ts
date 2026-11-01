@@ -6,6 +6,7 @@ import type { NavigateFunction } from 'react-router'
 
 import type { ClusterResource, GuestResource, GuestType, NodeResource } from '@/api/types'
 import type { ConfirmSpec } from '@/components/page/registry'
+import type { PermissionCheck } from '@/lib/permissions'
 
 export interface CommandContext {
   navigate: NavigateFunction
@@ -21,6 +22,12 @@ interface CommandBase {
   keywords?: readonly string[]
   order: number
   destructive?: boolean
+  /**
+   * Privileges needed (hidden without them). Path defaults to the guest /
+   * node the command applies to ("/" for global commands). Omitted: default
+   * by id from lib/permissions.ts; null: never checked.
+   */
+  permission?: PermissionCheck | null
 }
 
 /** Always listed, e.g. "创建虚拟机". */

@@ -258,7 +258,9 @@ export async function uiLogin(browser: Browser, user = env.user, password = env.
   }
   if (!password) throw new Error('缺少密码：先 source ~/.config/pve-web/lab.env（PVE_LAB_PASSWORD）')
   const { username, realm } = splitUser(user)
-  const context = await browser.newContext({ baseURL: env.baseURL, locale: 'zh-CN' })
+  // Inside a test, browser.newContext() inherits the project's (logged-in)
+  // storageState, and /login would redirect away: start empty explicitly.
+  const context = await browser.newContext({ baseURL: env.baseURL, locale: 'zh-CN', storageState: { cookies: [], origins: [] } })
   const page = await context.newPage()
   try {
     await page.goto('/login')

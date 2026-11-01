@@ -4,25 +4,33 @@ import { ChevronRight, Lock } from 'lucide-react'
 import type { GuestResource } from '@/api/types'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { StatusDot } from '@/components/StatusDot'
+import { TagList } from '@/components/TagChip'
 import { Checkbox } from '@/components/ui/checkbox'
 import { formatBytes, formatPercent } from '@/lib/format'
-import { GUEST_TYPE_LABEL, guestName, guestPath, parseTags, statusLabel } from '@/lib/resources'
+import { GUEST_TYPE_LABEL, guestName, guestPath, statusLabel } from '@/lib/resources'
 import { cn } from '@/lib/utils'
 
 interface GuestListProps {
   guests: GuestResource[]
   showNode: boolean
+  showPool?: boolean
   /** Selection mode (bulk actions): rows toggle a checkbox instead of opening the guest. */
   selected?: ReadonlySet<string>
   onToggle?: (guest: GuestResource) => void
 }
 
-export function GuestList({ guests, showNode, selected, onToggle }: GuestListProps) {
+export function GuestList({ guests, showNode, showPool, selected, onToggle }: GuestListProps) {
   return (
     <ul className="divide-y divide-border/70">
       {guests.map((g) => (
         <li key={g.id}>
-          <GuestRow guest={g} showNode={showNode} selected={onToggle ? !!selected?.has(g.id) : undefined} onToggle={onToggle} />
+          <GuestRow
+            guest={g}
+            showNode={showNode}
+            showPool={showPool ?? false}
+            selected={onToggle ? !!selected?.has(g.id) : undefined}
+            onToggle={onToggle}
+          />
         </li>
       ))}
     </ul>
@@ -32,46 +40,42 @@ export function GuestList({ guests, showNode, selected, onToggle }: GuestListPro
 function GuestRow({
   guest: g,
   showNode,
+  showPool,
   selected,
   onToggle,
 }: {
   guest: GuestResource
   showNode: boolean
+  showPool: boolean
   selected?: boolean
   onToggle?: (guest: GuestResource) => void
 }) {
   const running = g.status === 'running'
   const template = g.template === 1
-  const tags = parseTags(g.tags)
   const rowClass = cn(
     'group flex min-h-14 compact:min-h-12 items-center gap-3 px-(--card-p) py-(--row-py) transition-colors outline-none',
     'hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.05] active:bg-foreground/[0.05] paper:hover:bg-secondary/50',
   )
   const body = (
     <>
-      {onToggle && (
-        <Checkbox checked={selected} tabIndex={-1} aria-hidden className="pointer-events-none" />
-      )}
+      {onToggle && <Checkbox checked={selected} tabIndex={-1} aria-hidden className="pointer-events-none" />}
       <StatusDot status={template ? 'template' : g.status} pulse={running} className="w-2" />
       <ResourceIcon type={g.type} template={template} className="hidden sm:block" />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <span className={cn('truncate font-medium', !running && 'text-foreground/75')}>{guestName(g)}</span>
           {g.lock && <Lock className="size-3.5 shrink-0 text-warning" aria-label={`已锁定：${g.lock}`} />}
-          {tags.slice(0, 2).map((t) => (
-            <span
-              key={t}
-              className="hidden shrink-0 rounded-full bg-brand/10 px-2 py-0.5 text-[11px] leading-none text-brand sm:inline paper:bg-secondary paper:text-foreground/70"
-            >
-              {t}
-            </span>
-          ))}
+          <TagList tags={g.tags} max={3} className="hidden flex-nowrap sm:inline-flex" />
         </div>
-        <div className="mt-0.5 truncate text-xs text-muted-foreground">
-          <span className="tabular">{g.vmid}</span>
-          {' · '}
-          {template ? `${GUEST_TYPE_LABEL[g.type]}模板` : GUEST_TYPE_LABEL[g.type]}
-          {showNode && ` · ${g.node}`}
+        <div className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+          <span className="truncate">
+            <span className="tabular">{g.vmid}</span>
+            {' · '}
+            {template ? `${GUEST_TYPE_LABEL[g.type]}模板` : GUEST_TYPE_LABEL[g.type]}
+            {showNode && ` · ${g.node}`}
+            {showPool && g.pool && ` · 池 ${g.pool}`}
+          </span>
+          <TagList tags={g.tags} max={2} className="flex-nowrap sm:hidden" />
         </div>
       </div>
       {running ? (

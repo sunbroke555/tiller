@@ -1,9 +1,10 @@
 import { createContext, use, useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react'
 import { useMatch, useNavigate } from 'react-router'
-import { LogOut, Zap } from 'lucide-react'
+import { Keyboard, LogOut, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { logout } from '@/api/auth'
+import { usePermissions } from '@/api/permissions'
 import { useClusterResources } from '@/api/queries'
 import { isGuest, isNode, isStorage, type ClusterResource, type GuestResource, type NodeResource } from '@/api/types'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -22,9 +23,11 @@ import {
 import { globalCommands, guestCommands, nodeCommands } from '@/features/command/registry'
 import type { CommandContext } from '@/features/command/types'
 import { errorMessage } from '@/lib/errors'
+import { allowedFor, type PermissionChecker } from '@/lib/permissions'
 import { byVmid, guestName, guestPath, nodePath, parseTags, storagePath } from '@/lib/resources'
 
-import { MAIN_NAV, SETTINGS_NAV } from './nav'
+import { openShortcutsHelp } from './KeyboardShortcuts'
+import { ACCOUNT_NAV, MAIN_NAV, SETTINGS_NAV } from './nav'
 
 interface PaletteContextValue {
   open: boolean
@@ -91,9 +94,14 @@ interface BoundCommand {
   run: () => unknown
 }
 
-function bindGuest(g: GuestResource, ctx: CommandContext): BoundCommand[] {
+function bindGuest(g: GuestResource, ctx: CommandContext, perms: PermissionChecker): BoundCommand[] {
   return guestCommands()
-    .filter((c) => (!c.types || c.types.includes(g.type)) && (c.visible?.(g, ctx) ?? true))
+    .filter(
+      (c) =>
+        (!c.types || c.types.includes(g.type)) &&
+        (c.visible?.(g, ctx) ?? true) &&
+        allowedFor(perms, c, ctx, { kind: 'guest', vmid: g.vmid, pool: g.pool }),
+    )
     .map((c) => ({
       key: `${c.id}:${g.id}`,
       value: `${c.label} ${(c.keywords ?? []).join(' ')} ${g.vmid} ${guestName(g)} ${c.id}:${g.id}`,
@@ -106,9 +114,9 @@ function bindGuest(g: GuestResource, ctx: CommandContext): BoundCommand[] {
     }))
 }
 
-function bindNode(n: NodeResource, ctx: CommandContext): BoundCommand[] {
+function bindNode(n: NodeResource, ctx: CommandContext, perms: PermissionChecker): BoundCommand[] {
   return nodeCommands()
-    .filter((c) => c.visible?.(n, ctx) ?? true)
+    .filter((c) => (c.visible?.(n, ctx) ?? true) && allowedFor(perms, c, ctx, { kind: 'node', node: n.node }))
     .map((c) => ({
       key: `${c.id}:${n.id}`,
       value: `${c.label} ${(c.keywords ?? []).join(' ')} ${n.node} ${c.id}:${n.id}`,
@@ -126,6 +134,7 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (
   const groups = useMemo(() => groupResources(resources), [resources])
   const [search, setSearch] = useState('')
   const [pending, setPending] = useState<PendingCommand | null>(null)
+  const perms = usePermissions()
   const guestMatch = useMatch('/guest/:node/:type/:vmid/*')
   const nodeMatch = useMatch('/node/:node/*')
 
@@ -138,13 +147,16 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (
     ? groups.guests.find((g) => String(g.vmid) === guestMatch.params.vmid)
     : undefined
   const currentNode = nodeMatch ? groups.nodes.find((n) => n.node === nodeMatch.params.node) : undefined
-  const currentCommands = current ? bindGuest(current, ctx) : currentNode ? bindNode(currentNode, ctx) : []
+  const currentCommands = current ? bindGuest(current, ctx, perms) : currentNode ? bindNode(currentNode, ctx, perms) : []
   const searching = search.trim().length > 0
   // Per-resource commands for everything only while searching (keeps the idle list short).
   const allCommands = searching
-    ? [...groups.guests.filter((g) => g !== current).flatMap((g) => bindGuest(g, ctx)), ...groups.nodes.filter((n) => n !== currentNode).flatMap((n) => bindNode(n, ctx))]
+    ? [
+        ...groups.guests.filter((g) => g !== current).flatMap((g) => bindGuest(g, ctx, perms)),
+        ...groups.nodes.filter((n) => n !== currentNode).flatMap((n) => bindNode(n, ctx, perms)),
+      ]
     : []
-  const globals = globalCommands().filter((c) => c.visible?.(ctx) ?? true)
+  const globals = globalCommands().filter((c) => (c.visible?.(ctx) ?? true) && allowedFor(perms, c, ctx, { kind: 'global' }))
 
   const go = (to: string) => {
     onOpenChange(false)
@@ -260,7 +272,7 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (
 
         <CommandSeparator />
         <CommandGroup heading="页面">
-          {[...MAIN_NAV, SETTINGS_NAV].map((item) => (
+          {[...MAIN_NAV, SETTINGS_NAV, ACCOUNT_NAV].map((item) => (
             <CommandItem
               key={item.to}
               value={`${item.label} ${(item.keywords ?? []).join(' ')}`}
@@ -270,6 +282,17 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (
               <span>{item.label}</span>
             </CommandItem>
           ))}
+          <CommandItem
+            value="键盘快捷键 keyboard shortcuts hotkeys help"
+            onSelect={() => {
+              onOpenChange(false)
+              openShortcutsHelp()
+            }}
+          >
+            <Keyboard className="text-muted-foreground" />
+            <span>键盘快捷键</span>
+            <kbd className="ml-auto rounded-md border border-border px-1.5 font-mono text-[10px] text-muted-foreground">?</kbd>
+          </CommandItem>
           <CommandItem
             value="退出登录 logout sign out"
             onSelect={() => {

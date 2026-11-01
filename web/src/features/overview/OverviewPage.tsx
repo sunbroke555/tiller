@@ -1,24 +1,39 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { AlertTriangle, Box, ListChecks, Monitor, RefreshCw, Server, Settings2 } from 'lucide-react'
+import { Box, ListChecks, Monitor, Plus, SearchX, Server, Settings2 } from 'lucide-react'
 
+import { usePermissions } from '@/api/permissions'
 import { useClusterResources, useClusterStatus, useVersion } from '@/api/queries'
 import { isGuest, isNode, isStorage, type ClusterResource } from '@/api/types'
 import { useSession } from '@/api/useSession'
 import { EmptyState } from '@/components/EmptyState'
 import { GlassCard } from '@/components/GlassCard'
-import { PageHeader, SectionHeader } from '@/components/PageHeader'
+import { InstallBanner } from '@/components/layout/InstallBanner'
 import { UserMenu } from '@/components/layout/UserMenu'
-import { CreateMenu } from '@/features/guest-create/CreateMenu'
+import { PageHeader, SectionHeader } from '@/components/PageHeader'
+import { ErrorCard, LoadingRows } from '@/components/QueryState'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { CreateMenu } from '@/features/guest-create/CreateMenu'
 import { BulkSelectionBar } from '@/features/guest-lifecycle/BulkSelectionBar'
-import { errorMessage } from '@/lib/errors'
-import { byVmid } from '@/lib/resources'
+import { DEFAULT_GLOBAL_PERMISSIONS } from '@/lib/permissions'
+import { byVmid, createGuestPath } from '@/lib/resources'
+import { collectTags } from '@/lib/tags'
 import { cn } from '@/lib/utils'
 
-import { FILTERS, filterGuests, type GuestFilter } from './filter'
+import {
+  DEFAULT_QUERY,
+  FILTERS,
+  applyGuestQuery,
+  filterGuests,
+  narrowGuests,
+  readGuestQuery,
+  writeGuestQuery,
+  type GuestFilter,
+  type GuestQuery,
+} from './filter'
+import { GuestFilterBar } from './GuestFilterBar'
 import { GuestList } from './GuestList'
 import { NodeCard } from './NodeCard'
 
@@ -29,10 +44,13 @@ function useOverviewData(resources: ClusterResource[] | undefined) {
     const guests = all.filter(isGuest).sort(byVmid)
     const storages = all.filter(isStorage)
     const live = guests.filter((g) => g.template !== 1)
+    const pools = [...new Set(guests.map((g) => g.pool).filter((p): p is string => !!p))].sort()
     return {
       nodes,
       guests,
       storages,
+      pools,
+      tags: collectTags(guests),
       stats: {
         nodesOnline: nodes.filter((n) => n.status === 'online').length,
         vms: live.filter((g) => g.type === 'qemu'),
@@ -47,19 +65,22 @@ export function OverviewPage() {
   const { data: status } = useClusterStatus()
   const { data: version } = useVersion()
   const session = useSession()
+  const perms = usePermissions()
   const [params, setParams] = useSearchParams()
-  const filter = (FILTERS.some((f) => f.value === params.get('filter')) ? params.get('filter') : 'all') as GuestFilter
+  const query = useMemo(() => readGuestQuery(params), [params])
 
-  const { nodes, guests, storages, stats } = useOverviewData(resources.data)
-  const visible = useMemo(() => filterGuests(guests, filter), [guests, filter])
+  const { nodes, guests, storages, pools, tags, stats } = useOverviewData(resources.data)
+  const narrowed = useMemo(() => narrowGuests(guests, query), [guests, query])
+  const visible = useMemo(() => applyGuestQuery(guests, query), [guests, query])
   const counts = useMemo(
     () => ({
-      all: guests.length,
-      running: guests.filter((g) => g.status === 'running').length,
-      stopped: guests.filter((g) => g.status !== 'running').length,
+      all: narrowed.length,
+      running: filterGuests(narrowed, 'running').length,
+      stopped: filterGuests(narrowed, 'stopped').length,
     }),
-    [guests],
+    [narrowed],
   )
+  const canCreate = perms.can(DEFAULT_GLOBAL_PERMISSIONS['create-qemu']!)
 
   // Selection mode for bulk actions (area guest-lifecycle).
   const [selecting, setSelecting] = useState(false)
@@ -85,21 +106,18 @@ export function OverviewPage() {
     .filter(Boolean)
     .join(' · ')
 
-  const setFilter = (f: GuestFilter) => {
-    const next = new URLSearchParams(params)
-    if (f === 'all') next.delete('filter')
-    else next.set('filter', f)
-    setParams(next, { replace: true })
-  }
+  const setQuery = (q: GuestQuery) => setParams(writeGuestQuery(params, q), { replace: true })
+  const setFilter = (f: GuestFilter) => setQuery({ ...query, status: f })
+  const filtered = query.tags.length > 0 || query.q.trim() !== '' || query.type !== 'all' || !!query.node || !!query.pool
 
   return (
     <>
       <PageHeader
         title="概览"
-        description={subtitle || ' '}
+        description={subtitle || ' '}
         actions={
           <>
-            <CreateMenu />
+            {canCreate && <CreateMenu />}
             <Button asChild variant="ghost" size="icon" className="rounded-full lg:hidden" aria-label="外观设置">
               <Link to="/settings/appearance">
                 <Settings2 />
@@ -110,24 +128,16 @@ export function OverviewPage() {
         }
       />
 
+      <InstallBanner className="mb-(--section-gap)" />
+
       {resources.isError && !resources.data ? (
-        <GlassCard>
-          <EmptyState
-            icon={AlertTriangle}
-            title="无法加载资源"
-            description={errorMessage(resources.error)}
-            action={
-              <Button variant="outline" onClick={() => void resources.refetch()}>
-                <RefreshCw /> 重试
-              </Button>
-            }
-          />
-        </GlassCard>
+        <ErrorCard error={resources.error} onRetry={() => void resources.refetch()} title="无法加载资源" />
       ) : (
         <div className="grid gap-(--section-gap)">
           <section aria-label="统计" className="grid grid-cols-3 gap-(--row-gap)">
-            <Stat icon={Server} label="节点" value={stats.nodesOnline} total={nodes.length} loading={resources.isPending} />
+            <Stat to="/datacenter" icon={Server} label="节点" value={stats.nodesOnline} total={nodes.length} loading={resources.isPending} />
             <Stat
+              to="/?type=qemu"
               icon={Monitor}
               label="虚拟机"
               value={stats.vms.filter((g) => g.status === 'running').length}
@@ -135,6 +145,7 @@ export function OverviewPage() {
               loading={resources.isPending}
             />
             <Stat
+              to="/?type=lxc"
               icon={Box}
               label="容器"
               value={stats.cts.filter((g) => g.status === 'running').length}
@@ -159,11 +170,11 @@ export function OverviewPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <ToggleGroup
                   type="single"
-                  value={filter}
+                  value={query.status}
                   onValueChange={(v) => v && setFilter(v as GuestFilter)}
                   variant="outline"
                   size="sm"
-                  aria-label="筛选"
+                  aria-label="状态"
                 >
                   {FILTERS.map((f) => (
                     <ToggleGroupItem key={f.value} value={f.value} className="gap-1.5 px-3 text-xs">
@@ -187,30 +198,54 @@ export function OverviewPage() {
               </div>
             </SectionHeader>
             {selecting && <BulkSelectionBar selected={selectedGuests} onExit={exitSelection} canMigrate={nodes.length > 1} />}
+            {guests.length > 0 && (
+              <GuestFilterBar
+                query={query}
+                onChange={setQuery}
+                tags={tags}
+                nodes={nodes.map((n) => n.node)}
+                pools={pools}
+              />
+            )}
             <GlassCard flush className="overflow-hidden">
               {resources.isPending ? (
-                <div className="divide-y divide-border/70">
-                  {Array.from({ length: 5 }, (_, i) => (
-                    <div key={i} className="flex items-center gap-3 px-(--card-p) py-4">
-                      <Skeleton className="size-2 rounded-full" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-40" />
-                        <Skeleton className="h-3 w-24" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <LoadingRows rows={5} />
               ) : visible.length > 0 ? (
                 <GuestList
                   guests={visible}
                   showNode={nodes.length > 1}
+                  showPool={!query.pool && pools.length > 0}
                   selected={selecting ? selected : undefined}
                   onToggle={selecting ? toggleSelected : undefined}
                 />
+              ) : filtered ? (
+                <EmptyState
+                  icon={SearchX}
+                  title="没有匹配的客户机"
+                  description="换个关键字或标签试试。"
+                  action={
+                    <Button variant="outline" onClick={() => setQuery({ ...DEFAULT_QUERY })}>
+                      清除筛选
+                    </Button>
+                  }
+                />
               ) : (
                 <EmptyState
-                  icon={filter === 'all' ? Monitor : Box}
-                  title={filter === 'all' ? '还没有虚拟机或容器' : `没有${filter === 'running' ? '运行中' : '已停止'}的客户机`}
+                  icon={query.status === 'all' ? Monitor : Box}
+                  title={
+                    query.status === 'all'
+                      ? '还没有虚拟机或容器'
+                      : `没有${query.status === 'running' ? '运行中' : '已停止'}的客户机`
+                  }
+                  action={
+                    query.status === 'all' && canCreate ? (
+                      <Button asChild variant="outline">
+                        <Link to={createGuestPath('qemu')}>
+                          <Plus /> 创建虚拟机
+                        </Link>
+                      </Button>
+                    ) : undefined
+                  }
                 />
               )}
             </GlassCard>
@@ -222,12 +257,14 @@ export function OverviewPage() {
 }
 
 function Stat({
+  to,
   icon: Icon,
   label,
   value,
   total,
   loading,
 }: {
+  to: string
   icon: typeof Server
   label: string
   value: number
@@ -235,20 +272,22 @@ function Stat({
   loading: boolean
 }) {
   return (
-    <GlassCard className="px-3.5 py-3 sm:px-(--card-p) sm:py-(--card-p)">
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Icon className="size-3.5" aria-hidden />
-        {label}
-      </div>
-      {loading ? (
-        <Skeleton className="mt-2 h-7 w-14" />
-      ) : (
-        <div className="mt-1.5 flex items-baseline gap-1 tabular">
-          <span className={cn('text-2xl font-medium', value > 0 && 'text-foreground')}>{value}</span>
-          <span className="text-sm text-muted-foreground">/ {total}</span>
+    <GlassCard asChild interactive className="px-3.5 py-3 sm:px-(--card-p) sm:py-(--card-p)">
+      <Link to={to} aria-label={`${label}：${label === '节点' ? '在线' : '运行中'} ${value}，共 ${total}`}>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Icon className="size-3.5" aria-hidden />
+          {label}
         </div>
-      )}
-      <div className="mt-0.5 text-[11px] text-muted-foreground">{label === '节点' ? '在线' : '运行中'}</div>
+        {loading ? (
+          <Skeleton className="mt-2 h-7 w-14" />
+        ) : (
+          <div className="mt-1.5 flex items-baseline gap-1 tabular">
+            <span className={cn('text-2xl font-medium', value > 0 && 'text-foreground')}>{value}</span>
+            <span className="text-sm text-muted-foreground">/ {total}</span>
+          </div>
+        )}
+        <div className="mt-0.5 text-[11px] text-muted-foreground">{label === '节点' ? '在线' : '运行中'}</div>
+      </Link>
     </GlassCard>
   )
 }

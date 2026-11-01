@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { SearchX } from 'lucide-react'
 
+import { usePermissions } from '@/api/permissions'
 import { useClusterResources } from '@/api/queries'
 import { isStorage } from '@/api/types'
 import { EmptyState } from '@/components/EmptyState'
@@ -17,6 +18,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatUsage } from '@/lib/format'
+import { allowedFor } from '@/lib/permissions'
 import { nodePath, statusLabel, storagePath } from '@/lib/resources'
 
 import { storageActions, storageTabs } from './registry'
@@ -70,7 +72,10 @@ function StorageDetailBody({ ctx, tabParam }: { ctx: StorageActionContext; tabPa
   const { node, storage, resource } = ctx
   const baseProps: StorageTabProps = { node, storage, resource }
   const tabs = sortByOrder(storageTabs.filter((t) => t.visible?.(baseProps) ?? true))
-  const actions = visibleActions(storageActions, ctx)
+  const perms = usePermissions()
+  const actions = visibleActions(storageActions, ctx, (a) =>
+    allowedFor(perms, a, ctx, { kind: 'storage', storage: ctx.storage, pool: ctx.resource.pool }),
+  )
   const { trigger, host } = useActionRunner(ctx)
   const active = tabs.find((t) => t.id === tabParam) ?? (tabParam ? undefined : tabs[0])
   if (!active) return <Navigate replace to={storagePath(node, storage)} />

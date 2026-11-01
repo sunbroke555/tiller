@@ -1,5 +1,5 @@
 import { Link } from 'react-router'
-import { Building2, LogOut, Palette, UserRound } from 'lucide-react'
+import { Building2, Keyboard, LogOut, Palette, ShieldCheck, UserRound } from 'lucide-react'
 
 import { logout } from '@/api/auth'
 import { useSession } from '@/api/useSession'
@@ -10,15 +10,20 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+
+import { openShortcutsHelp } from './KeyboardShortcuts'
 
 /** Account menu: compact round button (mobile header) or full row (sidebar). */
 export function UserMenu({ variant = 'icon', className }: { variant?: 'icon' | 'row'; className?: string }) {
   const session = useSession()
   const user = session?.username ?? ''
-  const [name, realm] = user.split('@')
+  const at = user.lastIndexOf('@')
+  const name = at > 0 ? user.slice(0, at) : user
+  const realm = at > 0 ? user.slice(at + 1) : ''
 
   return (
     <DropdownMenu>
@@ -30,6 +35,7 @@ export function UserMenu({ variant = 'icon', className }: { variant?: 'icon' | '
         ) : (
           <button
             type="button"
+            aria-label="账户菜单"
             className={cn(
               'flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-sidebar-accent',
               className,
@@ -45,21 +51,30 @@ export function UserMenu({ variant = 'icon', className }: { variant?: 'icon' | '
           </button>
         )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" side={variant === 'row' ? 'top' : 'bottom'} className="w-56">
+      <DropdownMenuContent align="end" side={variant === 'row' ? 'top' : 'bottom'} className="w-60">
         <DropdownMenuLabel className="truncate font-normal text-muted-foreground">{user}</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link to="/settings/appearance">
-            <Palette /> 外观
+        <DropdownMenuItem asChild className="pointer-coarse:min-h-11">
+          <Link to="/account">
+            <ShieldCheck /> 账户与安全
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
+        <DropdownMenuItem asChild className="pointer-coarse:min-h-11">
+          <Link to="/settings/appearance">
+            <Palette /> 外观与偏好
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="pointer-coarse:min-h-11">
           <Link to="/datacenter">
             <Building2 /> 数据中心
           </Link>
         </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => openShortcutsHelp()} className="pointer-coarse:hidden">
+          <Keyboard /> 键盘快捷键
+          <DropdownMenuShortcut>?</DropdownMenuShortcut>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onSelect={() => logout()}>
+        <DropdownMenuItem variant="destructive" onSelect={() => logout()} className="pointer-coarse:min-h-11">
           <LogOut /> 退出登录
         </DropdownMenuItem>
       </DropdownMenuContent>

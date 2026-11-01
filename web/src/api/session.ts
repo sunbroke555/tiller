@@ -64,6 +64,9 @@ export function getSession(): Session | null {
   if (cached === undefined) {
     const stored = readStored()
     cached = stored && getTicket() && !isExpired(stored) ? stored : null
+    // A leftover session (tab reopened after the ticket ran out): tell the
+    // login page why, instead of silently showing an empty form.
+    if (stored && !cached && lastLogoutReason === null) lastLogoutReason = 'expired'
   }
   return cached
 }

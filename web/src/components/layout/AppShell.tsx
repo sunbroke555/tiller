@@ -6,6 +6,8 @@ import { TaskFooterBar } from '@/features/tasks/TaskShell'
 
 import { BottomDock } from './BottomDock'
 import { CommandPaletteProvider } from './CommandPalette'
+import { KeyboardShortcuts } from './KeyboardShortcuts'
+import { OfflineBanner } from './OfflineBanner'
 import { Sidebar } from './Sidebar'
 
 /**
@@ -30,6 +32,8 @@ export function AppShell() {
         <TaskFooterBar />
       </BottomDock>
       <TaskLogHost />
+      <KeyboardShortcuts />
+      <OfflineBanner />
     </CommandPaletteProvider>
   )
 }

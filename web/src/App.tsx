@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
 import { RouterProvider } from 'react-router'
+import { toast } from 'sonner'
 
 import { startTicketRenewal } from '@/api/auth'
+import { permissionsKey } from '@/api/permissions'
 import { queryKeys } from '@/api/queries'
 import { useSession } from '@/api/useSession'
 import { resetTaskTracker, setTaskQueryClient } from '@/components/tasks/tracker'
@@ -13,20 +15,34 @@ import { ThemeProvider } from '@/theme/ThemeProvider'
 
 import { createRouter } from './routes'
 
-/** Session side effects: renew the ticket while logged in, drop cached data on logout. */
+/**
+ * Session side effects: renew the ticket while logged in, drop cached data on
+ * logout. Keyed by user name, so switching users in another tab (logout +
+ * login as someone else) also clears the previous user's data.
+ */
 function SessionEffects({ queryClient }: { queryClient: QueryClient }) {
   const session = useSession()
-  const loggedIn = session !== null
+  const user = session?.username ?? null
   useEffect(() => {
-    if (!loggedIn) return
-    const stop = startTicketRenewal(() => {})
+    if (!user) return
+    const stop = startTicketRenewal({
+      onExpiringSoon: (msLeft) =>
+        toast.warning('无法续期登录', {
+          id: 'ticket-expiring',
+          description: `无法连接 PVE，登录将在 ${Math.max(1, Math.round(msLeft / 60_000))} 分钟后过期。恢复连接后会自动续期。`,
+          duration: 15_000,
+        }),
+      // Privileges may have changed since the last ticket.
+      onRenewed: () => void queryClient.invalidateQueries({ queryKey: permissionsKey() }),
+    })
     return () => {
       stop()
+      toast.dismiss('ticket-expiring')
       // Logged out (or user switched): never show the previous user's data.
       queryClient.removeQueries({ queryKey: queryKeys.all })
       resetTaskTracker()
     }
-  }, [loggedIn, queryClient])
+  }, [user, queryClient])
   return null
 }
 

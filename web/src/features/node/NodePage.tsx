@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { SearchX } from 'lucide-react'
 
+import { usePermissions } from '@/api/permissions'
 import { useClusterResources } from '@/api/queries'
 import { isNode } from '@/api/types'
 import { EmptyState } from '@/components/EmptyState'
@@ -16,6 +17,7 @@ import { StatusDot } from '@/components/StatusDot'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatUptime } from '@/lib/format'
+import { allowedFor } from '@/lib/permissions'
 import { nodePath, statusLabel } from '@/lib/resources'
 
 import { nodeActions, nodeTabs } from './registry'
@@ -69,7 +71,8 @@ function NodePageBody({ ctx, tabParam }: { ctx: NodeActionContext; tabParam: str
   const { node, resource } = ctx
   const tabProps: NodeTabProps = { node, resource }
   const tabs = sortByOrder(nodeTabs.filter((t) => t.visible?.(tabProps) ?? true))
-  const actions = visibleActions(nodeActions, ctx)
+  const perms = usePermissions()
+  const actions = visibleActions(nodeActions, ctx, (a) => allowedFor(perms, a, ctx, { kind: 'node', node }))
   const { trigger, host } = useActionRunner(ctx)
   const active = tabs.find((t) => t.id === tabParam) ?? (tabParam ? undefined : tabs[0])
   if (!active) return <Navigate replace to={nodePath(node)} />

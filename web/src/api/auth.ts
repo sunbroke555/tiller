@@ -6,7 +6,7 @@
 // (totp, recovery, yubico or webauthn) and returns the real ticket.
 
 import { PveApiError, get, post } from './client'
-import { clearSession, getSession, getTicket, isExpired, setSession, type Session } from './session'
+import { TICKET_LIFETIME_MS, clearSession, getSession, getTicket, isExpired, setSession, type Session } from './session'
 import type { AuthDomain, TicketResponse } from './types'
 
 export interface LoginCredentials {
@@ -37,7 +37,8 @@ export interface PendingTfa {
 
 export type LoginResult = { kind: 'ok'; session: Session } | { kind: 'tfa'; pending: PendingTfa }
 
-export type TfaMethod = 'totp' | 'recovery' | 'yubico'
+/** `webauthn`: the code is the JSON assertion (lib/webauthn.ts assertionToPve). */
+export type TfaMethod = 'totp' | 'recovery' | 'yubico' | 'webauthn'
 
 const TFA_MARKER = '!tfa!'
 
@@ -137,6 +138,22 @@ export async function login(creds: LoginCredentials): Promise<LoginResult> {
   return { kind: 'ok', session }
 }
 
+/**
+ * OpenID Connect: after the IdP redirected back with code and state, trade
+ * them for a ticket (POST /access/openid/login). OpenID realms do their own
+ * second factor, so this never returns a TFA challenge.
+ */
+export async function loginWithOpenId(code: string, state: string, redirectUrl: string): Promise<Session> {
+  const data = await post<TicketResponse>(
+    '/access/openid/login',
+    { code, state, 'redirect-url': redirectUrl },
+    { noAuthRedirect: true },
+  )
+  const session = sessionFrom(data)
+  setSession(session, data.ticket)
+  return session
+}
+
 export async function completeTfa(pending: PendingTfa, method: TfaMethod, code: string): Promise<Session> {
   let data: TicketResponse
   try {
@@ -177,31 +194,59 @@ export function logout(): void {
 /** Renew this long after issue; the ticket itself lasts two hours. */
 export const RENEW_AFTER_MS = 15 * 60 * 1000
 const CHECK_EVERY_MS = 60 * 1000
+/** Warn when renewal keeps failing and less than this is left. */
+export const EXPIRY_WARNING_MS = 10 * 60 * 1000
+
+export interface RenewalHooks {
+  /** The session expired or PVE rejected the renewal (user is logged out now). */
+  onExpired?: () => void
+  /** Renewal failed for another reason (offline, PVE down) and the ticket runs out soon. */
+  onExpiringSoon?: (msLeft: number) => void
+  /** The ticket was renewed (e.g. to refresh permission data). */
+  onRenewed?: () => void
+}
 
 /**
  * Keep the ticket fresh while the app is open. Returns a stop function.
- * Expired sessions (laptop slept for hours) are cleared instead of renewed.
+ *
+ * - Expired sessions (laptop slept for hours) are cleared instead of renewed.
+ * - Checks again when the tab becomes visible or the network comes back
+ *   (background tabs' timers are throttled).
+ * - A 401 on renewal logs out; network errors retry on the next tick and
+ *   warn once when less than EXPIRY_WARNING_MS remain.
+ * - Several tabs share the cookie and the stored session: a renewal in one
+ *   tab updates ticketIssuedAt for all, so the others skip theirs.
  */
-export function startTicketRenewal(onExpired: () => void): () => void {
+export function startTicketRenewal(hooks: RenewalHooks | (() => void) = {}): () => void {
+  const { onExpired, onExpiringSoon, onRenewed } = typeof hooks === 'function' ? { onExpired: hooks } : hooks
   let busy = false
+  let warnedFor: number | null = null
   const check = async () => {
     const session = getSession()
     if (!session || busy) return
     if (isExpired(session)) {
       clearSession('expired')
-      onExpired()
+      onExpired?.()
       return
     }
     if (Date.now() - session.ticketIssuedAt < RENEW_AFTER_MS) return
     busy = true
     try {
       await renewTicket()
+      warnedFor = null
+      onRenewed?.()
     } catch (e) {
       if (e instanceof PveApiError && e.status === 401) {
         clearSession('expired')
-        onExpired()
+        onExpired?.()
+      } else {
+        // Network errors: try again on the next tick; warn once per ticket when time runs short.
+        const left = session.ticketIssuedAt + TICKET_LIFETIME_MS - Date.now()
+        if (left < EXPIRY_WARNING_MS && warnedFor !== session.ticketIssuedAt) {
+          warnedFor = session.ticketIssuedAt
+          onExpiringSoon?.(left)
+        }
       }
-      // Network errors: try again on the next tick.
     } finally {
       busy = false
     }
@@ -210,11 +255,14 @@ export function startTicketRenewal(onExpired: () => void): () => void {
   const onVisible = () => {
     if (document.visibilityState === 'visible') void check()
   }
+  const onOnline = () => void check()
   document.addEventListener('visibilitychange', onVisible)
+  window.addEventListener('online', onOnline)
   void check()
   return () => {
     window.clearInterval(timer)
     document.removeEventListener('visibilitychange', onVisible)
+    window.removeEventListener('online', onOnline)
   }
 }
 

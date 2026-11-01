@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { Lock, SearchX } from 'lucide-react'
 
+import { usePermissions } from '@/api/permissions'
 import { useClusterResources } from '@/api/queries'
 import { isGuest, type GuestType } from '@/api/types'
 import { EmptyState } from '@/components/EmptyState'
@@ -13,11 +14,12 @@ import { TabBar, TabPanel, TabSkeleton } from '@/components/page/RegistryTabs'
 import { sortByOrder, visibleActions } from '@/components/page/registry'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { StatusDot } from '@/components/StatusDot'
+import { TagList } from '@/components/TagChip'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { TagList } from '@/features/guest-core/TagBadge'
-import { GUEST_TYPE_LABEL, guestName, guestPath, nodePath, parseTags, statusLabel } from '@/lib/resources'
+import { allowedFor } from '@/lib/permissions'
+import { GUEST_TYPE_LABEL, guestName, guestPath, nodePath, statusLabel } from '@/lib/resources'
 
 import { guestActions, guestTabs } from './registry'
 import { GuestContextProvider, type GuestActionContext, type GuestTabProps } from './types'
@@ -76,16 +78,17 @@ function GuestPageBody({ ctx, tabParam }: { ctx: GuestActionContext; tabParam: s
   const { guest, type, vmid, node } = ctx
   const tabProps: GuestTabProps = { node, type, vmid, guest }
   const tabs = sortByOrder(guestTabs.filter((t) => t.types.includes(type) && (t.visible?.(tabProps) ?? true)))
+  const perms = usePermissions()
   const actions = visibleActions(
     guestActions.filter((a) => !a.types || a.types.includes(type)),
     ctx,
+    (a) => allowedFor(perms, a, ctx, { kind: 'guest', vmid, pool: guest.pool }),
   )
   const { trigger, host } = useActionRunner(ctx)
 
   const active = tabs.find((t) => t.id === tabParam) ?? (tabParam ? undefined : tabs[0])
   if (!active) return <Navigate replace to={guestPath(guest)} />
 
-  const tags = parseTags(guest.tags)
   return (
     <GuestContextProvider value={ctx}>
       <PageHeader
@@ -114,7 +117,7 @@ function GuestPageBody({ ctx, tabParam }: { ctx: GuestActionContext; tabParam: s
               </Badge>
             )}
             {guest.hastate && <Badge variant="outline">HA：{guest.hastate}</Badge>}
-            <TagList tags={tags} />
+            <TagList tags={guest.tags} size="md" />
           </span>
         }
         actions={<ActionBar variant="toolbar" actions={actions} ctx={ctx} trigger={trigger} className="hidden lg:flex" />}

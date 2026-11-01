@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { renderMarkdown } from './Markdown'
+import { renderMarkdown } from './markdownHtml'
 
 describe('renderMarkdown', () => {
   it('renders GFM with line breaks', () => {
