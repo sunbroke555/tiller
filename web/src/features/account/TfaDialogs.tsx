@@ -3,6 +3,7 @@ import { Check, Copy, Download, KeyRound } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { addTfa, deleteTfa, needsPasswordConfirmation, updateTfa, type TfaEntry } from '@/api/shell'
+import { useSession } from '@/api/useSession'
 import { FieldInput, FormDialog, FormField } from '@/components/form'
 import { QrCode } from '@/components/QrCode'
 import { ResponsiveDialog } from '@/components/ResponsiveDialog'
@@ -17,10 +18,19 @@ interface Common {
   onDone: () => void
 }
 
+/**
+ * PVE wants the password of the user *making* the change (everyone but
+ * root@pam), which differs from `userid` when an admin manages another user.
+ */
+export function useNeedsPassword(userid: string): boolean {
+  return needsPasswordConfirmation(useSession()?.username ?? userid)
+}
+
 function PasswordField({ userid, value, onChange }: { userid: string; value: string; onChange: (v: string) => void }) {
-  if (!needsPasswordConfirmation(userid)) return null
+  const actor = useSession()?.username ?? userid
+  if (!needsPasswordConfirmation(actor)) return null
   return (
-    <FormField label="当前密码" name="password" required hint="确认是你本人在修改两步验证">
+    <FormField label="当前密码" name="password" required hint={actor === userid ? '确认是你本人在修改两步验证' : `输入你（${actor}）的密码以确认`}>
       <FieldInput type="password" autoComplete="current-password" value={value} onChange={(e) => onChange(e.target.value)} />
     </FormField>
   )
@@ -58,6 +68,7 @@ export function CopyButton({ text, label = '复制' }: { text: string; label?: s
 // ------------------------------------------------------------------ TOTP
 
 export function AddTotpDialog({ userid, open, onOpenChange, onDone }: Common) {
+  const needsPassword = useNeedsPassword(userid)
   const [secret, setSecret] = useState('')
   const [description, setDescription] = useState('')
   const [code, setCode] = useState('')
@@ -78,7 +89,7 @@ export function AddTotpDialog({ userid, open, onOpenChange, onDone }: Common) {
       title="添加验证器（TOTP）"
       description="用 Google Authenticator、Microsoft Authenticator、1Password 等 App 扫码"
       submitLabel="验证并添加"
-      submitDisabled={code.length < 6 || !description.trim() || (needsPasswordConfirmation(userid) && !password)}
+      submitDisabled={code.length < 6 || !description.trim() || (needsPassword && !password)}
       onSubmit={async () => {
         await addTfa(userid, { type: 'totp', description: description.trim(), totp: uri, value: code, password: password || undefined })
         toast.success('已添加验证器')
@@ -123,6 +134,7 @@ export function AddTotpDialog({ userid, open, onOpenChange, onDone }: Common) {
 // -------------------------------------------------------------- recovery
 
 export function AddRecoveryDialog({ userid, open, onOpenChange, onDone }: Common) {
+  const needsPassword = useNeedsPassword(userid)
   const [password, setPassword] = useState('')
   const [keys, setKeys] = useState<string[] | null>(null)
   useReset(open, () => {
@@ -182,7 +194,7 @@ export function AddRecoveryDialog({ userid, open, onOpenChange, onDone }: Common
       description="手机或安全密钥丢失时，可以用恢复码登录。每个账户只能有一组恢复码。"
       submitLabel="生成"
       closeOnSuccess={false}
-      submitDisabled={needsPasswordConfirmation(userid) && !password}
+      submitDisabled={needsPassword && !password}
       onSubmit={async () => {
         const res = await addTfa(userid, { type: 'recovery', password: password || undefined })
         setKeys(res?.recovery ?? [])
@@ -190,7 +202,7 @@ export function AddRecoveryDialog({ userid, open, onOpenChange, onDone }: Common
       }}
     >
       <PasswordField userid={userid} value={password} onChange={setPassword} />
-      {!needsPasswordConfirmation(userid) && <p className="text-sm text-muted-foreground">将生成一组新的恢复码。</p>}
+      {!needsPassword && <p className="text-sm text-muted-foreground">将生成一组新的恢复码。</p>}
     </FormDialog>
   )
 }
@@ -198,6 +210,7 @@ export function AddRecoveryDialog({ userid, open, onOpenChange, onDone }: Common
 // -------------------------------------------------------------- WebAuthn
 
 export function AddWebauthnDialog({ userid, open, onOpenChange, onDone }: Common) {
+  const needsPassword = useNeedsPassword(userid)
   const [description, setDescription] = useState('')
   const [password, setPassword] = useState('')
   const [waiting, setWaiting] = useState(false)
@@ -215,7 +228,7 @@ export function AddWebauthnDialog({ userid, open, onOpenChange, onDone }: Common
       title="添加安全密钥（WebAuthn）"
       description="YubiKey、手机或电脑自带的通行密钥"
       submitLabel={waiting ? '请按下安全密钥…' : '注册'}
-      submitDisabled={support !== 'ok' || !description.trim() || (needsPasswordConfirmation(userid) && !password)}
+      submitDisabled={support !== 'ok' || !description.trim() || (needsPassword && !password)}
       onSubmit={async () => {
         const step1 = await addTfa(userid, { type: 'webauthn', description: description.trim(), password: password || undefined })
         if (!step1?.challenge) throw new Error('PVE 没有返回 WebAuthn challenge，请检查数据中心 WebAuthn 设置')
@@ -262,6 +275,7 @@ export function AddWebauthnDialog({ userid, open, onOpenChange, onDone }: Common
 // ---------------------------------------------------------------- Yubico
 
 export function AddYubicoDialog({ userid, open, onOpenChange, onDone }: Common) {
+  const needsPassword = useNeedsPassword(userid)
   const [description, setDescription] = useState('')
   const [otp, setOtp] = useState('')
   const [password, setPassword] = useState('')
@@ -277,7 +291,7 @@ export function AddYubicoDialog({ userid, open, onOpenChange, onDone }: Common) 
       title="添加 Yubico OTP"
       description="需要认证域配置了 Yubico 服务器"
       submitLabel="添加"
-      submitDisabled={otp.length < 12 || !description.trim() || (needsPasswordConfirmation(userid) && !password)}
+      submitDisabled={otp.length < 12 || !description.trim() || (needsPassword && !password)}
       onSubmit={async () => {
         await addTfa(userid, { type: 'yubico', description: description.trim(), value: otp.trim(), password: password || undefined })
         toast.success('已添加 YubiKey')
@@ -307,6 +321,7 @@ export function ChangeTfaDialog({
   onOpenChange,
   onDone,
 }: Common & { entry: TfaEntry | null; mode: 'delete' | 'enable' | 'disable' }) {
+  const needsPassword = useNeedsPassword(userid)
   const [password, setPassword] = useState('')
   useReset(open, () => setPassword(''))
   const label = entry?.description || entry?.type || ''
@@ -325,7 +340,7 @@ export function ChangeTfaDialog({
       }
       destructive={mode !== 'enable'}
       submitLabel={mode === 'delete' ? '删除' : mode === 'enable' ? '启用' : '停用'}
-      submitDisabled={!entry || (needsPasswordConfirmation(userid) && !password)}
+      submitDisabled={!entry || (needsPassword && !password)}
       onSubmit={async () => {
         if (!entry) return
         if (mode === 'delete') await deleteTfa(userid, entry.id, password || undefined)
@@ -333,7 +348,7 @@ export function ChangeTfaDialog({
         onDone()
       }}
     >
-      {needsPasswordConfirmation(userid) ? (
+      {needsPassword ? (
         <PasswordField userid={userid} value={password} onChange={setPassword} />
       ) : (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
