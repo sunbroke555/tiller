@@ -72,7 +72,14 @@ export const nodeTabs: NodeTabDef[] = [
     component: lazy(() => import('@/features/tasks/NodeTasksTab')),
   },
   // Phase 2
-  { id: 'network', title: '网络', icon: Network, order: 60, component: comingSoonTab('网卡、网桥、Bond、VLAN 的增删改与应用。', 2) },
+  {
+    id: 'network',
+    title: '网络',
+    icon: Network,
+    order: 60,
+    visible: online,
+    component: lazy(() => import('@/features/node-network/NetworkTab')),
+  },
   { id: 'system', title: '系统', icon: Settings2, order: 70, component: comingSoonTab('DNS、Hosts、时区和节点选项。', 2) },
   { id: 'certificates', title: '证书', icon: ShieldCheck, order: 80, component: comingSoonTab('节点证书、自定义证书上传和 ACME。', 2) },
   { id: 'disks', title: '磁盘', icon: HardDrive, order: 90, component: comingSoonTab('磁盘列表、SMART、LVM / ZFS / 目录存储创建。', 2) },
