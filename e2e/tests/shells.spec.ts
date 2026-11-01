@@ -64,7 +64,7 @@ test.describe('page shells', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(pve.node)
     const tabs = page.getByRole('navigation', { name: '页面标签' })
     await tabs.getByRole('link', { name: '服务' }).click()
-    await expect(page.getByRole('tabpanel', { name: '服务' })).toContainText('node-summary')
+    await expect(page.getByRole('tabpanel', { name: '服务' })).toContainText('pveproxy')
     await page.goto(`/console/${pve.node}/shell`)
     await expect(page.getByText(`节点 ${pve.node} 的 Shell`, { exact: false })).toBeVisible()
   })
