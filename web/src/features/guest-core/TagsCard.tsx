@@ -4,6 +4,7 @@ import { Pencil, Plus, Tag, X } from 'lucide-react'
 import { updateGuestConfig, useClusterOptions, type GuestConfig } from '@/api/guest-core'
 import { useClusterResources } from '@/api/queries'
 import { isGuest, type GuestType } from '@/api/types'
+import { usePermissions } from '@/api/permissions'
 import { useSession } from '@/api/useSession'
 import { FieldInput, FormDialog, FormField } from '@/components/form'
 import { GlassCard } from '@/components/GlassCard'
@@ -14,7 +15,7 @@ import { configUpdateParams } from '@/lib/propstring'
 
 import { CardAction, CardTitle } from './parts'
 import { TagBadge, useTagStyle } from './TagBadge'
-import { joinTags, orderTags, parseUserTagAccess, splitTags, tagError } from './tags'
+import { bypassesTagAccess, joinTags, orderTags, parseUserTagAccess, splitTags, tagError } from './tags'
 
 interface TagsCardProps {
   node: string
@@ -74,6 +75,7 @@ function TagsDialog({
   const style = useTagStyle()
   const { data: options } = useClusterOptions()
   const session = useSession()
+  const perms = usePermissions()
   const { data: clusterTags } = useClusterResources({
     enabled: open,
     select: (all) => [...new Set(all.filter(isGuest).flatMap((g) => splitTags(g.tags)))].sort(),
@@ -92,7 +94,7 @@ function TagsDialog({
 
   // Users without Sys.Modify are limited by the datacenter's user-tag-access.
   const access = parseUserTagAccess(options)
-  const privileged = !!session?.cap?.nodes?.['Sys.Modify'] || session?.username === 'root@pam'
+  const privileged = bypassesTagAccess(perms, session?.username)
   const allowed = useMemo(() => {
     const listed = [...access.list, ...(options?.['allowed-tags'] ?? [])]
     if (privileged || access.mode === 'free') return null

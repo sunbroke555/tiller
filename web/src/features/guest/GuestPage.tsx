@@ -1,10 +1,10 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { Lock, SearchX } from 'lucide-react'
 
 import { usePermissions } from '@/api/permissions'
 import { useClusterResources } from '@/api/queries'
-import { isGuest, type GuestType } from '@/api/types'
+import { isGuest, type ClusterResource, type GuestResource, type GuestType } from '@/api/types'
 import { EmptyState } from '@/components/EmptyState'
 import { GlassCard } from '@/components/GlassCard'
 import { DockPortal } from '@/components/layout/BottomDock'
@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { allowedFor } from '@/lib/permissions'
-import { GUEST_TYPE_LABEL, guestName, guestPath, nodePath, statusLabel } from '@/lib/resources'
+import { GUEST_TYPE_LABEL, guestName, guestPath, isVmidParam, nodePath, statusLabel } from '@/lib/resources'
 
 import { guestActions, guestTabs } from './registry'
 import { GuestContextProvider, type GuestActionContext, type GuestTabProps } from './types'
@@ -32,12 +32,15 @@ export function GuestPage() {
   const params = useParams()
   const navigate = useNavigate()
   const type: GuestType = params.type === 'lxc' ? 'lxc' : 'qemu'
-  const vmid = Number(params.vmid)
+  // "abc", "1e3" or "-5" are no VMID: not found, rather than a lookup of NaN.
+  const validVmid = isVmidParam(params.vmid)
+  const vmid = validVmid ? Number(params.vmid) : NaN
   const node = params.node ?? ''
   const tabParam = params.tab
 
   const { data: guest, isPending, isError } = useClusterResources({
-    select: (all) => all.filter(isGuest).find((g) => g.vmid === vmid),
+    // Stable: an inline select would rescan the whole list on every render.
+    select: useCallback((all: ClusterResource[]) => all.find((r): r is GuestResource => isGuest(r) && r.vmid === vmid), [vmid]),
   })
 
   const ctx = useMemo<GuestActionContext | null>(
@@ -45,13 +48,14 @@ export function GuestPage() {
     [guest, vmid, navigate],
   )
 
-  if (guest && (guest.node !== node || guest.type !== type)) {
-    // Migrated to another node (or a stale link): follow it.
+  if (guest && (guest.node !== node || guest.type !== params.type)) {
+    // Migrated to another node, a stale link or a misspelt type ("LXC",
+    // "vm"): follow the guest to its canonical URL.
     return <Navigate replace to={guestPath(guest, tabParam)} />
   }
 
   if (!ctx) {
-    if (isPending) return <GuestPageSkeleton />
+    if (isPending && validVmid) return <GuestPageSkeleton />
     return (
       <>
         <PageHeader backTo="/" eyebrow={`${GUEST_TYPE_LABEL[type]} · ${node}`} title={`${type === 'lxc' ? 'CT' : 'VM'} ${params.vmid}`} />
@@ -71,7 +75,8 @@ export function GuestPage() {
     )
   }
 
-  return <GuestPageBody ctx={ctx} tabParam={tabParam} />
+  // Keyed: actions in flight, open dialogs and tab state belong to one guest.
+  return <GuestPageBody key={`${ctx.node}/${ctx.type}/${ctx.vmid}`} ctx={ctx} tabParam={tabParam} />
 }
 
 function GuestPageBody({ ctx, tabParam }: { ctx: GuestActionContext; tabParam: string | undefined }) {
@@ -89,7 +94,7 @@ function GuestPageBody({ ctx, tabParam }: { ctx: GuestActionContext; tabParam: s
     ctx,
     (a) => allowedFor(perms, a, ctx, target),
   )
-  const { trigger, host } = useActionRunner(ctx)
+  const { trigger, host, busy } = useActionRunner(ctx)
 
   const active = tabs.find((t) => t.id === tabParam) ?? (tabParam ? undefined : tabs[0])
   if (!active) return <Navigate replace to={guestPath(guest)} />
@@ -125,14 +130,14 @@ function GuestPageBody({ ctx, tabParam }: { ctx: GuestActionContext; tabParam: s
             <TagList tags={guest.tags} size="md" />
           </span>
         }
-        actions={<ActionBar variant="toolbar" actions={actions} ctx={ctx} trigger={trigger} className="hidden lg:flex" />}
+        actions={<ActionBar variant="toolbar" actions={actions} ctx={ctx} trigger={trigger} busy={busy} className="hidden lg:flex" />}
       />
 
       <TabBar tabs={tabs} active={active.id} hrefFor={(id) => guestPath(guest, id === tabs[0]?.id ? undefined : id)} />
       <TabPanel tab={active} props={tabProps} />
 
       <DockPortal>
-        <ActionBar variant="dock" actions={actions} ctx={ctx} trigger={trigger} />
+        <ActionBar variant="dock" actions={actions} ctx={ctx} trigger={trigger} busy={busy} />
       </DockPortal>
       {host}
     </GuestContextProvider>

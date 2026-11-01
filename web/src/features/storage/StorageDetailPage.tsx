@@ -1,10 +1,10 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { SearchX } from 'lucide-react'
 
 import { usePermissions } from '@/api/permissions'
 import { useClusterResources } from '@/api/queries'
-import { isStorage } from '@/api/types'
+import { isStorage, type ClusterResource, type StorageResource } from '@/api/types'
 import { EmptyState } from '@/components/EmptyState'
 import { GlassCard } from '@/components/GlassCard'
 import { DockPortal } from '@/components/layout/BottomDock'
@@ -29,7 +29,11 @@ export default function StorageDetailPage() {
   const { node = '', storage = '', tab } = useParams()
   const navigate = useNavigate()
   const { data: resource, isPending, isError } = useClusterResources({
-    select: (all) => all.filter(isStorage).find((s) => s.node === node && s.storage === storage),
+    // Stable: an inline select would rescan the whole list on every render.
+    select: useCallback(
+      (all: ClusterResource[]) => all.find((r): r is StorageResource => isStorage(r) && r.node === node && r.storage === storage),
+      [node, storage],
+    ),
   })
   const ctx = useMemo<StorageActionContext | null>(
     () => (resource ? { node, storage, resource, navigate } : null),
@@ -65,7 +69,8 @@ export default function StorageDetailPage() {
       </>
     )
   }
-  return <StorageDetailBody ctx={ctx} tabParam={tab} />
+  // Keyed: actions in flight, open dialogs and tab state belong to one storage.
+  return <StorageDetailBody key={`${ctx.node}/${ctx.storage}`} ctx={ctx} tabParam={tab} />
 }
 
 function StorageDetailBody({ ctx, tabParam }: { ctx: StorageActionContext; tabParam: string | undefined }) {
@@ -76,7 +81,7 @@ function StorageDetailBody({ ctx, tabParam }: { ctx: StorageActionContext; tabPa
   const actions = visibleActions(storageActions, ctx, (a) =>
     allowedFor(perms, a, ctx, { kind: 'storage', storage: ctx.storage, pool: ctx.resource.pool }),
   )
-  const { trigger, host } = useActionRunner(ctx)
+  const { trigger, host, busy } = useActionRunner(ctx)
   const active = tabs.find((t) => t.id === tabParam) ?? (tabParam ? undefined : tabs[0])
   if (!active) return <Navigate replace to={storagePath(node, storage)} />
   const props: StorageTabProps = active.content ? { ...baseProps, content: active.content } : baseProps
@@ -106,7 +111,7 @@ function StorageDetailBody({ ctx, tabParam }: { ctx: StorageActionContext; tabPa
             <span className="tabular">{formatUsage(resource.disk, resource.maxdisk)}</span>
           </span>
         }
-        actions={<ActionBar variant="toolbar" actions={actions} ctx={ctx} trigger={trigger} className="hidden lg:flex" />}
+        actions={<ActionBar variant="toolbar" actions={actions} ctx={ctx} trigger={trigger} busy={busy} className="hidden lg:flex" />}
       />
       <TabBar
         tabs={tabs}
@@ -115,7 +120,7 @@ function StorageDetailBody({ ctx, tabParam }: { ctx: StorageActionContext; tabPa
       />
       <TabPanel tab={active} props={props} />
       <DockPortal>
-        <ActionBar variant="dock" actions={actions} ctx={ctx} trigger={trigger} />
+        <ActionBar variant="dock" actions={actions} ctx={ctx} trigger={trigger} busy={busy} />
       </DockPortal>
       {host}
     </>

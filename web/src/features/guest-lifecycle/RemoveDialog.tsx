@@ -9,7 +9,7 @@ import { fireTask, runTask } from '@/components/tasks/tracker'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { GuestActionContext } from '@/features/guest/types'
-import { guestPath } from '@/lib/resources'
+import { isGuestPathname } from '@/lib/resources'
 
 import { Notice } from './notes'
 import { destroyParams } from './params'
@@ -50,7 +50,7 @@ export default function RemoveDialog({ ctx, open, onOpenChange }: ActionDialogPr
       title: `删除 ${name}`,
       onSuccess: () => {
         // Leave the page of the guest that no longer exists.
-        if (window.location.pathname.startsWith(guestPath(guest))) navigate('/', { replace: true })
+        if (isGuestPathname(window.location.pathname, guest)) navigate('/', { replace: true })
       },
     })
 

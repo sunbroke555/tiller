@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import type { GuestRrdPoint } from '@/api/guest-core'
+import { createPermissionChecker } from '@/lib/permissions'
 
 import { buildCharts } from './GuestCharts'
 import { configMemoryMiB } from './TemplateSummary'
 import { fromAgent, fromLxc, isMinorAddress, primaryAddress, visibleInterfaces } from './ips'
 import { downsample, field, hasData, lastValue, niceBytesMax, niceMax, timeLabel } from './rrd'
 import {
+  bypassesTagAccess,
   contrastText,
   joinTags,
   orderTags,
@@ -171,6 +173,17 @@ describe('tags', () => {
     expect(parseUserTagAccess({ 'user-tag-access': 'user-allow=list,user-allow-list=a;b' })).toEqual({ mode: 'list', list: ['a', 'b'] })
     expect(parseUserTagAccess({ 'user-tag-access': { 'user-allow': 'existing' } })).toEqual({ mode: 'existing', list: [] })
     expect(parseUserTagAccess({})).toEqual({ mode: 'free', list: [] })
+  })
+
+  it('bypasses user-tag-access only with Sys.Modify on "/"', () => {
+    // Sys.Modify on one node is "Sys.Modify somewhere under /nodes" in the ticket caps,
+    // but PVE checks "/": the restricted picker must stay.
+    const nodeOnly = createPermissionChecker({ '/nodes/pve-lab': { 'Sys.Modify': 1 }, '/vms/100': { 'VM.Config.Options': 1 } }, {
+      nodes: { 'Sys.Modify': 1 },
+    })
+    expect(bypassesTagAccess(nodeOnly, 'alice@pve')).toBe(false)
+    expect(bypassesTagAccess(createPermissionChecker({ '/': { 'Sys.Modify': 1 } }, undefined), 'alice@pve')).toBe(true)
+    expect(bypassesTagAccess(createPermissionChecker({}, undefined), 'root@pam')).toBe(true)
   })
 })
 
