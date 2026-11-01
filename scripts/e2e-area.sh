@@ -14,6 +14,7 @@ case $area in
   guest-summary-power | guest-lifecycle) specs=(guest-core) ;;
   guest-snapshots-backup) specs=(guest-backup) ;;
   auth | app-shell | overview) specs=(shell-polish shells permissions smoke) ;;
+  node-system) specs=(node-system) ;; # writes go to pvelab-c3: needs lab-cluster.env
   *) specs=("$area") ;;
 esac
 
