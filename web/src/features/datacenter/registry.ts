@@ -41,7 +41,7 @@ export interface DatacenterSectionDef extends TabDef<DatacenterSectionProps> {
 
 export const datacenterSections: DatacenterSectionDef[] = [
   // Phase 2
-  { id: 'storage', title: '存储配置', hint: '添加 NFS、CIFS、PBS 等存储', icon: HardDrive, order: 10, phase: 2, component: comingSoonTab('存储的添加、编辑、删除，以及内容类型和节点限制。', 2) },
+  { id: 'storage', title: '存储配置', hint: '添加 NFS、CIFS、PBS 等存储', icon: HardDrive, order: 10, phase: 2, ready: true, component: lazy(() => import('@/features/storage-config/StorageConfigPage')) },
   {
     id: 'backup',
     title: '备份计划',
