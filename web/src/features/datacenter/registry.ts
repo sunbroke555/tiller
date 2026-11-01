@@ -66,7 +66,17 @@ export const datacenterSections: DatacenterSectionDef[] = [
     ready: true,
     component: lazy(() => import('@/features/access-users/AccessUsersPage')),
   },
-  { id: 'permissions', title: '权限与认证', hint: '角色、ACL、认证域、资源池', icon: KeyRound, order: 60, phase: 3, component: comingSoonTab('角色、权限（ACL）、认证域和同步。', 3) },
+  {
+    id: 'permissions',
+    title: '权限与认证',
+    hint: '角色、ACL、认证域、资源池',
+    icon: KeyRound,
+    order: 60,
+    phase: 3,
+    ready: true,
+    permission: { privs: 'Sys.Audit' },
+    component: lazy(() => import('@/features/access-control/PermissionsPage')),
+  },
   {
     id: 'ha',
     title: '高可用',
