@@ -60,6 +60,44 @@ export function labSsh(cmd: string, node = env.node): Promise<void> {
 }
 
 /**
+ * Cross-worker lock for lab state that two spec files must not change at the
+ * same time (e.g. `network`: an SDN apply reloads every node's network and
+ * applies another spec's pending interface changes with it). A directory
+ * under e2e/.run/locks is created atomically; a lock whose owner process is
+ * gone is taken over.
+ *
+ *   test.beforeAll(async () => { test.setTimeout(900_000); release = await labLock('network') })
+ *   test.afterAll(() => release?.())
+ */
+export async function labLock(name: string, timeoutMs = 900_000): Promise<() => void> {
+  const dir = path.join(import.meta.dirname, '.run', 'locks', name)
+  fs.mkdirSync(path.dirname(dir), { recursive: true })
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    try {
+      fs.mkdirSync(dir)
+      fs.writeFileSync(path.join(dir, 'pid'), String(process.pid))
+      return () => fs.rmSync(dir, { recursive: true, force: true })
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err
+    }
+    const owner = Number(fs.readFileSync(path.join(dir, 'pid'), { encoding: 'utf8', flag: 'a+' }) || 0)
+    if (owner && !isAlive(owner)) fs.rmSync(dir, { recursive: true, force: true })
+    else if (Date.now() > deadline) throw new Error(`等待实验锁 ${name} 超时`)
+    else await new Promise((r) => setTimeout(r, 1000))
+  }
+}
+
+function isAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
  * Pick `option` (its label) in a select field: waits until the options have
  * loaded, opens it and clicks the option. Tests that depend on a value (e.g.
  * the storage local-lvm) choose it instead of relying on the preselection,

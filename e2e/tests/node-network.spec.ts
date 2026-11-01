@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 
-import { expect, test, type PveApi } from '../fixtures'
+import { expect, labLock, test, type PveApi } from '../fixtures'
 import { mockNetwork } from './node-network.mock'
 
 // Area node-network: interface list, create / edit / delete, pending diff,
@@ -60,6 +60,14 @@ async function pickOption(page: Page, label: string, option: string | RegExp) {
 }
 
 test.describe('node network on the lab cluster', { tag: '@lab' }, () => {
+  // sdn.spec's apply reloads every node's network and would apply our pending changes.
+  let releaseNetwork: (() => void) | undefined
+  test.beforeAll(async () => {
+    test.setTimeout(960_000)
+    releaseNetwork = await labLock('network')
+  })
+  test.afterAll(() => releaseNetwork?.())
+
   test.beforeEach(async ({ pve }) => {
     const nodes = await pve.get<{ node: string; status: string }[]>('/nodes')
     test.skip(!nodes.some((n) => n.node === LAB_NODE && n.status === 'online'), `实验集群里没有在线的 ${LAB_NODE}`)

@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 
-import { expect, test, type PveApi } from '../fixtures'
+import { expect, labLock, test, type PveApi } from '../fixtures'
 import { mockSdn } from './sdn.mocks'
 
 // Areas sdn + sdn-fabrics: /datacenter/sdn.
@@ -117,8 +117,11 @@ async function confirm(page: Page, label: string) {
 test.describe('SDN (lab cluster)', { tag: '@lab' }, () => {
   test.describe.configure({ mode: 'serial' })
 
+  // An SDN apply reloads every node's network and would apply node-network's pending changes.
+  let releaseNetwork: (() => void) | undefined
   test.beforeAll(async ({ pve }) => {
-    test.setTimeout(240_000)
+    test.setTimeout(1_140_000)
+    releaseNetwork = await labLock('network')
     const nodes = (await pve.get<{ node: string; status: string }[]>('/nodes')).filter((n) => n.status === 'online').map((n) => n.node)
     test.skip(!NODES.every((n) => nodes.includes(n)), '需要 3 节点实验集群（lab-cluster.env）')
     await cleanupSdn(pve)
@@ -129,11 +132,15 @@ test.describe('SDN (lab cluster)', { tag: '@lab' }, () => {
   test.afterAll(async ({ pve }) => {
     test.setTimeout(240_000)
     const nodes = (await pve.get<{ node: string }[]>('/nodes')).map((n) => n.node)
-    if (!NODES.every((n) => nodes.includes(n))) return
-    await cleanupSdn(pve)
-    const l = await sdnLists(pve)
-    expect([...l.zones, ...l.vnets].filter((o) => isE2e(idOf(o, 'zone') || idOf(o, 'vnet')))).toEqual([])
-    await expectNodesReachable(pve)
+    try {
+      if (!NODES.every((n) => nodes.includes(n))) return
+      await cleanupSdn(pve)
+      const l = await sdnLists(pve)
+      expect([...l.zones, ...l.vnets].filter((o) => isE2e(idOf(o, 'zone') || idOf(o, 'vnet')))).toEqual([])
+      await expectNodesReachable(pve)
+    } finally {
+      releaseNetwork?.()
+    }
   })
 
   test('前缀列表、Route Map、Fabric、控制器：添加和删除（不应用）', async ({ page, pve }) => {
