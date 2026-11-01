@@ -3,10 +3,10 @@ name: Documentation (GitHub Pages)
 on:
   push:
     branches: [main]
-    paths: ['doc/**', 'scripts/check-docs.py', '.github/workflows/docs.yml']
+    paths: ['doc/**', '.github/workflows/docs.yml']
   pull_request:
     branches: [main]
-    paths: ['doc/**', 'scripts/check-docs.py', '.github/workflows/docs.yml']
+    paths: ['doc/**', '.github/workflows/docs.yml']
   workflow_dispatch:
 
 permissions:
@@ -53,7 +53,6 @@ jobs:
           PY
       - run: npm --prefix doc ci --no-audit --no-fund
       - run: npm --prefix doc run build
-      - run: python3 scripts/check-docs.py --base "$DOCS_BASE"
       - uses: actions/upload-pages-artifact@v5.0.0
         if: github.event_name != 'pull_request'
         with:

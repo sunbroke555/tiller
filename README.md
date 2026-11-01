@@ -29,7 +29,7 @@ rt -- make test-docs     # 桌面 / 手机文档测试，不连接 PVE
 
 ### Docker 部署
 
-仓库的 GitHub Actions 在检查通过后，自动构建 `linux/amd64` 和 `linux/arm64` 镜像到 `ghcr.io/sunbroke555/tiller`。`latest` 跟随 `main`，`v1.2.3` 等 Git 标签生成 `1.2.3` 和 `1.2` 镜像标签。
+仓库的 GitHub Actions 自动构建 `linux/amd64` 和 `linux/arm64` 镜像并发布到 `ghcr.io/sunbroke555/tiller`。`latest` 跟随 `main`，`v1.2.3` 等 Git 标签生成 `1.2.3` 和 `1.2` 镜像标签。
 
 使用仓库的 [compose.yaml](compose.yaml)，在同目录创建不入库的 `.env`：
 
@@ -99,11 +99,11 @@ LISTEN=:8443 \
 
 ### GitHub 自动化
 
-- [Checks and Docker image](.github/workflows/build.yml)：PR 和 `main` / `v*` 标签推送时运行 Go、前端、文档检查；PR 仅构建镜像，`main` / 版本标签发布到 GHCR。默认使用工作流自带的 `GITHUB_TOKEN`，无需填写 Docker Hub 密码。
+- [Docker image](.github/workflows/build.yml)：PR 和 `main` / `v*` 标签推送时构建包含管理界面和文档的双架构镜像；PR 仅构建，`main` / 版本标签发布到 GHCR。默认使用工作流自带的 `GITHUB_TOKEN`，无需填写 Docker Hub 密码。
 - [Documentation](.github/workflows/docs.yml)：文档变更合并到 `main` 时，自动发布 GitHub Pages。仓库的 Settings → Pages → Build and deployment 选择 **GitHub Actions**。也可以在 Actions 中手动运行该工作流。
 - 文档默认构建在 `/docs/` 供 Tiller 内嵌；Pages 工作流自动设置站点子路径和项目主页入口。仅发布 `doc/`，开发用的 `docs/` 不进入文档站。
 
-GitHub 上的这些检查不需要连接 PVE，也不需要上传实验环境的密码或 SSH 密钥。完整 PVE 端到端测试仍在测试服务器上运行。
+GitHub Actions 只负责构建和发布，不重复运行 Go 单元测试、Vitest、Playwright 或独立的静态检查；前端构建仍包含 TypeScript 编译检查。发布前通过 `rt -- make test`、`rt -- make test-docs` 及相应的 PVE 端到端测试在测试服务器完成验证。工作流不需要连接 PVE，也不需要上传实验环境的密码或 SSH 密钥。
 
 ### 本地开发命令
 
