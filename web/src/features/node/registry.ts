@@ -98,7 +98,15 @@ export const nodeTabs: NodeTabDef[] = [
     permission: { privs: 'Sys.Audit' },
     component: lazy(() => import('@/features/certificates-acme/CertificatesTab')),
   },
-  { id: 'disks', title: '磁盘', icon: HardDrive, order: 90, component: comingSoonTab('磁盘列表、SMART、LVM / ZFS / 目录存储创建。', 2) },
+  {
+    id: 'disks',
+    title: '磁盘',
+    icon: HardDrive,
+    order: 90,
+    visible: online,
+    permission: { privs: 'Sys.Audit' },
+    component: lazy(() => import('@/features/node-disks/DisksTab')),
+  },
   {
     id: 'updates',
     title: '更新',
