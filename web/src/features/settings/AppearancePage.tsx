@@ -14,6 +14,8 @@ import { ACCENT_SWATCHES, swatchColor } from '@/theme/palette'
 import { ACCENTS, DENSITIES, THEME_MODES, type Density, type ThemeMode } from '@/theme/prefs'
 import { useTheme } from '@/theme/ThemeProvider'
 
+import { AppSettings } from './AppSettings'
+
 /** Static colours for the mini previews (independent of the active theme). */
 const PREVIEW: Record<Exclude<ThemeMode, 'system'>, { bg: string; card: string; text: string; line: string; glow?: string }> = {
   dark: { bg: '#07080a', card: 'rgba(255,255,255,.07)', text: '#ececef', line: 'rgba(255,255,255,.14)', glow: 'rgba(139,147,255,.45)' },
@@ -121,7 +123,7 @@ export function AppearancePage() {
 
   return (
     <>
-      <PageHeader title="外观" description="这些偏好只保存在当前设备上" backTo="/" />
+      <PageHeader title="外观与偏好" description="这些偏好只保存在当前设备上" backTo="/" />
 
       <div className="grid gap-(--section-gap)">
         <section>
@@ -210,6 +212,8 @@ export function AppearancePage() {
             />
           </GlassCard>
         </section>
+
+        <AppSettings />
 
         <section>
           <SectionHeader title="预览" />

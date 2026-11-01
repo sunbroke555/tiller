@@ -5,6 +5,8 @@ import { TaskLogHost } from '@/components/tasks/TaskLogSheet'
 
 import { BottomDock } from './BottomDock'
 import { CommandPaletteProvider } from './CommandPalette'
+import { KeyboardShortcuts } from './KeyboardShortcuts'
+import { OfflineBanner } from './OfflineBanner'
 import { Sidebar } from './Sidebar'
 
 /**
@@ -27,6 +29,8 @@ export function AppShell() {
         </div>
       </BottomDock>
       <TaskLogHost />
+      <KeyboardShortcuts />
+      <OfflineBanner />
     </CommandPaletteProvider>
   )
 }

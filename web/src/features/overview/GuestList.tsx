@@ -4,26 +4,26 @@ import { ChevronRight, Lock } from 'lucide-react'
 import type { GuestResource } from '@/api/types'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { StatusDot } from '@/components/StatusDot'
+import { TagList } from '@/components/TagChip'
 import { formatBytes, formatPercent } from '@/lib/format'
-import { GUEST_TYPE_LABEL, guestName, guestPath, parseTags, statusLabel } from '@/lib/resources'
+import { GUEST_TYPE_LABEL, guestName, guestPath, statusLabel } from '@/lib/resources'
 import { cn } from '@/lib/utils'
 
-export function GuestList({ guests, showNode }: { guests: GuestResource[]; showNode: boolean }) {
+export function GuestList({ guests, showNode, showPool }: { guests: GuestResource[]; showNode: boolean; showPool?: boolean }) {
   return (
     <ul className="divide-y divide-border/70">
       {guests.map((g) => (
         <li key={g.id}>
-          <GuestRow guest={g} showNode={showNode} />
+          <GuestRow guest={g} showNode={showNode} showPool={showPool ?? false} />
         </li>
       ))}
     </ul>
   )
 }
 
-function GuestRow({ guest: g, showNode }: { guest: GuestResource; showNode: boolean }) {
+function GuestRow({ guest: g, showNode, showPool }: { guest: GuestResource; showNode: boolean; showPool: boolean }) {
   const running = g.status === 'running'
   const template = g.template === 1
-  const tags = parseTags(g.tags)
   return (
     <Link
       to={guestPath(g)}
@@ -35,23 +35,20 @@ function GuestRow({ guest: g, showNode }: { guest: GuestResource; showNode: bool
       <StatusDot status={template ? 'template' : g.status} pulse={running} className="w-2" />
       <ResourceIcon type={g.type} template={template} className="hidden sm:block" />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <span className={cn('truncate font-medium', !running && 'text-foreground/75')}>{guestName(g)}</span>
           {g.lock && <Lock className="size-3.5 shrink-0 text-warning" aria-label={`已锁定：${g.lock}`} />}
-          {tags.slice(0, 2).map((t) => (
-            <span
-              key={t}
-              className="hidden shrink-0 rounded-full bg-brand/10 px-2 py-0.5 text-[11px] leading-none text-brand sm:inline paper:bg-secondary paper:text-foreground/70"
-            >
-              {t}
-            </span>
-          ))}
+          <TagList tags={g.tags} max={3} className="hidden flex-nowrap sm:inline-flex" />
         </div>
-        <div className="mt-0.5 truncate text-xs text-muted-foreground">
-          <span className="tabular">{g.vmid}</span>
-          {' · '}
-          {template ? `${GUEST_TYPE_LABEL[g.type]}模板` : GUEST_TYPE_LABEL[g.type]}
-          {showNode && ` · ${g.node}`}
+        <div className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+          <span className="truncate">
+            <span className="tabular">{g.vmid}</span>
+            {' · '}
+            {template ? `${GUEST_TYPE_LABEL[g.type]}模板` : GUEST_TYPE_LABEL[g.type]}
+            {showNode && ` · ${g.node}`}
+            {showPool && g.pool && ` · 池 ${g.pool}`}
+          </span>
+          <TagList tags={g.tags} max={2} className="flex-nowrap sm:hidden" />
         </div>
       </div>
       {running ? (

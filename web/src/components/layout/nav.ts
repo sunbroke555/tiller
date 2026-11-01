@@ -1,4 +1,14 @@
-import { Building2, Database, LayoutGrid, ListChecks, Palette, SquareTerminal, type LucideIcon } from 'lucide-react'
+import {
+  Building2,
+  Database,
+  LayoutGrid,
+  Layers,
+  ListChecks,
+  Palette,
+  SquareTerminal,
+  UserRound,
+  type LucideIcon,
+} from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -21,15 +31,28 @@ export const MOBILE_NAV: NavItem[] = [
 /** Desktop sidebar and command palette pages. */
 export const MAIN_NAV: NavItem[] = [
   { to: '/', label: '概览', icon: LayoutGrid, end: true, keywords: ['overview', 'home', 'resources', '资源', '首页'] },
+  {
+    to: '/datacenter',
+    label: '数据中心',
+    icon: Building2,
+    keywords: ['datacenter', 'cluster', 'summary', 'health', 'subscription', 'notes', '集群', '健康', '订阅', '备注'],
+  },
+  { to: '/pool', label: '资源池', icon: Layers, keywords: ['pool', 'pools', '池'] },
   { to: '/storage', label: '存储', icon: Database, keywords: ['storage', 'disk', 'iso', 'backup', '备份'] },
   { to: '/tasks', label: '任务', icon: ListChecks, keywords: ['tasks', 'log', '日志'] },
   { to: '/shell', label: 'Shell', icon: SquareTerminal, keywords: ['shell', 'terminal', 'console', '终端'] },
-  { to: '/datacenter', label: '数据中心', icon: Building2, keywords: ['datacenter', 'cluster', 'users', '集群', '用户', '权限'] },
 ]
 
 export const SETTINGS_NAV: NavItem = {
   to: '/settings/appearance',
   label: '外观',
   icon: Palette,
-  keywords: ['appearance', 'theme', 'dark', 'light', 'paper', '主题', '暗色', '浅色', '纸质', '设置'],
+  keywords: ['appearance', 'theme', 'dark', 'light', 'paper', 'install', 'language', '主题', '暗色', '浅色', '纸质', '设置', '语言', '安装'],
+}
+
+export const ACCOUNT_NAV: NavItem = {
+  to: '/account',
+  label: '我的账户',
+  icon: UserRound,
+  keywords: ['account', 'password', 'tfa', '2fa', 'totp', 'webauthn', 'permissions', '密码', '两步验证', '权限', '账户'],
 }

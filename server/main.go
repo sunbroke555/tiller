@@ -100,6 +100,7 @@ func (emptyFS) Open(string) (fs.File, error) { return nil, fs.ErrNotExist }
 func NewHandler(cfg *Config, web fs.FS, immutable bool, transport http.RoundTripper, logger *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/api2/", NewProxy(cfg.PVE, transport, logger))
+	mux.Handle("GET /api/config", appConfigHandler(newConsentSource(cfg.PVE, transport, logger)))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")

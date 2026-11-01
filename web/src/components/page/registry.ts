@@ -5,6 +5,8 @@
 import type { ComponentType, ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 
+import type { PermissionCheck } from '@/lib/permissions'
+
 // ------------------------------------------------------------------- tabs
 
 export interface TabDef<P> {
@@ -70,13 +72,27 @@ export interface ActionDef<Ctx> {
   confirm?: (ctx: Ctx) => ConfirmSpec
   /** Open this dialog instead (usually a FormDialog), lazily imported is fine. */
   dialog?: ComponentType<ActionDialogProps<Ctx>>
+  /**
+   * Privileges the action needs; it is hidden when the user lacks them.
+   * `path` defaults to the page's object (guest: /vms/<vmid> + its pool,
+   * node: /nodes/<node>, storage: /storage/<id>). Omitted: a default by `id`
+   * from lib/permissions.ts (start → VM.PowerMgmt …); null: never checked.
+   */
+  permission?: PermissionCheck | ((ctx: Ctx) => PermissionCheck | null | undefined) | null
 }
 
 export function actionLabel<Ctx>(action: ActionDef<Ctx>, ctx: Ctx): string {
   return typeof action.label === 'function' ? action.label(ctx) : action.label
 }
 
-/** Visible actions in order. */
-export function visibleActions<Ctx>(actions: readonly ActionDef<Ctx>[], ctx: Ctx): ActionDef<Ctx>[] {
-  return sortByOrder(actions.filter((a) => a.visible?.(ctx) ?? true))
+/**
+ * Visible actions in order. `allowed` (from usePermissions + allowedFor)
+ * drops the actions the user has no privileges for.
+ */
+export function visibleActions<Ctx>(
+  actions: readonly ActionDef<Ctx>[],
+  ctx: Ctx,
+  allowed?: (action: ActionDef<Ctx>) => boolean,
+): ActionDef<Ctx>[] {
+  return sortByOrder(actions.filter((a) => (a.visible?.(ctx) ?? true) && (allowed?.(a) ?? true)))
 }

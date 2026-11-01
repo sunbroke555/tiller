@@ -4,7 +4,6 @@ import { Search } from 'lucide-react'
 import { useClusterStatus, useVersion } from '@/api/queries'
 import { useSession } from '@/api/useSession'
 import { Logo } from '@/components/Logo'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 
 import { useCommandPalette } from './CommandPalette'
@@ -82,9 +81,7 @@ export function Sidebar({ className }: { className?: string }) {
 
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="mb-1.5 px-3 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">资源</div>
-        <ScrollArea className="min-h-0 flex-1 pr-1">
-          <ResourceTree />
-        </ScrollArea>
+        <ResourceTree />
       </div>
 
       <div className="space-y-1 border-t border-sidebar-border/70 pt-3">
