@@ -91,7 +91,16 @@ export const datacenterSections: DatacenterSectionDef[] = [
     permission: { privs: 'Sys.Audit' },
     component: lazy(() => import('@/features/cluster/ClusterPage')),
   },
-  { id: 'notifications', title: '通知与指标', hint: '通知目标、匹配器、指标服务器', icon: Bell, order: 110, phase: 3, component: comingSoonTab('通知目标、匹配器和指标服务器。', 3) },
+  {
+    id: 'notifications',
+    title: '通知与指标',
+    hint: '通知目标、匹配规则、指标服务器',
+    icon: Bell,
+    order: 110,
+    phase: 3,
+    ready: true,
+    component: lazy(() => import('@/features/notifications-metrics/NotificationsMetricsPage')),
+  },
   {
     id: 'mappings',
     title: '资源映射',
