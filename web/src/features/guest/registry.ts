@@ -28,7 +28,6 @@ import {
   Waypoints,
 } from 'lucide-react'
 
-import { comingSoonTab } from '@/components/page/ComingSoonTab'
 import { consoleGuestActions } from '@/features/console/actions'
 import { guestBackupActions } from '@/features/guest-backup/actions'
 import { guestCoreActions } from '@/features/guest-core/actions'
@@ -175,7 +174,8 @@ export const guestTabs: GuestTabDef[] = [
     icon: Users,
     order: 120,
     types: BOTH,
-    component: comingSoonTab('这台客户机的访问权限（ACL）。', 3),
+    permission: { privs: ['Permissions.Modify', 'VM.Allocate'], any: true },
+    component: lazy(() => import('@/features/access-control/GuestPermissionsTab')),
   },
 ]
 

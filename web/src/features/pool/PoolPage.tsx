@@ -12,6 +12,7 @@ import { ResourceIcon } from '@/components/ResourceIcon'
 import { StatusDot } from '@/components/StatusDot'
 import { Skeleton } from '@/components/ui/skeleton'
 import { UsageBar } from '@/components/UsageBar'
+import { PoolManageActions, PoolPermissions } from '@/features/access-control/PoolManage'
 import { GuestList } from '@/features/overview/GuestList'
 import { formatUsage, ratio } from '@/lib/format'
 import { byVmid, statusLabel, storagePath } from '@/lib/resources'
@@ -57,6 +58,7 @@ export default function PoolPage() {
       }
       title={poolid}
       description={pool.data ? pool.data.comment || '没有说明' : ' '}
+      actions={pool.data ? <PoolManageActions pool={pool.data} /> : undefined}
     />
   )
 
@@ -137,6 +139,8 @@ export default function PoolPage() {
             </GlassCard>
           </section>
         )}
+
+        {pool.data && <PoolPermissions poolid={poolid} />}
       </div>
     </>
   )

@@ -2,7 +2,7 @@
 // storage-browser area's ContentTab with a different `content`.
 
 import { lazy } from 'react'
-import { Archive, Box, Disc3, FileCode, FileInput, HardDrive, LayoutDashboard, Package } from 'lucide-react'
+import { Archive, Box, Disc3, FileCode, FileInput, HardDrive, LayoutDashboard, Package, Users } from 'lucide-react'
 
 import { storageBrowserActions } from '@/features/storage-browser/actions'
 
@@ -40,6 +40,14 @@ export const storageTabs: StorageTabDef[] = [
       visible: ({ resource }) => storageContents(resource.content).includes(content),
     }),
   ),
+  {
+    id: 'permissions',
+    title: '权限',
+    icon: Users,
+    order: 120,
+    permission: { privs: ['Permissions.Modify', 'Datastore.Allocate'], any: true },
+    component: lazy(() => import('@/features/access-control/StoragePermissionsTab')),
+  },
 ]
 
 export const storageActions: StorageActionDef[] = [...storageBrowserActions]

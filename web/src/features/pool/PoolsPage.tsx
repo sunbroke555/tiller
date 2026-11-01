@@ -10,6 +10,7 @@ import { GlassCard } from '@/components/GlassCard'
 import { PageHeader } from '@/components/PageHeader'
 import { ErrorCard, LoadingCards } from '@/components/QueryState'
 import { ResourceIcon } from '@/components/ResourceIcon'
+import { Button } from '@/components/ui/button'
 import { UsageBar } from '@/components/UsageBar'
 import { formatUsage, ratio } from '@/lib/format'
 
@@ -46,7 +47,16 @@ export default function PoolsPage() {
         <ErrorCard error={pools.error} onRetry={() => void pools.refetch()} />
       ) : rows.length === 0 ? (
         <GlassCard>
-          <EmptyState icon={Folder} title="还没有资源池" description="资源池在数据中心 → 权限 → 资源池中创建（后续版本提供）。" />
+          <EmptyState
+            icon={Folder}
+            title="还没有资源池"
+            description="资源池在数据中心 → 权限与认证 → 资源池中创建。"
+            action={
+              <Button variant="outline" asChild>
+                <Link to="/datacenter/permissions/pools">去创建</Link>
+              </Button>
+            }
+          />
         </GlassCard>
       ) : (
         <div className="grid gap-(--row-gap) sm:grid-cols-2 xl:grid-cols-3">
