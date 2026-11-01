@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { GlassCard } from '@/components/GlassCard'
 import { PageHeader, SectionHeader } from '@/components/PageHeader'
 import { UserMenu } from '@/components/layout/UserMenu'
+import { CreateMenu } from '@/features/guest-create/CreateMenu'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -98,6 +99,7 @@ export function OverviewPage() {
         description={subtitle || ' '}
         actions={
           <>
+            <CreateMenu />
             <Button asChild variant="ghost" size="icon" className="rounded-full lg:hidden" aria-label="外观设置">
               <Link to="/settings/appearance">
                 <Settings2 />
