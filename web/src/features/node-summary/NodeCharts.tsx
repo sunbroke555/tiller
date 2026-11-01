@@ -48,7 +48,7 @@ export function NodeCharts({ node }: { node: string }) {
 
   return (
     <section aria-labelledby="node-charts-heading">
-      <SectionHeader title={<span id="node-charts-heading">历史</span>}>
+      <SectionHeader title={<span id="node-charts-heading">资源历史</span>}>
         <RrdRangePicker value={range} onChange={range.set} />
       </SectionHeader>
       <div className="grid gap-(--row-gap) lg:grid-cols-2 lg:[&>*:last-child:nth-child(odd)]:col-span-2">

@@ -31,6 +31,15 @@ interface Screen {
   act?: (page: Page, mobile: boolean) => Promise<void>
 }
 
+/** A container console shows nothing until a key is pressed: get the login prompt. */
+async function wakeTerminal(page: Page) {
+  const term = page.locator('.xterm').first()
+  if (!(await term.count())) return
+  await term.click()
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(800)
+}
+
 const SCREENS: Screen[] = [
   { name: 'overview', path: '/', ready: '虚拟机与容器' },
   { name: 'datacenter', path: '/datacenter', ready: '健康状态' },
@@ -74,8 +83,8 @@ const SCREENS: Screen[] = [
   { name: 'ct-options', path: `/guest/${N}/lxc/${CT}/options` },
   { name: 'ct-snapshots', path: `/guest/${N}/lxc/${CT}/snapshots` },
   { name: 'ct-backup', path: `/guest/${N}/lxc/${CT}/backup` },
-  { name: 'ct-console', path: `/guest/${N}/lxc/${CT}/console`, viewport: true },
-  { name: 'console-fullscreen', path: `/console/${N}/lxc/${CT}`, viewport: true },
+  { name: 'ct-console', path: `/guest/${N}/lxc/${CT}/console`, viewport: true, act: wakeTerminal },
+  { name: 'console-fullscreen', path: `/console/${N}/lxc/${CT}`, viewport: true, act: wakeTerminal },
   { name: 'shell', path: '/shell' },
   { name: 'account', path: '/account', ready: '两步验证' },
   { name: 'permissions', path: '/account/permissions' },

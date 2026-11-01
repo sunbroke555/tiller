@@ -54,7 +54,7 @@ test.describe('node summary', () => {
     await panel.getByRole('radio', { name: '最近一天' }).click()
     await day
     const max = page.waitForRequest((r) => r.url().includes('/rrddata') && r.url().includes('timeframe=day') && r.url().includes('cf=MAX'))
-    await panel.getByRole('radio', { name: '最大' }).click()
+    await panel.getByRole('radio', { name: '峰值' }).click()
     await max
     // Remembered on this device.
     await page.reload()

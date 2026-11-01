@@ -16,7 +16,7 @@ export type RrdUnit = 'percent' | 'bytes' | 'bytesPerSecond' | 'number'
 export type RrdCfValue = 'AVERAGE' | 'MAX'
 
 export const RRD_TIMEFRAMES: readonly { value: RrdTimeframe; label: string; long: string }[] = [
-  { value: 'hour', label: '小时', long: '最近一小时' },
+  { value: 'hour', label: '时', long: '最近一小时' },
   { value: 'day', label: '天', long: '最近一天' },
   { value: 'week', label: '周', long: '最近一周' },
   { value: 'month', label: '月', long: '最近一个月' },
@@ -26,7 +26,7 @@ export const RRD_TIMEFRAMES: readonly { value: RrdTimeframe; label: string; long
 
 export const RRD_CFS: readonly { value: RrdCfValue; label: string }[] = [
   { value: 'AVERAGE', label: '平均' },
-  { value: 'MAX', label: '最大' },
+  { value: 'MAX', label: '峰值' },
 ]
 
 export function isRrdTimeframe(v: unknown): v is RrdTimeframe {
