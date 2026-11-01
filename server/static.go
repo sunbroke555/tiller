@@ -264,7 +264,9 @@ func buildCSP(html []byte) string {
 		"style-src 'self' 'unsafe-inline'",
 		"img-src 'self' data: blob:",
 		"font-src 'self' data:",
-		"connect-src 'self' ws: wss:",
+		// 'self' covers same-origin ws:/wss: (CSP Level 3; the console
+		// websocket goes to this origin). Bare ws:/wss: would allow any host.
+		"connect-src 'self'",
 		"worker-src 'self' blob:",
 		"manifest-src 'self'",
 		"frame-src 'self'",

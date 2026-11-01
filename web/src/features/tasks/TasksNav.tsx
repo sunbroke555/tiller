@@ -28,7 +28,7 @@ export function TasksNav({ className }: { className?: string }) {
         >
           {({ isActive }) => (
             <>
-              <l.icon className={cn('size-4', isActive && 'text-brand')} aria-hidden />
+              <l.icon className={cn('size-4', isActive && 'text-brand-strong')} aria-hidden />
               {l.label}
             </>
           )}

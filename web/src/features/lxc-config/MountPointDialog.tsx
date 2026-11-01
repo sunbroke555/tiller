@@ -41,7 +41,7 @@ import {
   type IdMapEntry,
   type MountForm,
 } from './model'
-import { Segmented, type LxcConfigApi } from './shared'
+import { Segmented, useDialogConfig, type LxcConfigApi } from './shared'
 
 /** What the dialog edits: a new mount point, an existing rootfs/mp[n], or an unused[n] to mount. */
 export type MountTargetKey = { mode: 'create' } | { mode: 'edit'; key: string } | { mode: 'attach'; key: string }
@@ -49,7 +49,7 @@ export type MountTargetKey = { mode: 'create' } | { mode: 'edit'; key: string } 
 export function MountPointDialog({
   open,
   onOpenChange,
-  api,
+  api: liveApi,
   target,
 }: {
   open: boolean
@@ -57,6 +57,7 @@ export function MountPointDialog({
   api: LxcConfigApi
   target: MountTargetKey | undefined
 }) {
+  const api = useDialogConfig(liveApi, open)
   const mode = target?.mode ?? 'create'
   const sourceKey = target && target.mode !== 'create' ? target.key : undefined
   const isRoot = sourceKey === 'rootfs'
@@ -139,7 +140,7 @@ export function MountPointDialog({
             />
           </FormField>
           {form.kind === 'bind' && !api.isRoot && (
-            <p className="text-xs text-warning">只有 root@pam 可以添加绑定挂载。</p>
+            <p className="text-xs text-warning-strong">只有 root@pam 可以添加绑定挂载。</p>
           )}
           {form.kind === 'volume' ? (
             <FormRow>

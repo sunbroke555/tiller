@@ -27,7 +27,7 @@ export function OfflineBanner() {
       role="status"
       className="pointer-events-none fixed inset-x-0 top-[max(0.5rem,env(safe-area-inset-top))] z-50 flex justify-center px-4"
     >
-      <div className="surface-strong pointer-events-auto flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium text-warning">
+      <div className="surface-strong pointer-events-auto flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium text-warning-strong">
         <WifiOff className="size-3.5" aria-hidden />
         <span>网络已断开 · 显示的是最后一次获取的数据</span>
       </div>

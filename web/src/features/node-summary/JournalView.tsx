@@ -28,7 +28,7 @@ export function priorityClass(p: number | undefined): string | undefined {
   if (p === undefined) return undefined
   if (p <= 2) return 'text-destructive font-medium'
   if (p === 3) return 'text-destructive'
-  if (p === 4) return 'text-warning'
+  if (p === 4) return 'text-warning-strong'
   if (p === 5) return 'text-info'
   if (p === 7) return 'text-muted-foreground'
   return undefined
@@ -52,7 +52,7 @@ function LineView({ line, host }: { line: JournalLine; host?: string }) {
     <div className={cn('min-h-[1lh]', priorityClass(line.priority))} data-priority={line.priority}>
       <span className="text-muted-foreground">{formatJournalTime(line.time)} </span>
       {host && <span className="hidden text-muted-foreground lg:inline">{host} </span>}
-      <span className={cn(priorityClass(line.priority) ? undefined : 'text-brand paper:text-brand-2')}>
+      <span className={cn(priorityClass(line.priority) ? undefined : 'text-brand-strong')}>
         {line.identifier}
         {line.pid !== undefined ? `[${line.pid}]` : ''}
       </span>

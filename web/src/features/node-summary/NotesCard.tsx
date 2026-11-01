@@ -126,7 +126,7 @@ function NotesDialog({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             rows={12}
-            className="min-h-64 font-mono text-[13px] leading-relaxed"
+            className="min-h-64 font-mono text-base md:text-[13px] leading-relaxed"
             placeholder={'# 标题\n\n- 机房位置、用途、联系人……'}
             spellCheck={false}
           />

@@ -29,4 +29,6 @@ export const themeBootScript =
   `d.style.colorScheme=t==="dark"?"dark":"light";` +
   `var c=${j(THEME_COLORS)}[t],m=document.querySelector('meta[name="theme-color"]');` +
   `if(m)m.setAttribute("content",c);` +
+  `var b=document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');` +
+  `if(b)b.setAttribute("content",t==="dark"?"black-translucent":"default");` +
   `}catch(e){}})()`

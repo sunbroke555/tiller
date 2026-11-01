@@ -153,7 +153,7 @@ export function ImportDialog({ node, storage, volume, open, onOpenChange }: Impo
         <ul className="grid gap-1.5 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 text-sm text-foreground">
           {warnings.map((w, i) => (
             <li key={i} className="flex items-start gap-2">
-              <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+              <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning-strong" aria-hidden />
               <span>{importWarningText(w)}</span>
             </li>
           ))}

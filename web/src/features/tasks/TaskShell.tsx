@@ -130,8 +130,8 @@ function FooterBar() {
               onClick={() => openTaskLog({ node: first.node, upid: first.upid, title: first.title ?? taskTitle(first, names) })}
               className="inline-flex h-8 min-w-0 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-accent"
             >
-              <Loader2 className="size-4 shrink-0 animate-spin text-brand" aria-hidden />
-              <span className="shrink-0 font-medium text-brand">{running.length} 个运行中</span>
+              <Loader2 className="size-4 shrink-0 animate-spin text-brand-strong" aria-hidden />
+              <span className="shrink-0 font-medium text-brand-strong">{running.length} 个运行中</span>
               <span className="text-faint" aria-hidden>
                 ·
               </span>
@@ -235,7 +235,7 @@ function FooterPanel({
               tab === id ? 'bg-foreground/[0.08] font-medium text-foreground paper:bg-secondary' : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            <Icon className={cn('size-4', tab === id && 'text-brand')} aria-hidden />
+            <Icon className={cn('size-4', tab === id && 'text-brand-strong')} aria-hidden />
             {label}
           </button>
         ))}

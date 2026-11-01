@@ -115,8 +115,8 @@ export function ConfigRow({
         className={cn(
           'mt-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset',
           pending
-            ? 'bg-warning/10 text-warning ring-warning/20'
-            : 'bg-brand/10 text-brand ring-brand/15 paper:bg-secondary paper:text-foreground/75 paper:ring-border',
+            ? 'bg-warning/10 text-warning-strong ring-warning/20'
+            : 'bg-brand/10 text-brand-strong ring-brand/15 paper:bg-secondary paper:text-foreground/75 paper:ring-border',
         )}
       >
         <Icon className="size-[18px]" />
@@ -125,7 +125,7 @@ export function ConfigRow({
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate font-medium">{title}</span>
           {pending && (
-            <Badge variant="outline" className="shrink-0 gap-1 border-warning/40 px-1.5 text-[11px] font-normal text-warning">
+            <Badge variant="outline" className="shrink-0 gap-1 border-warning/40 px-1.5 text-[11px] font-normal text-warning-strong">
               <Clock aria-hidden />
               {STATUS_BADGE[status]}
             </Badge>
@@ -146,7 +146,7 @@ export function ConfigRow({
         {pendingSummary && !removed && (
           <span
             className={cn(
-              'flex min-w-0 items-start gap-1 text-[13px] leading-snug [overflow-wrap:anywhere] text-warning',
+              'flex min-w-0 items-start gap-1 text-[13px] leading-snug [overflow-wrap:anywhere] text-warning-strong',
               mono && 'font-mono text-xs',
             )}
           >
@@ -234,7 +234,7 @@ export function PendingBanner({
       role="status"
       className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm"
     >
-      <CircleAlert className="size-4 shrink-0 text-warning" aria-hidden />
+      <CircleAlert className="size-4 shrink-0 text-warning-strong" aria-hidden />
       <p className="min-w-0 flex-1 text-foreground">
         <span className="font-medium">{count} 项更改尚未生效</span>
         <span className="text-muted-foreground">

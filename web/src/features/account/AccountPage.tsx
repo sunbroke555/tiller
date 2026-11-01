@@ -69,7 +69,7 @@ export default function AccountPage() {
       <PageHeader title="账户与安全" description="密码、两步验证和你的权限" backTo="/" />
       <div className="grid gap-(--section-gap)">
         <GlassCard className="flex items-center gap-4">
-          <span className="inline-flex size-14 shrink-0 items-center justify-center rounded-2xl bg-brand/12 text-xl font-semibold text-brand uppercase ring-1 ring-brand/20 ring-inset paper:bg-secondary paper:text-foreground paper:ring-border">
+          <span className="inline-flex size-14 shrink-0 items-center justify-center rounded-2xl bg-brand/12 text-xl font-semibold text-brand-strong uppercase ring-1 ring-brand/20 ring-inset paper:bg-secondary paper:text-foreground paper:ring-border">
             {userid[0] ?? <UserRound />}
           </span>
           <div className="min-w-0 flex-1">
@@ -236,7 +236,7 @@ function TfaSection({ userid }: { userid: string }) {
             <div
               className={cn(
                 'flex items-center gap-2 border-b border-border/70 px-(--card-p) py-2.5 text-xs',
-                active > 0 ? 'text-success' : 'text-warning',
+                active > 0 ? 'text-success-strong' : 'text-warning-strong',
               )}
             >
               <ShieldCheck className="size-4" aria-hidden />

@@ -186,7 +186,7 @@ function StorageCard({
                 className={cn(
                   'rounded-full px-2 py-0.5 text-[11px]',
                   c === highlight
-                    ? 'bg-brand/15 text-brand paper:bg-primary/15 paper:text-foreground'
+                    ? 'bg-brand/15 text-brand-strong paper:bg-primary/15 paper:text-foreground'
                     : 'bg-secondary text-secondary-foreground',
                 )}
               >

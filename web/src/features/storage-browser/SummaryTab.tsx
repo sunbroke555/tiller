@@ -135,7 +135,7 @@ export default function SummaryTab({ node, storage, resource }: StorageTabProps)
                 <GlassCard key={c} asChild interactive className="px-3.5 py-3 sm:px-(--card-p)">
                   <Link to={storagePath(node, storage, c)} className="grid gap-2">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Icon className="size-4 text-brand paper:text-foreground/70" aria-hidden />
+                      <Icon className="size-4 text-brand-strong paper:text-foreground/70" aria-hidden />
                       <span className="min-w-0 flex-1 truncate">{STORAGE_CONTENT_LABEL[c]}</span>
                       <ChevronRight className="size-3.5 shrink-0 text-faint" aria-hidden />
                     </div>
@@ -202,7 +202,7 @@ function StatusPill({ ok, label }: { ok: boolean; label: string }) {
     <span
       className={cn(
         'inline-flex h-6 items-center gap-1 rounded-full px-2.5 text-xs',
-        ok ? 'bg-success/12 text-success' : 'bg-destructive/12 text-destructive',
+        ok ? 'bg-success/12 text-success-strong' : 'bg-destructive/12 text-destructive',
         'paper:bg-secondary',
       )}
     >

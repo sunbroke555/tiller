@@ -241,7 +241,7 @@ export function AddWebauthnDialog({ userid, open, onOpenChange, onDone }: Common
     >
       <div className="grid gap-4">
         {support !== 'ok' && (
-          <p className="rounded-xl bg-warning/10 px-3 py-2.5 text-sm text-warning ring-1 ring-warning/20 ring-inset">
+          <p className="rounded-xl bg-warning/10 px-3 py-2.5 text-sm text-warning-strong ring-1 ring-warning/20 ring-inset">
             {support === 'insecure'
               ? '安全密钥只能在 HTTPS（或 localhost）下使用。请用 HTTPS 访问 PVE Web 后再添加。'
               : '这个浏览器不支持 WebAuthn。'}

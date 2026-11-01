@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils'
 import { useFormState, ValidationError } from './hooks'
 import { keyLabel } from './labels'
 import { parseEnv, parseFeatures, parseStartup, stringifyEnv, stringifyFeatures, stringifyStartup, validateEnv, type EnvVar, type Features } from './model'
-import type { LxcConfigApi } from './shared'
+import { useDialogConfig, type LxcConfigApi } from './shared'
 
 interface DialogProps {
   open: boolean
@@ -35,7 +35,7 @@ interface DialogProps {
 function Warning({ children }: { children: ReactNode }) {
   return (
     <p className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 text-xs leading-relaxed text-foreground/85">
-      <AlertTriangle className="mt-px size-3.5 shrink-0 text-warning" aria-hidden />
+      <AlertTriangle className="mt-px size-3.5 shrink-0 text-warning-strong" aria-hidden />
       <span>{children}</span>
     </p>
   )
@@ -46,7 +46,7 @@ function Warning({ children }: { children: ReactNode }) {
 export function SelectOptionDialog({
   open,
   onOpenChange,
-  api,
+  api: liveApi,
   configKey,
   options,
   emptyOption,
@@ -60,6 +60,7 @@ export function SelectOptionDialog({
   hint?: string
   warning?: string
 }) {
+  const api = useDialogConfig(liveApi, open)
   const [value, setValue] = useFormState<string | undefined>(open, () => (configKey ? api.cfg[configKey] : undefined))
   const label = configKey ? keyLabel(configKey) : ''
   return (
@@ -83,7 +84,8 @@ export function SelectOptionDialog({
 
 // ------------------------------------------------------------------ tty
 
-export function TtyDialog({ open, onOpenChange, api }: DialogProps) {
+export function TtyDialog({ open, onOpenChange, api: liveApi }: DialogProps) {
+  const api = useDialogConfig(liveApi, open)
   const [value, setValue] = useFormState<number | undefined>(open, () => (api.cfg.tty ? Number(api.cfg.tty) : undefined))
   const error = value !== undefined && (value < 0 || value > 6) ? '范围 0–6' : undefined
   return (
@@ -106,7 +108,8 @@ export function TtyDialog({ open, onOpenChange, api }: DialogProps) {
 
 // -------------------------------------------------------------- startup
 
-export function StartupDialog({ open, onOpenChange, api }: DialogProps) {
+export function StartupDialog({ open, onOpenChange, api: liveApi }: DialogProps) {
+  const api = useDialogConfig(liveApi, open)
   const [form, setForm] = useFormState(open, () => parseStartup(api.cfg.startup))
   const bad = (v: number | undefined) => v !== undefined && (v < 0 || !Number.isInteger(v))
   return (
@@ -137,7 +140,8 @@ export function StartupDialog({ open, onOpenChange, api }: DialogProps) {
 
 // ------------------------------------------------------------- features
 
-export function FeaturesDialog({ open, onOpenChange, api }: DialogProps) {
+export function FeaturesDialog({ open, onOpenChange, api: liveApi }: DialogProps) {
+  const api = useDialogConfig(liveApi, open)
   const unprivileged = api.cfg.unprivileged === '1'
   const [f, setF] = useFormState<Features>(open, () => parseFeatures(api.cfg.features))
   const set = (k: keyof Features, v: boolean) => setF((x) => ({ ...x, [k]: v }))
@@ -207,7 +211,8 @@ export function FeaturesDialog({ open, onOpenChange, api }: DialogProps) {
 
 // ----------------------------------------------------------- hookscript
 
-export function HookscriptDialog({ open, onOpenChange, api }: DialogProps) {
+export function HookscriptDialog({ open, onOpenChange, api: liveApi }: DialogProps) {
+  const api = useDialogConfig(liveApi, open)
   const [value, setValue] = useFormState(open, () => api.cfg.hookscript ?? '')
   const listId = useId()
   const { data: storages = [] } = useNodeStorages(open ? api.node : null, 'snippets')
@@ -277,7 +282,8 @@ function allZones(): string[] {
   }
 }
 
-export function TimezoneDialog({ open, onOpenChange, api }: DialogProps) {
+export function TimezoneDialog({ open, onOpenChange, api: liveApi }: DialogProps) {
+  const api = useDialogConfig(liveApi, open)
   const [value, setValue] = useFormState(open, () => api.cfg.timezone ?? '')
   const listId = useId()
   const zones = useMemo(() => ['host', ...allZones()], [])
@@ -326,7 +332,8 @@ export function TimezoneDialog({ open, onOpenChange, api }: DialogProps) {
 
 // ----------------------------------------------------------- entrypoint
 
-export function EntrypointDialog({ open, onOpenChange, api }: DialogProps) {
+export function EntrypointDialog({ open, onOpenChange, api: liveApi }: DialogProps) {
+  const api = useDialogConfig(liveApi, open)
   const [value, setValue] = useFormState(open, () => api.cfg.entrypoint ?? '')
   return (
     <FormDialog
@@ -356,7 +363,8 @@ export function EntrypointDialog({ open, onOpenChange, api }: DialogProps) {
 
 // ------------------------------------------------------------------ env
 
-export function EnvDialog({ open, onOpenChange, api }: DialogProps) {
+export function EnvDialog({ open, onOpenChange, api: liveApi }: DialogProps) {
+  const api = useDialogConfig(liveApi, open)
   const [rows, setRows] = useFormState<EnvVar[]>(open, () => {
     const vars = parseEnv(api.cfg.env)
     return vars.length ? vars : [{ name: '', value: '' }]
@@ -390,7 +398,7 @@ export function EnvDialog({ open, onOpenChange, api }: DialogProps) {
                 autoCapitalize="characters"
                 autoComplete="off"
                 spellCheck={false}
-                className="w-[40%] font-mono text-sm"
+                className="w-[40%] font-mono text-base md:text-sm"
               />
               <span aria-hidden className="text-muted-foreground">
                 =
@@ -403,7 +411,7 @@ export function EnvDialog({ open, onOpenChange, api }: DialogProps) {
                 autoCapitalize="off"
                 autoComplete="off"
                 spellCheck={false}
-                className="min-w-0 flex-1 font-mono text-sm"
+                className="min-w-0 flex-1 font-mono text-base md:text-sm"
               />
               <Button
                 type="button"

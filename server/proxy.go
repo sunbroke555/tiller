@@ -99,10 +99,19 @@ func NewUpstreamTransport(cfg *Config) *http.Transport {
 	}
 }
 
-// NewProxy returns a handler that forwards /api2/* to the PVE API unchanged,
-// including websocket upgrades (vncwebsocket, termproxy). Host, Origin and
-// Referer are rewritten so PVE sees requests addressed to itself.
-func NewProxy(target *url.URL, transport http.RoundTripper, logger *slog.Logger) http.Handler {
+// proxiedCSP applies to everything PVE answers: API data is never a document
+// the browser should render or run on this origin (PVE also has HTML
+// formatters, which are not forwarded, but a mislabelled response must not
+// become script either).
+const proxiedCSP = "default-src 'none'; frame-ancestors 'none'; sandbox"
+
+// NewProxy returns a handler that forwards /api2/json/* to the PVE API
+// unchanged, including websocket upgrades (vncwebsocket, termproxy). Host,
+// Origin and Referer are rewritten so PVE sees requests addressed to itself;
+// X-Forwarded-For carries the client address for pveproxy's access log
+// (PROXY_REAL_IP_HEADER=X-Forwarded-For with PROXY_REAL_IP_ALLOW_FROM set to
+// pve-web's address). trusted lists reverse proxies in front of pve-web.
+func NewProxy(target *url.URL, transport http.RoundTripper, logger *slog.Logger, trusted []*net.IPNet) http.Handler {
 	origin := target.Scheme + "://" + target.Host
 	return &httputil.ReverseProxy{
 		Transport: transport,
@@ -111,6 +120,15 @@ func NewProxy(target *url.URL, transport http.RoundTripper, logger *slog.Logger)
 			// client-supplied X-Forwarded-*/Forwarded headers.
 			pr.SetURL(target)
 			pr.Out.Host = target.Host
+			// Our own view of the client (not a header the client could forge).
+			if ip := clientIP(pr.In, trusted); ip != nil {
+				pr.Out.Header.Set("X-Forwarded-For", ip.String())
+			}
+			proto := "http"
+			if isHTTPS(pr.In, trusted) {
+				proto = "https"
+			}
+			pr.Out.Header.Set("X-Forwarded-Proto", proto)
 			if pr.In.Header.Get("Origin") != "" {
 				pr.Out.Header.Set("Origin", origin)
 			}
@@ -129,6 +147,7 @@ func NewProxy(target *url.URL, transport http.RoundTripper, logger *slog.Logger)
 			for _, k := range securityHeaderNames {
 				resp.Header.Del(k)
 			}
+			resp.Header.Set("Content-Security-Policy", proxiedCSP)
 			return nil
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
@@ -137,10 +156,13 @@ func NewProxy(target *url.URL, transport http.RoundTripper, logger *slog.Logger)
 				w.WriteHeader(499)
 				return
 			}
-			msg := "无法连接 PVE: " + err.Error()
+			// Details (upstream address, TLS errors, the presented
+			// fingerprint) go to the log only: anyone, logged in or not,
+			// can trigger this answer.
+			msg := "无法连接 PVE，请稍后重试；持续出现请联系管理员查看 pve-web 日志"
 			var fpErr *FingerprintMismatchError
 			if errors.As(err, &fpErr) {
-				msg = fpErr.Error() + "，请检查 PVE_TLS_FINGERPRINT"
+				msg = "无法连接 PVE：证书指纹不匹配，请联系管理员检查 PVE_TLS_FINGERPRINT"
 			}
 			logger.Warn("proxy error", "method", r.Method, "path", r.URL.Path, "err", err)
 			writePVEError(w, http.StatusBadGateway, msg)

@@ -197,7 +197,7 @@ export function BackupNowDialog({ node, type, vmid, name, storage: initialStorag
           </span>
         }
       >
-        <FieldTextarea ref={notesRef} value={notes} onChange={(e) => setNotes(e.target.value)} className="min-h-16 font-mono text-sm" />
+        <FieldTextarea ref={notesRef} value={notes} onChange={(e) => setNotes(e.target.value)} className="min-h-16 font-mono text-base md:text-sm" />
       </FormField>
 
       {canPrune && (

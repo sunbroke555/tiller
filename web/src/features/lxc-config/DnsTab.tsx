@@ -5,7 +5,7 @@ import type { GuestTabProps } from '@/features/guest/types'
 
 import { useDialog, useFormState, ValidationError } from './hooks'
 import { isDnsName, normalizeNameservers, pendingOf, validateNameservers } from './model'
-import { ConfigRow, ConfigSection, PendingBanner, TabBody, useLxcConfig, type LxcConfigApi } from './shared'
+import { ConfigRow, ConfigSection, PendingBanner, TabBody, useDialogConfig, useLxcConfig, type LxcConfigApi } from './shared'
 
 /** DNS tab of a container: host name, search domain, DNS servers. */
 export default function DnsTab(props: GuestTabProps) {
@@ -80,7 +80,8 @@ interface DialogProps {
   api: LxcConfigApi
 }
 
-function HostnameDialog({ open, onOpenChange, api }: DialogProps) {
+function HostnameDialog({ open, onOpenChange, api: liveApi }: DialogProps) {
+  const api = useDialogConfig(liveApi, open)
   const [value, setValue] = useFormState(open, () => api.cfg.hostname ?? '')
   const [attempted, setAttempted] = useFormState(open, () => false)
   const error = value.trim() && !isDnsName(value.trim()) ? '只能包含字母、数字和连字符，各段用点分隔' : undefined
@@ -110,7 +111,8 @@ function HostnameDialog({ open, onOpenChange, api }: DialogProps) {
   )
 }
 
-function DnsDialog({ open, onOpenChange, api }: DialogProps) {
+function DnsDialog({ open, onOpenChange, api: liveApi }: DialogProps) {
+  const api = useDialogConfig(liveApi, open)
   const [form, setForm] = useFormState(open, () => ({
     searchdomain: api.cfg.searchdomain ?? '',
     nameserver: normalizeNameservers(api.cfg.nameserver),

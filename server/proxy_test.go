@@ -119,8 +119,58 @@ func TestProxyForwardsRequestsAndRewritesHeaders(t *testing.T) {
 			t.Errorf("%s = %q, want %q", name, c[0], c[1])
 		}
 	}
-	if strings.Contains(s.ForwardedFor, "6.6.6.6") {
-		t.Errorf("client X-Forwarded-For leaked upstream: %q", s.ForwardedFor)
+	if s.ForwardedFor != "127.0.0.1" {
+		t.Errorf("X-Forwarded-For = %q, want the client address only (not the forged 6.6.6.6)", s.ForwardedFor)
+	}
+	if csp := resp.Header.Get("Content-Security-Policy"); !strings.Contains(csp, "sandbox") || !strings.Contains(csp, "default-src 'none'") {
+		t.Errorf("proxied response CSP = %q", csp)
+	}
+}
+
+func TestProxyForwardsOnlyTheJSONAPI(t *testing.T) {
+	seen := make(chan seenRequest, 4)
+	backend := recordingBackend(t, seen)
+	cfg := &Config{PVE: mustURL(t, backend.URL), InsecureTLS: true}
+	front := newFront(t, cfg)
+	for _, path := range []string{"/api2/html/access/ticket", "/api2/extjs/version", "/api2/png/x", "/api2/spiceconfig/x"} {
+		resp, err := http.Get(front.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("%s: status %d, want 404", path, resp.StatusCode)
+		}
+	}
+	select {
+	case s := <-seen:
+		t.Fatalf("non-JSON formatter reached PVE: %+v", s)
+	default:
+	}
+}
+
+func TestProxyErrorHidesUpstreamDetails(t *testing.T) {
+	// A closed port: the dial error names the address.
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := l.Addr().String()
+	l.Close()
+	cfg := &Config{PVE: mustURL(t, "https://"+addr), InsecureTLS: true}
+	front := newFront(t, cfg)
+	resp, err := http.Get(front.URL + "/api2/json/version")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusBadGateway {
+		t.Fatalf("status %d", resp.StatusCode)
+	}
+	_, port, _ := net.SplitHostPort(addr)
+	if strings.Contains(string(body), addr) || strings.Contains(string(body), port) || strings.Contains(string(body), "dial") {
+		t.Fatalf("error body leaks upstream details: %s", body)
 	}
 }
 
@@ -162,7 +212,7 @@ func TestFingerprintPinning(t *testing.T) {
 		wantMsg    string
 	}{
 		{"matching fingerprint", Config{Fingerprint: good}, 200, ""},
-		{"wrong fingerprint", Config{Fingerprint: bad}, 502, "证书指纹不匹配"},
+		{"wrong fingerprint", Config{Fingerprint: bad}, 502, "证书指纹不匹配，请联系管理员"},
 		{"default verification rejects self-signed", Config{}, 502, "无法连接 PVE"},
 		{"insecure", Config{InsecureTLS: true}, 200, ""},
 		{"custom CA", Config{RootCAs: pool}, 200, ""},
@@ -190,6 +240,9 @@ func TestFingerprintPinning(t *testing.T) {
 				}
 				if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
 					t.Errorf("error content-type %q", ct)
+				}
+				if strings.Contains(string(body), FormatFingerprint(good)) {
+					t.Errorf("error body reveals the presented fingerprint: %s", body)
 				}
 			}
 		})

@@ -64,7 +64,7 @@ function GuestRow({
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
           <span className={cn('truncate font-medium', !running && 'text-foreground/75')}>{guestName(g)}</span>
-          {g.lock && <Lock className="size-3.5 shrink-0 text-warning" aria-label={`已锁定：${g.lock}`} />}
+          {g.lock && <Lock className="size-3.5 shrink-0 text-warning-strong" aria-label={`已锁定：${g.lock}`} />}
           <TagList tags={g.tags} max={3} className="hidden flex-nowrap sm:inline-flex" />
         </div>
         <div className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">

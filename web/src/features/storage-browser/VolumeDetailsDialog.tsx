@@ -109,7 +109,7 @@ function CopyText({ text }: { text: string }) {
         }}
         className="-my-1 inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground pointer-coarse:size-9"
       >
-        {copied ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
+        {copied ? <Check className="size-3.5 text-success-strong" /> : <Copy className="size-3.5" />}
       </button>
     </span>
   )

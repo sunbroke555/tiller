@@ -49,7 +49,7 @@ export function NotesCard({ text, onSave, title = '备注', emptyHint = '还没�
           {onSave && (
             <>
               {' '}
-              <button type="button" onClick={() => setOpen(true)} className="text-brand underline-offset-2 hover:underline">
+              <button type="button" onClick={() => setOpen(true)} className="text-brand-strong underline-offset-2 hover:underline">
                 添加备注
               </button>
             </>
@@ -105,7 +105,7 @@ function NotesEditor({
           onChange={(e) => setDraft(e.target.value)}
           aria-label="备注内容"
           rows={12}
-          className="min-h-56 font-mono text-[13px] leading-relaxed"
+          className="min-h-56 font-mono text-base md:text-[13px] leading-relaxed"
           placeholder={'# 标题\n\n- 维护窗口：周六 02:00\n- 负责人：…'}
           autoFocus
         />

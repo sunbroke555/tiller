@@ -40,4 +40,10 @@ export function applyThemeAttributes(attrs: ThemeAttributes, root: HTMLElement =
   root.classList.toggle('dark', attrs.dark)
   root.style.colorScheme = attrs.dark ? 'dark' : 'light'
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', attrs.themeColor)
+  // iOS home-screen app: black-translucent draws white status-bar text over
+  // the page, unreadable on light and paper; "default" gives dark text on an
+  // opaque bar. iOS reads it at launch, so the boot script sets it too.
+  document
+    .querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
+    ?.setAttribute('content', attrs.dark ? 'black-translucent' : 'default')
 }

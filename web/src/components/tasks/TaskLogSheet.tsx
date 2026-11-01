@@ -3,6 +3,7 @@ import { ArrowDown, Download, Loader2, Square } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { parseUpid, stopTask, taskState, useTaskLog, useTaskStatus } from '@/api/tasks'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { ResponsiveDialog } from '@/components/ResponsiveDialog'
 import { Button } from '@/components/ui/button'
 import { errorMessage } from '@/lib/errors'
@@ -35,6 +36,9 @@ export function TaskLogSheet({ node, upid, open, onOpenChange, title, endtime }:
   const state = status.data ? taskState(status.data) : 'running'
   const log = useTaskLog(node, upid, { follow: state === 'running', enabled: active && !!status.data })
   const [stopping, setStopping] = useState(false)
+  const [confirmStop, setConfirmStop] = useState(false)
+  // Only once the status has loaded: a finished task must never flash a stop button.
+  const canStop = !!status.data && state === 'running'
 
   const scroller = useRef<HTMLDivElement>(null)
   const [follow, setFollow] = useState(true)
@@ -108,20 +112,27 @@ export function TaskLogSheet({ node, upid, open, onOpenChange, title, endtime }:
       bodyClassName="flex min-h-0 flex-col px-0 pb-0 sm:px-0"
       footer={
         <>
-          <Button type="button" variant="outline" onClick={download} disabled={log.lines.length === 0}>
-            <Download />
-            下载日志
-          </Button>
-          {state === 'running' ? (
-            <Button type="button" variant="destructive" onClick={() => void stop()} disabled={stopping}>
+          {/* 关闭 always sits in the primary (right) slot; stopping is on the left and asks first. */}
+          {canStop && (
+            <Button
+              type="button"
+              variant="outline"
+              className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive lg:mr-auto"
+              onClick={() => setConfirmStop(true)}
+              disabled={stopping}
+            >
               {stopping ? <Loader2 className="animate-spin" /> : <Square className="fill-current" />}
-              停止任务
-            </Button>
-          ) : (
-            <Button type="button" onClick={() => onOpenChange(false)}>
-              关闭
+              停止
             </Button>
           )}
+          <Button type="button" variant="outline" onClick={download} disabled={log.lines.length === 0} aria-label="下载日志">
+            <Download />
+            <span className="sm:hidden">下载</span>
+            <span className="max-sm:hidden">下载日志</span>
+          </Button>
+          <Button type="button" onClick={() => onOpenChange(false)}>
+            关闭
+          </Button>
         </>
       }
     >
@@ -129,7 +140,7 @@ export function TaskLogSheet({ node, upid, open, onOpenChange, title, endtime }:
         <div
           className={cn(
             'mx-5 mb-3 rounded-xl border px-3 py-2 text-sm break-words lg:mx-6',
-            state === 'warning' ? 'border-warning/30 bg-warning/10 text-warning' : 'border-destructive/30 bg-destructive/10 text-destructive',
+            state === 'warning' ? 'border-warning/30 bg-warning/10 text-warning-strong' : 'border-destructive/30 bg-destructive/10 text-destructive',
           )}
         >
           {exit}
@@ -151,7 +162,7 @@ export function TaskLogSheet({ node, upid, open, onOpenChange, title, endtime }:
           ) : (
             <pre className="break-words whitespace-pre-wrap">
               {log.lines.map((l) => (
-                <div key={l.n} className={cn(/^TASK ERROR/.test(l.t) && 'text-destructive', /^TASK WARNINGS/.test(l.t) && 'text-warning')}>
+                <div key={l.n} className={cn(/^TASK ERROR/.test(l.t) && 'text-destructive', /^TASK WARNINGS/.test(l.t) && 'text-warning-strong')}>
                   {l.t || ' '}
                 </div>
               ))}
@@ -168,6 +179,16 @@ export function TaskLogSheet({ node, upid, open, onOpenChange, title, endtime }:
           </button>
         )}
       </div>
+      <ConfirmDialog
+        open={confirmStop && open}
+        onOpenChange={setConfirmStop}
+        title="停止任务？"
+        description={`「${heading}」会被中断。正在进行的备份、迁移或恢复不会完成，可能留下需要清理的半成品。`}
+        confirmLabel="停止任务"
+        cancelLabel="继续运行"
+        destructive
+        onConfirm={stop}
+      />
     </ResponsiveDialog>
   )
 }

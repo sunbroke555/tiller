@@ -55,7 +55,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,webmanifest}'],
         navigateFallback: '/index.html',
         // The API (and its websockets) must always hit the network.
-        navigateFallbackDenylist: [/^\/api2\//],
+        navigateFallbackDenylist: [/^\/api2\//, /^\/api\//],
         runtimeCaching: [],
         cleanupOutdatedCaches: true,
       },
@@ -67,6 +67,8 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api2': { target: backend, ws: true, changeOrigin: false },
+      // pve-web's own endpoints (/api/config, /api/logout).
+      '/api/': { target: backend, changeOrigin: false },
     },
   },
   preview: { host: '0.0.0.0', port: 4173 },

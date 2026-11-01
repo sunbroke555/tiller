@@ -206,7 +206,7 @@ function PruneRow({ entry: e, reason, showGroup }: { entry: PruneEntry; reason?:
         className={cn(
           'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs',
           remove && 'bg-destructive/12 text-destructive',
-          e.mark === 'keep' && 'bg-success/12 text-success',
+          e.mark === 'keep' && 'bg-success/12 text-success-strong',
           (e.mark === 'protected' || e.mark === 'renamed') && 'bg-info/12 text-info',
           'paper:bg-secondary',
         )}

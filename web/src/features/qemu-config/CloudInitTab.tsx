@@ -262,13 +262,13 @@ function UpgradeRow() {
     <li className="flex min-h-16 items-center gap-3 px-(--card-p) py-(--row-py) compact:min-h-13">
       <span
         aria-hidden
-        className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand ring-1 ring-brand/15 ring-inset paper:bg-secondary paper:text-foreground/75 paper:ring-border"
+        className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand-strong ring-1 ring-brand/15 ring-inset paper:bg-secondary paper:text-foreground/75 paper:ring-border"
       >
         <PackageCheck className="size-[18px]" />
       </span>
       <label htmlFor="ci-upgrade" className="grid min-w-0 flex-1 cursor-pointer gap-0.5">
         <span className="font-medium">升级软件包</span>
-        <span className="text-[13px] text-muted-foreground">{pending ? <span className="text-warning">已修改，待生效</span> : '首次启动时自动升级软件包'}</span>
+        <span className="text-[13px] text-muted-foreground">{pending ? <span className="text-warning-strong">已修改，待生效</span> : '首次启动时自动升级软件包'}</span>
       </label>
       <Switch id="ci-upgrade" checked={checked} disabled={busy || !can('VM.Config.Cloudinit')} onCheckedChange={(on) => void toggle(on)} aria-label="升级软件包" />
     </li>

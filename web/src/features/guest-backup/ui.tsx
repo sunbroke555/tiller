@@ -42,7 +42,7 @@ export function Notice({
         className={cn(
           'mt-0.5 size-4 shrink-0',
           tone === 'info' && 'text-info paper:text-foreground/60',
-          tone === 'warning' && 'text-warning',
+          tone === 'warning' && 'text-warning-strong',
         )}
         aria-hidden
       />
@@ -68,9 +68,9 @@ export function Chip({
       className={cn(
         'inline-flex h-5 shrink-0 items-center gap-1 rounded-full px-2 text-[11px] leading-none font-medium whitespace-nowrap [&_svg]:size-3',
         tone === 'neutral' && 'bg-secondary text-secondary-foreground',
-        tone === 'brand' && 'bg-brand/12 text-brand paper:bg-secondary paper:text-foreground/75',
-        tone === 'success' && 'bg-success/12 text-success',
-        tone === 'warning' && 'bg-warning/14 text-warning',
+        tone === 'brand' && 'bg-brand/12 text-brand-strong paper:bg-secondary paper:text-foreground/75',
+        tone === 'success' && 'bg-success/12 text-success-strong',
+        tone === 'warning' && 'bg-warning/14 text-warning-strong',
         tone === 'danger' && 'bg-destructive/12 text-destructive',
         className,
       )}
@@ -168,7 +168,7 @@ export function ChoiceCards<V extends string>({
               <span
                 className={cn(
                   'flex items-center gap-1.5 text-sm font-medium text-foreground [&_svg]:size-4 [&_svg]:text-muted-foreground',
-                  'group-data-[state=checked]/choice:[&_svg]:text-brand paper:group-data-[state=checked]/choice:[&_svg]:text-foreground',
+                  'group-data-[state=checked]/choice:[&_svg]:text-brand-strong paper:group-data-[state=checked]/choice:[&_svg]:text-foreground',
                 )}
               >
                 {o.icon}

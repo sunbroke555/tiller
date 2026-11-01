@@ -117,7 +117,7 @@ function GuestPageBody({ ctx, tabParam }: { ctx: GuestActionContext; tabParam: s
               {guest.template === 1 ? '模板' : statusLabel(guest.status)}
             </span>
             {guest.lock && (
-              <Badge variant="outline" className="gap-1 border-warning/40 text-warning">
+              <Badge variant="outline" className="gap-1 border-warning/40 text-warning-strong">
                 <Lock /> 已锁定：{guest.lock}
               </Badge>
             )}

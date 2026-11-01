@@ -421,7 +421,7 @@ function DiskCard({ form, disk, update, onRemove }: QemuStepProps & { disk: Qemu
   return (
     <section aria-label={`磁盘 ${id}`} className="grid gap-4 rounded-xl border border-border bg-(--field) p-3.5 sm:p-4">
       <header className="flex items-center gap-2.5">
-        <span className="inline-flex size-8 items-center justify-center rounded-lg bg-brand/12 text-brand paper:bg-primary/10 paper:text-primary">
+        <span className="inline-flex size-8 items-center justify-center rounded-lg bg-brand/12 text-brand-strong paper:bg-primary/10 paper:text-primary">
           <HardDrive className="size-4" aria-hidden />
         </span>
         <div className="min-w-0 flex-1">

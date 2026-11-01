@@ -38,7 +38,7 @@ import {
   splitVolume,
   validateDeviceForm,
 } from './model'
-import { Segmented, type LxcConfigApi } from './shared'
+import { Segmented, useDialogConfig, type LxcConfigApi } from './shared'
 
 interface DialogProps {
   open: boolean
@@ -88,7 +88,8 @@ function Presets<T extends number>({
 
 // ---------------------------------------------------------------- memory
 
-export function MemoryDialog({ open, onOpenChange, api }: DialogProps) {
+export function MemoryDialog({ open, onOpenChange, api: liveApi }: DialogProps) {
+  const api = useDialogConfig(liveApi, open)
   const [form, setForm] = useFormState<{ memory: number | undefined; swap: number | undefined }>(open, () => ({
     memory: Number(api.cfg.memory ?? 512),
     swap: Number(api.cfg.swap ?? 512),
@@ -127,7 +128,8 @@ export function MemoryDialog({ open, onOpenChange, api }: DialogProps) {
 
 // ------------------------------------------------------------------- CPU
 
-export function CpuDialog({ open, onOpenChange, api }: DialogProps) {
+export function CpuDialog({ open, onOpenChange, api: liveApi }: DialogProps) {
+  const api = useDialogConfig(liveApi, open)
   const { data: nodeInfo } = useClusterResources({
     select: (all) => all.filter(isNode).find((n) => n.node === api.node),
   })
@@ -424,7 +426,8 @@ export function ReassignDialog({ open, onOpenChange, api, disk }: DialogProps & 
 
 // ---------------------------------------------------------------- device
 
-export function DeviceDialog({ open, onOpenChange, api, devKey }: DialogProps & { devKey: string | undefined }) {
+export function DeviceDialog({ open, onOpenChange, api: liveApi, devKey }: DialogProps & { devKey: string | undefined }) {
+  const api = useDialogConfig(liveApi, open)
   const isCreate = !devKey
   const [form, setForm] = useFormState(open, () => deviceToForm(devKey ? api.cfg[devKey] : undefined))
   const errors = validateDeviceForm(form)

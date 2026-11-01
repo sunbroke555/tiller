@@ -41,7 +41,7 @@ export function UserMenu({ variant = 'icon', className }: { variant?: 'icon' | '
               className,
             )}
           >
-            <span className="inline-flex size-8 items-center justify-center rounded-full bg-brand/15 text-sm font-semibold text-brand uppercase paper:bg-secondary paper:text-foreground">
+            <span className="inline-flex size-8 items-center justify-center rounded-full bg-brand/15 text-sm font-semibold text-brand-strong uppercase paper:bg-secondary paper:text-foreground">
               {name?.[0] ?? '?'}
             </span>
             <span className="min-w-0 flex-1">

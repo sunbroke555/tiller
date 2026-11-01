@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { useKeyboardBox } from '@/hooks/useVisualViewport'
 import { errorMessage } from '@/lib/errors'
 
 export interface ConfirmDialogProps {
@@ -52,6 +52,8 @@ export function ConfirmDialog({
   const [typed, setTyped] = useState('')
   const [busy, setBusy] = useState(false)
   const inputId = useId()
+  // Phones: keep the dialog (and its confirm button) above the on-screen keyboard.
+  const keyboard = useKeyboardBox(open && !!typeToConfirm)
 
   useEffect(() => {
     if (!open) {
@@ -78,7 +80,14 @@ export function ConfirmDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
-      <AlertDialogContent>
+      <AlertDialogContent
+        className="max-h-[calc(100dvh-2rem)] overflow-y-auto"
+        style={
+          keyboard.visible !== null
+            ? { top: keyboard.top + keyboard.visible / 2, maxHeight: keyboard.visible - 16 }
+            : undefined
+        }
+      >
         <form
           className="grid gap-4"
           onSubmit={(e) => {
@@ -92,9 +101,12 @@ export function ConfirmDialog({
           </AlertDialogHeader>
           {typeToConfirm && (
             <div className="grid gap-2">
-              <Label htmlFor={inputId} className="text-sm font-normal text-muted-foreground">
-                请输入 <span className="font-medium text-foreground tabular">{typeToConfirm}</span> 以确认
-              </Label>
+              {/* A plain block (not Label: flex + select-none): long volume names wrap and can be copied. */}
+              <label htmlFor={inputId} className="block text-sm leading-relaxed text-muted-foreground">
+                请输入{' '}
+                <span className="font-mono font-medium break-all text-foreground select-all">{typeToConfirm}</span>{' '}
+                以确认
+              </label>
               <Input
                 id={inputId}
                 value={typed}

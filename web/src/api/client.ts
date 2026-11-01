@@ -104,6 +104,8 @@ export interface RequestOptions {
    * themselves: it means wrong credentials there, not an expired session).
    */
   noAuthRedirect?: boolean
+  /** Extra request headers. */
+  headers?: Record<string, string>
 }
 
 /** Full PVE response envelope; most callers only want `data`. */
@@ -158,7 +160,7 @@ export async function requestEnvelope<T>(
   const hasBody = method === 'POST' || method === 'PUT'
   const url = apiUrl(path, hasBody ? undefined : encoded)
 
-  const headers: Record<string, string> = { Accept: 'application/json' }
+  const headers: Record<string, string> = { Accept: 'application/json', ...options.headers }
   if (method !== 'GET') {
     const csrf = getSession()?.csrfToken
     if (csrf) headers[CSRF_HEADER] = csrf

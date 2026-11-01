@@ -181,7 +181,7 @@ function FilterChip({ active, onClick, label, count }: { active: boolean; onClic
       className={cn(
         'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors pointer-coarse:h-10',
         active
-          ? 'border-brand/50 bg-brand/12 text-brand paper:border-foreground/40 paper:bg-secondary paper:text-foreground'
+          ? 'border-brand/50 bg-brand/12 text-brand-strong paper:border-foreground/40 paper:bg-secondary paper:text-foreground'
           : 'border-border bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground',
       )}
     >
@@ -212,8 +212,8 @@ function BackupRow({
         <span
           aria-hidden
           className={cn(
-            'flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand ring-1 ring-brand/15 ring-inset paper:bg-secondary paper:text-foreground/70 paper:ring-border',
-            prot && 'bg-warning/12 text-warning ring-warning/20',
+            'flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand-strong ring-1 ring-brand/15 ring-inset paper:bg-secondary paper:text-foreground/70 paper:ring-border',
+            prot && 'bg-warning/12 text-warning-strong ring-warning/20',
           )}
         >
           {prot ? <Lock className="size-4" /> : <Archive className="size-4" />}

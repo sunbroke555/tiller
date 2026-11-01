@@ -111,7 +111,7 @@ function OfflineHint() {
   const online = useOnline()
   if (online) return null
   return (
-    <p role="status" className="mt-4 flex items-center justify-center gap-2 text-sm text-warning">
+    <p role="status" className="mt-4 flex items-center justify-center gap-2 text-sm text-warning-strong">
       <WifiOff className="size-4" aria-hidden /> 设备已离线，联网后才能登录
     </p>
   )
@@ -190,7 +190,7 @@ function PasswordForm({
   return (
     <form onSubmit={submit} className="grid gap-5" noValidate>
       {notice && !error && (
-        <p className="rounded-xl bg-warning/10 px-3 py-2.5 text-sm text-warning ring-1 ring-warning/20 ring-inset">{notice}</p>
+        <p className="rounded-xl bg-warning/10 px-3 py-2.5 text-sm text-warning-strong ring-1 ring-warning/20 ring-inset">{notice}</p>
       )}
       <FormError message={error} />
       {!openid && (
@@ -282,7 +282,7 @@ function OpenIdCallback({ code, state, onDone }: { code: string; state: string; 
   }
   return (
     <div className="flex flex-col items-center gap-3 py-6 text-sm text-muted-foreground" role="status">
-      <Loader2 className="size-6 animate-spin text-brand" />
+      <Loader2 className="size-6 animate-spin text-brand-strong" />
       正在完成 OpenID 登录…
     </div>
   )
@@ -382,7 +382,7 @@ function TfaForm({ pending, onBack, onDone }: { pending: PendingTfa; onBack: () 
       className="grid gap-5"
     >
       <div className="flex items-start gap-3">
-        <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand paper:bg-secondary paper:text-foreground">
+        <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-strong paper:bg-secondary paper:text-foreground">
           <ShieldCheck className="size-5" />
         </span>
         <div>
@@ -468,7 +468,7 @@ function TfaForm({ pending, onBack, onDone }: { pending: PendingTfa; onBack: () 
 function WebauthnPrompt({ busy }: { busy: boolean }): ReactNode {
   return (
     <div className="flex items-center gap-3 rounded-xl bg-foreground/[0.04] px-3.5 py-3 text-sm ring-1 ring-border ring-inset paper:bg-secondary/60">
-      <Fingerprint className={busy ? 'size-6 shrink-0 animate-pulse text-brand' : 'size-6 shrink-0 text-muted-foreground'} aria-hidden />
+      <Fingerprint className={busy ? 'size-6 shrink-0 animate-pulse text-brand-strong' : 'size-6 shrink-0 text-muted-foreground'} aria-hidden />
       <span className="text-muted-foreground">
         {busy ? '请按下安全密钥，或按系统提示完成验证。' : '插入安全密钥或使用设备的通行密钥，然后点下方按钮。'}
       </span>

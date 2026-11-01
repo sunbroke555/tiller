@@ -38,10 +38,10 @@ const TONE_DOT: Record<ServiceTone, string> = {
   unknown: 'bg-muted-foreground',
 }
 const TONE_TEXT: Record<ServiceTone, string> = {
-  ok: 'text-success',
+  ok: 'text-success-strong',
   off: 'text-muted-foreground',
   bad: 'text-destructive',
-  warn: 'text-warning',
+  warn: 'text-warning-strong',
   unknown: 'text-muted-foreground',
 }
 

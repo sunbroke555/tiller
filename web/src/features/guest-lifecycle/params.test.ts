@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { normalizeMigratePrecondition } from '@/api/guest-lifecycle'
+
 import { guestLifecycleActions } from './actions'
 import {
   blockingResources,
@@ -202,5 +204,24 @@ describe('guestLifecycleActions', () => {
     const label = action('ha').label as (c: ReturnType<typeof ctx>) => string
     expect(label(ctx('running'))).toBe('加入 HA')
     expect(label(ctx('running', { hastate: 'started' }))).toBe('HA 设置')
+  })
+})
+
+describe('normalizeMigratePrecondition', () => {
+  it('reads the kebab-case node lists of the lxc endpoint', () => {
+    const pre = normalizeMigratePrecondition({
+      running: 1,
+      'allowed-nodes': ['pve3'],
+      'not-allowed-nodes': { pve2: { 'blocking-ha-resources': [{ sid: 'ct:200', cause: 'resource-affinity' }] } },
+    })
+    expect(pre.allowed_nodes).toEqual(['pve3'])
+    expect(targetProblems(pre, 'pve2')).toEqual(['HA 资源 ct:200 阻止迁移（资源亲和规则）'])
+    expect(pre).not.toHaveProperty('not-allowed-nodes')
+  })
+
+  it('keeps the qemu snake_case lists', () => {
+    const pre = normalizeMigratePrecondition({ running: 0, allowed_nodes: ['pve3'], not_allowed_nodes: {} })
+    expect(pre.allowed_nodes).toEqual(['pve3'])
+    expect(targetProblems(pre, 'pve2')).toEqual(['目标节点不满足迁移条件'])
   })
 })

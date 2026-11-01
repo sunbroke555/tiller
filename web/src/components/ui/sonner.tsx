@@ -18,9 +18,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={resolved === "dark" ? "dark" : "light"}
       className="toaster group"
       icons={{
-        success: <CircleCheckIcon className="size-4 text-success" />,
+        success: <CircleCheckIcon className="size-4 text-success-strong" />,
         info: <InfoIcon className="size-4 text-info" />,
-        warning: <TriangleAlertIcon className="size-4 text-warning" />,
+        warning: <TriangleAlertIcon className="size-4 text-warning-strong" />,
         error: <OctagonXIcon className="size-4 text-destructive" />,
         loading: <Loader2Icon className="size-4 animate-spin" />,
       }}

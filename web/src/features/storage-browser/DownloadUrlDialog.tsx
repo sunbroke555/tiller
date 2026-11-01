@@ -226,7 +226,7 @@ export function DownloadUrlDialog({ node, storage, contents, initialContent, ope
             <FieldInput
               value={checksum}
               onChange={(e) => setChecksum(e.target.value)}
-              className="font-mono text-xs"
+              className="font-mono text-base md:text-xs"
               spellCheck={false}
               autoCapitalize="off"
             />

@@ -89,6 +89,16 @@ describe('processor', () => {
     expect(v.cpulimit).toBe('')
     expect(updateParams(cfg, v, 'x')).toEqual({ cpu: 'host,hidden=1,flags=+aes;-pcid', numa: '1', digest: 'x' })
   })
+
+  it('puts the aarch64 backend default in front of options without a model', () => {
+    const cfg = { arch: 'aarch64', cores: '2' }
+    const f = processorFormFrom(cfg, 'aarch64')
+    expect(f.cputype).toBeUndefined()
+    expect(updateParams(cfg, processorValues(cfg, f), undefined)).toBeNull()
+    expect(processorValues(cfg, { ...f, flags: { pdpe1gb: '+' } }).cpu).toBe('cortex-a57,flags=+pdpe1gb')
+    const hidden = { arch: 'aarch64', cpu: 'hidden=1' }
+    expect(processorValues(hidden, processorFormFrom(hidden, 'aarch64')).cpu).toBe('cortex-a57,hidden=1')
+  })
 })
 
 describe('display and machine', () => {

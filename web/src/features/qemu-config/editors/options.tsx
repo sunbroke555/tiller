@@ -211,7 +211,7 @@ export function BootOrderDialog(props: DialogRenderProps) {
                 >
                   <GripVertical className="size-4" />
                 </button>
-                <span className={cn('w-5 shrink-0 text-center text-xs tabular', d.enabled ? 'font-medium text-brand' : 'text-faint')}>
+                <span className={cn('w-5 shrink-0 text-center text-xs tabular', d.enabled ? 'font-medium text-brand-strong' : 'text-faint')}>
                   {d.enabled ? devices.slice(0, i + 1).filter((x) => x.enabled).length : '–'}
                 </span>
                 <Checkbox

@@ -233,7 +233,7 @@ export function BulkDialog({ open, onOpenChange, action, guests, scope, initialS
                       {scope.kind === 'cluster' && ` · ${g.node}`} · {g.template === 1 ? '模板' : statusLabel(g.status)}
                     </span>
                   </span>
-                  {on && !fits && <span className="shrink-0 text-[11px] text-warning">{action === 'suspend' && g.type === 'lxc' ? '容器不支持' : '状态不符，会跳过'}</span>}
+                  {on && !fits && <span className="shrink-0 text-[11px] text-warning-strong">{action === 'suspend' && g.type === 'lxc' ? '容器不支持' : '状态不符，会跳过'}</span>}
                 </label>
               </li>
             )

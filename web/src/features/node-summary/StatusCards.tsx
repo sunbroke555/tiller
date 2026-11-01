@@ -29,7 +29,7 @@ function Stat({ label, value, detail, tone }: { label: string; value: ReactNode;
       <div
         className={cn(
           'mt-0.5 truncate text-xl leading-tight font-medium tabular',
-          tone === 'warn' && 'text-warning',
+          tone === 'warn' && 'text-warning-strong',
           tone === 'bad' && 'text-destructive',
         )}
       >
@@ -141,8 +141,8 @@ export function SystemInfoCard({
 }
 
 const TONE_ICON = {
-  ok: { icon: CheckCircle2, cls: 'text-success' },
-  warn: { icon: AlertTriangle, cls: 'text-warning' },
+  ok: { icon: CheckCircle2, cls: 'text-success-strong' },
+  warn: { icon: AlertTriangle, cls: 'text-warning-strong' },
   bad: { icon: XCircle, cls: 'text-destructive' },
   unknown: { icon: CircleHelp, cls: 'text-muted-foreground' },
 } as const
@@ -180,7 +180,7 @@ export function RepoSubscriptionCard({ node, className }: { node: string; classN
           )}
           <div className="flex items-start gap-3">
             {active ? (
-              <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success" aria-hidden />
+              <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success-strong" aria-hidden />
             ) : (
               <CircleHelp className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
             )}

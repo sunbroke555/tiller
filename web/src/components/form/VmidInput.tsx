@@ -114,7 +114,7 @@ export function VmidInput({ value, onChange, autoFill = true, onValidityChange, 
         aria-live="polite"
         className={cn(
           'flex min-h-4 items-center gap-1.5 text-xs',
-          validity === 'free' && 'text-success',
+          validity === 'free' && 'text-success-strong',
           (validity === 'taken' || validity === 'invalid') && 'text-destructive',
           (validity === 'checking' || validity === 'unknown') && 'text-muted-foreground',
         )}

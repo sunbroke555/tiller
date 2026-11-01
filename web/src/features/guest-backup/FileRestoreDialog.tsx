@@ -219,7 +219,7 @@ function Entries({
               style={{ paddingLeft: `calc(1.25rem + ${depth} * 1.125rem)` }}
             >
               <ChevronRight className={cn('size-4 shrink-0 text-faint transition-transform', open && 'rotate-90', e.leaf && 'invisible')} aria-hidden />
-              <Icon className={cn('size-4 shrink-0', e.type === 'd' || e.type === 'v' ? 'text-brand paper:text-foreground/70' : 'text-muted-foreground')} aria-hidden />
+              <Icon className={cn('size-4 shrink-0', e.type === 'd' || e.type === 'v' ? 'text-brand-strong paper:text-foreground/70' : 'text-muted-foreground')} aria-hidden />
               <span className="min-w-0 flex-1 truncate">{e.text}</span>
               {e.leaf && e.size !== undefined && <span className="shrink-0 text-xs text-muted-foreground tabular">{formatBytes(e.size)}</span>}
               {e.mtime ? <span className="hidden w-32 shrink-0 text-right text-xs text-faint tabular sm:block">{formatDateTime(e.mtime)}</span> : null}

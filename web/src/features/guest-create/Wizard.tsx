@@ -150,7 +150,7 @@ export function Wizard({ title, eyebrow, steps, index, canJumpTo, onJump, onBack
                 tabIndex={-1}
                 className="heading flex items-center gap-2.5 text-lg font-semibold text-foreground outline-none"
               >
-                <span aria-hidden className="inline-flex size-7 items-center justify-center rounded-full bg-brand/12 text-sm text-brand tabular paper:bg-primary/10 paper:text-primary">
+                <span aria-hidden className="inline-flex size-7 items-center justify-center rounded-full bg-brand/12 text-sm text-brand-strong tabular paper:bg-primary/10 paper:text-primary">
                   {index + 1}
                 </span>
                 {step.label}
@@ -193,7 +193,7 @@ function StepMarker({ state, n }: { state: 'done' | 'current' | 'todo' | 'invali
       className={cn(
         'inline-flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-medium tabular transition-colors',
         state === 'current' && 'bg-brand text-(--brand-contrast) paper:bg-primary paper:text-primary-foreground',
-        state === 'done' && 'bg-brand/15 text-brand paper:bg-primary/12 paper:text-primary',
+        state === 'done' && 'bg-brand/15 text-brand-strong paper:bg-primary/12 paper:text-primary',
         state === 'todo' && 'border border-input text-muted-foreground',
         state === 'invalid' && 'bg-destructive/15 text-destructive',
       )}

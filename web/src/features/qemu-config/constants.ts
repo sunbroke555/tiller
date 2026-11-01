@@ -12,6 +12,8 @@ export const ARCH_LABEL: Record<Arch, string> = {
 
 /** Backend defaults per architecture (PVE.qemu.Architecture). */
 export const DEFAULT_CPU: Record<Arch, string> = { x86_64: 'x86-64-v2-AES', aarch64: 'host' }
+/** What qemu-server uses when `cpu` names no model (CPUConfig.pm get_default_cpu_type, KVM). */
+export const BACKEND_CPU: Record<Arch, string> = { x86_64: 'kvm64', aarch64: 'cortex-a57' }
 export const DEFAULT_MACHINE: Record<Arch, string> = { x86_64: 'i440fx', aarch64: 'virt' }
 export const DEFAULT_CD_SLOT: Record<Arch, string> = { x86_64: 'ide2', aarch64: 'scsi2' }
 

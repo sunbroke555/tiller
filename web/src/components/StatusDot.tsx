@@ -27,9 +27,9 @@ export function statusTone(status: string | undefined): StatusTone {
 }
 
 const TONE_CLASS: Record<StatusTone, string> = {
-  ok: 'text-success',
+  ok: 'text-success-strong',
   off: 'text-faint',
-  warn: 'text-warning',
+  warn: 'text-warning-strong',
   bad: 'text-destructive',
   unknown: 'text-muted-foreground',
 }

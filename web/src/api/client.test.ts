@@ -19,7 +19,7 @@ function lastCall(): { url: string; init: RequestInit } {
 }
 
 function login() {
-  setSession({ username: 'root@pam', csrfToken: 'csrf-123', ticketIssuedAt: Date.now() }, 'PVE:root@pam:65F00000::sig')
+  setSession({ username: 'root@pam', csrfToken: 'csrf-123', ticketIssuedAt: Date.now() })
 }
 
 beforeEach(() => {
@@ -158,7 +158,7 @@ describe('errors', () => {
     await expect(get('/cluster/resources')).rejects.toMatchObject({ status: 401, isUnauthorized: true })
     expect(handler).toHaveBeenCalledOnce()
     expect(getSession()).toBeNull()
-    expect(document.cookie).not.toContain('PVEAuthCookie=PVE')
+    expect(document.cookie).not.toContain('pve-web-session=1')
   })
 
   it('keeps the session on 401 when noAuthRedirect is set (login form)', async () => {

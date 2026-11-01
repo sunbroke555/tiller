@@ -111,9 +111,13 @@ test.describe('tasks-logs', () => {
     const log = page.getByRole('dialog', { name: new RegExp(`关机 VM ${vmid}`) })
     await expect(log.getByText('运行中', { exact: true })).toBeVisible()
     await expect(log.getByText(/已运行/)).toBeVisible()
-    await log.getByRole('button', { name: '停止任务' }).click()
+    // Stopping asks first; 关闭 stays in place the whole time.
+    await expect(log.getByRole('button', { name: '关闭' }).last()).toBeVisible()
+    await log.getByRole('button', { name: '停止', exact: true }).click()
+    const ask = page.getByRole('alertdialog', { name: '停止任务？' })
+    await ask.getByRole('button', { name: '停止任务' }).click()
     await expect(log.getByText('失败', { exact: true })).toBeVisible({ timeout: 20_000 })
-    await expect(log.getByRole('button', { name: '停止任务' })).toHaveCount(0)
+    await expect(log.getByRole('button', { name: '停止', exact: true })).toHaveCount(0)
 
     const st = await pve.get<{ status: string; exitstatus?: string }>(`/nodes/${pve.node}/tasks/${encodeURIComponent(upid)}/status`)
     expect(st.status).toBe('stopped')

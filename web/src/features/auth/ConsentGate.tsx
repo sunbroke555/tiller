@@ -51,7 +51,7 @@ export function ConsentGate() {
       dismissible={false}
       title={
         <span className="inline-flex items-center gap-2">
-          <ScrollText className="size-5 text-brand" aria-hidden /> 使用须知
+          <ScrollText className="size-5 text-brand-strong" aria-hidden /> 使用须知
         </span>
       }
       description="登录前请阅读并同意以下内容"

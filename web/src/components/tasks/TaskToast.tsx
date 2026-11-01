@@ -83,7 +83,7 @@ function TaskRow({ task, now }: { task: TrackedTask; now: number }) {
           <span
             className={cn(
               'truncate text-xs',
-              task.state === 'error' ? 'text-destructive' : task.state === 'warning' ? 'text-warning' : 'text-muted-foreground',
+              task.state === 'error' ? 'text-destructive' : task.state === 'warning' ? 'text-warning-strong' : 'text-muted-foreground',
             )}
           >
             {detail || '正在执行…'}

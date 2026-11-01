@@ -11,6 +11,7 @@ import { revertLxcPending, updateLxcConfig, useLxcPending } from '@/api/lxc-conf
 import { usePermissions } from '@/api/permissions'
 import { queryKeys } from '@/api/queries'
 import { useSession } from '@/api/useSession'
+import { useOpenSnapshot } from '@/hooks/useOpenSnapshot'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { EmptyState } from '@/components/EmptyState'
 import { GlassCard } from '@/components/GlassCard'
@@ -59,10 +60,28 @@ export interface LxcConfigApi {
    * the digest of the loaded config. Resolves to false when nothing changed.
    * Rejects with the API error (FormDialog shows it).
    */
-  save: (after: ConfigValues, title: string) => Promise<boolean>
+  save: (after: ConfigValues, title: string, base?: LxcConfigBase) => Promise<boolean>
   /** PUT raw params (no digest), e.g. { delete: 'mp0' }. */
   send: (params: Record<string, string | number | undefined>, title: string) => Promise<void>
   revert: (keys: readonly string[], title?: string) => Promise<void>
+}
+
+/** What a save diffs against and the digest it sends (default: the live config). */
+export interface LxcConfigBase {
+  cfg: Record<string, string>
+  digest: string | undefined
+}
+
+/**
+ * The api as a dialog sees it: config and digest frozen when it opened, so a
+ * change someone else saves meanwhile makes PVE reject the save (checksum
+ * mismatch) instead of the 5 s poll letting stale form values undo it.
+ */
+export function useDialogConfig(api: LxcConfigApi, open: boolean): LxcConfigApi {
+  const snap = useOpenSnapshot(open, api.config)
+  if (!open || !snap || snap === api.config) return api
+  const base = { cfg: snap.effective, digest: snap.digest }
+  return { ...api, config: snap, cfg: snap.effective, save: (after, title) => api.save(after, title, base) }
 }
 
 export function useLxcConfig({ node, vmid, guest }: GuestTabProps): LxcConfigApi {
@@ -98,8 +117,8 @@ export function useLxcConfig({ node, vmid, guest }: GuestTabProps): LxcConfigApi
     isError: query.isError,
     error: query.error,
     refetch: () => void query.refetch(),
-    save: async (after, title) => {
-      const params = configUpdateParams(cfg, after, { digest: config?.digest })
+    save: async (after, title, base = { cfg, digest: config?.digest }) => {
+      const params = configUpdateParams(base.cfg, after, { digest: base.digest })
       if (!params) return false
       await runTask(updateLxcConfig(node, vmid, params), { title, invalidate, syncSuccessMessage: `${title}：已保存` })
       return true
@@ -305,7 +324,7 @@ export function ConfigRow({
       <span
         aria-hidden
         className={cn(
-          'mt-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand ring-1 ring-brand/15 ring-inset sm:mt-0',
+          'mt-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand-strong ring-1 ring-brand/15 ring-inset sm:mt-0',
           'paper:bg-secondary paper:text-foreground/70 paper:ring-border',
         )}
       >
@@ -328,7 +347,7 @@ export function ConfigRow({
           </span>
           {detail && <span className="min-w-0 text-xs leading-relaxed break-words text-muted-foreground">{detail}</span>}
           {pending && (
-            <span className="flex min-w-0 items-start gap-1.5 text-xs text-warning">
+            <span className="flex min-w-0 items-start gap-1.5 text-xs text-warning-strong">
               <Clock className="mt-px size-3.5 shrink-0" aria-hidden />
               <span className="min-w-0 break-words">
                 {pending.delete
@@ -453,7 +472,7 @@ export function SwitchRow({
       <label className="flex min-h-16 min-w-0 flex-1 cursor-pointer items-center gap-3 px-(--card-p) py-(--row-py) compact:min-h-12">
         <span
           aria-hidden
-          className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand ring-1 ring-brand/15 ring-inset paper:bg-secondary paper:text-foreground/70 paper:ring-border"
+          className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand-strong ring-1 ring-brand/15 ring-inset paper:bg-secondary paper:text-foreground/70 paper:ring-border"
         >
           <Icon className="size-[18px]" />
         </span>
@@ -461,7 +480,7 @@ export function SwitchRow({
           <span className="font-medium">{label}</span>
           {description && <span className="text-[13px] leading-snug text-muted-foreground">{description}</span>}
           {pending && (
-            <span className="flex items-center gap-1.5 text-xs text-warning">
+            <span className="flex items-center gap-1.5 text-xs text-warning-strong">
               <Clock className="size-3.5 shrink-0" aria-hidden />
               重启后{pending.delete ? '恢复默认' : pending.next === '1' ? '开启' : '关闭'}
             </span>
@@ -490,7 +509,7 @@ export function PendingBanner({ api, tab }: { api: LxcConfigApi; tab: ConfigTab 
       className="rounded-2xl border border-warning/30 bg-warning/10 px-(--card-p) py-3 text-sm paper:bg-warning/8"
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <Clock className="size-4 shrink-0 text-warning" aria-hidden />
+        <Clock className="size-4 shrink-0 text-warning-strong" aria-hidden />
         <p className="min-w-0 flex-1 font-medium">
           {changes.length} 项更改将在容器{api.running ? '重启' : '下次启动'}后生效
         </p>

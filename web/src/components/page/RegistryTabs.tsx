@@ -49,7 +49,7 @@ export function TabBar<P>({ tabs, active, hrefFor, className }: TabBarProps<P>) 
                   : 'text-muted-foreground after:bg-transparent hover:text-foreground',
               )}
             >
-              {t.icon && <t.icon className={cn('size-4', isActive ? 'text-brand' : 'opacity-70')} aria-hidden />}
+              {t.icon && <t.icon className={cn('size-4', isActive ? 'text-brand-strong' : 'opacity-70')} aria-hidden />}
               {t.title}
             </NavLink>
           )

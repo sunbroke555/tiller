@@ -21,7 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { tryParsePropertyString } from '@/lib/propstring'
 import { cn } from '@/lib/utils'
 
-import { ALLOWED_SCSIHW, ARCH_LABEL, BIOS, DEFAULT_CPU, DEFAULT_MACHINE, SCSIHW, VGA_TYPES, isWindows, vgaDefaultMemory } from '../constants'
+import { ALLOWED_SCSIHW, ARCH_LABEL, BACKEND_CPU, BIOS, DEFAULT_CPU, DEFAULT_MACHINE, SCSIHW, VGA_TYPES, isWindows, vgaDefaultMemory } from '../constants'
 import { useQemuConfig, useSaveConfig, type DialogRenderProps } from '../context'
 import {
   displayValue,
@@ -170,7 +170,7 @@ export function ProcessorDialog(props: DialogRenderProps) {
           onValueChange={(cputype) => set({ cputype })}
           options={options}
           loading={models.isPending}
-          emptyOption={arch === 'aarch64' ? `默认 (${DEFAULT_CPU.aarch64})` : undefined}
+          emptyOption={arch === 'aarch64' ? `默认 (${BACKEND_CPU.aarch64})` : undefined}
           searchPlaceholder="搜索 CPU 型号…"
           allowCustom
         />
@@ -247,7 +247,7 @@ function CpuFlagsEditor({
           {list.map((fl) => (
             <li key={fl.name} className="flex items-center gap-3 px-3 py-2">
               <div className="min-w-0 flex-1">
-                <div className={cn('font-mono text-sm', fl.unknown && 'text-warning')}>{fl.name}</div>
+                <div className={cn('font-mono text-sm', fl.unknown && 'text-warning-strong')}>{fl.name}</div>
                 {fl.description && <div className="line-clamp-2 text-xs text-muted-foreground">{fl.description}</div>}
               </div>
               <Segmented

@@ -190,8 +190,8 @@ function CardTitle({ id, icon: Icon, children, extra }: { id: string; icon: Luci
 }
 
 const HEALTH_META: Record<Health, { icon: LucideIcon; label: string; tone: string; ring: string }> = {
-  ok: { icon: CircleCheck, label: '运行正常', tone: 'text-success', ring: 'bg-success/12 ring-success/25' },
-  warning: { icon: CircleAlert, label: '需要关注', tone: 'text-warning', ring: 'bg-warning/12 ring-warning/25' },
+  ok: { icon: CircleCheck, label: '运行正常', tone: 'text-success-strong', ring: 'bg-success/12 ring-success/25' },
+  warning: { icon: CircleAlert, label: '需要关注', tone: 'text-warning-strong', ring: 'bg-warning/12 ring-warning/25' },
   critical: { icon: CircleX, label: '存在故障', tone: 'text-destructive', ring: 'bg-destructive/12 ring-destructive/25' },
 }
 
@@ -224,14 +224,14 @@ function HealthCard({ report, loading }: { report: ReturnType<typeof healthRepor
             )}
             <dt className="text-muted-foreground">节点</dt>
             <dd className="tabular">
-              <span className={report.nodesOnline < report.nodesTotal ? 'text-warning' : ''}>{report.nodesOnline}</span> / {report.nodesTotal} 在线
+              <span className={report.nodesOnline < report.nodesTotal ? 'text-warning-strong' : ''}>{report.nodesOnline}</span> / {report.nodesTotal} 在线
             </dd>
             {report.ceph && (
               <>
                 <dt className="text-muted-foreground">Ceph</dt>
                 <dd
                   className={cn(
-                    report.ceph === 'HEALTH_OK' ? 'text-success' : report.ceph === 'HEALTH_WARN' ? 'text-warning' : 'text-destructive',
+                    report.ceph === 'HEALTH_OK' ? 'text-success-strong' : report.ceph === 'HEALTH_WARN' ? 'text-warning-strong' : 'text-destructive',
                   )}
                 >
                   {report.ceph}
@@ -268,7 +268,7 @@ function GuestsCard({ counts, loading }: { counts: Record<GuestType, GuestCounts
               <div key={type} className="min-w-0">
                 <Link
                   to={`/?type=${type}`}
-                  className="mb-1.5 flex items-baseline gap-1.5 rounded-lg outline-none hover:text-brand focus-visible:ring-2 focus-visible:ring-ring"
+                  className="mb-1.5 flex items-baseline gap-1.5 rounded-lg outline-none hover:text-brand-strong focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <Icon className="size-3.5 self-center text-muted-foreground" aria-hidden />
                   <span className="text-sm font-medium">{type === 'qemu' ? '虚拟机' : '容器'}</span>
@@ -320,7 +320,7 @@ function NodeTable({ nodes, statusByNode }: { nodes: NodeListEntry[]; statusByNo
             return (
               <tr key={n.node} className="transition-colors hover:bg-foreground/[0.03] paper:hover:bg-secondary/40">
                 <td className="px-(--card-p) py-(--row-py)">
-                  <Link to={nodePath(n.node)} className="inline-flex items-center gap-2 font-medium hover:text-brand">
+                  <Link to={nodePath(n.node)} className="inline-flex items-center gap-2 font-medium hover:text-brand-strong">
                     <StatusDot status={n.status} decorative />
                     {n.node}
                   </Link>

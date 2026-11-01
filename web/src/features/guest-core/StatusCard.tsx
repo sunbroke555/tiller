@@ -78,9 +78,9 @@ export function StatusCard({ guest, status, config, agentResponds }: StatusCardP
               ) : agentResponds === undefined ? (
                 '已启用'
               ) : agentResponds ? (
-                <span className="text-success">运行中</span>
+                <span className="text-success-strong">运行中</span>
               ) : (
-                <span className="text-warning">未响应</span>
+                <span className="text-warning-strong">未响应</span>
               )}
             </InfoRow>
           )}
@@ -94,7 +94,7 @@ export function StatusCard({ guest, status, config, agentResponds }: StatusCardP
           )}
           {config?.protection === 1 && (
             <InfoRow label="删除保护">
-              <span className="inline-flex items-center gap-1.5 text-success">
+              <span className="inline-flex items-center gap-1.5 text-success-strong">
                 <ShieldCheck className="size-4" aria-hidden />
                 已启用
               </span>

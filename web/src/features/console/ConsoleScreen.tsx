@@ -57,6 +57,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { errorMessage } from '@/lib/errors'
+import { useVisualViewport } from '@/hooks/useVisualViewport'
 import { consolePath, nodeShellPath } from '@/lib/resources'
 import { cn } from '@/lib/utils'
 
@@ -67,7 +68,6 @@ import { SendKeyDialog } from './SendKeyDialog'
 import { PHASE_LABEL, type ConsoleSessionHandle, type ConsoleState, type VncScaleMode } from './session'
 import { SpiceDialog } from './SpiceDialog'
 import { chooseViewer, consoleCapabilities, rememberViewer, rememberedViewer } from './viewers'
-import { useVisualViewport } from './useVisualViewport'
 
 // Each viewer is its own chunk: xterm.js or noVNC load only when used.
 const XtermSession = lazy(() => import('./XtermSession'))
@@ -706,7 +706,7 @@ function CenterSpinner({ label }: { label: string }) {
   return (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
       <div className="surface-strong inline-flex items-center gap-2.5 rounded-full px-4 py-2 text-sm text-muted-foreground">
-        <LoaderCircle className="size-4 animate-spin text-brand paper:text-foreground/70" aria-hidden />
+        <LoaderCircle className="size-4 animate-spin text-brand-strong paper:text-foreground/70" aria-hidden />
         {label}
       </div>
     </div>
@@ -748,7 +748,7 @@ function OverlayCard({
             'inline-flex size-12 items-center justify-center rounded-2xl ring-1 ring-inset',
             tone === 'bad'
               ? 'bg-destructive/10 text-destructive ring-destructive/20'
-              : 'bg-brand/10 text-brand ring-brand/15 paper:bg-secondary paper:text-foreground/70 paper:ring-border',
+              : 'bg-brand/10 text-brand-strong ring-brand/15 paper:bg-secondary paper:text-foreground/70 paper:ring-border',
           )}
         >
           <Icon className="size-6" aria-hidden />

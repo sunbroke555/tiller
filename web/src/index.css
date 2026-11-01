@@ -62,6 +62,10 @@
   --color-brand-2: var(--brand-2);
   --color-success: var(--success);
   --color-warning: var(--warning);
+  /* Text-strength variants: AA (4.5:1) on the background, cards and their /10–/14 tints. */
+  --color-brand-strong: var(--brand-strong);
+  --color-success-strong: var(--success-strong);
+  --color-warning-strong: var(--warning-strong);
   --color-info: var(--info);
   --color-glass: var(--glass);
   --color-glass-strong: var(--glass-strong);
@@ -88,7 +92,7 @@
 
   --background: #07080a;
   --foreground: #ececef;
-  --faint: #5c5f6a;
+  --faint: #7d808b;
   --muted-foreground: #8d909c;
 
   --glass: rgb(255 255 255 / 0.04);
@@ -122,6 +126,9 @@
   --success: #34d399;
   --warning: #fbbf24;
   --info: #60a5fa;
+  --brand-strong: var(--brand);
+  --success-strong: var(--success);
+  --warning-strong: var(--warning);
 
   --glow-a: color-mix(in oklab, var(--brand) 26%, transparent);
   --glow-b: color-mix(in oklab, var(--brand-2) 20%, transparent);
@@ -173,7 +180,7 @@
 
   --background: #eceef3;
   --foreground: #111318;
-  --faint: #9a9eab;
+  --faint: #666a78;
   --muted-foreground: #5b6070;
 
   --glass: rgb(255 255 255 / 0.6);
@@ -204,6 +211,9 @@
   --success: #059669;
   --warning: #c27803;
   --info: #2563eb;
+  --brand-strong: var(--brand);
+  --success-strong: #036b4d;
+  --warning-strong: #8a5508;
 
   --glow-a: color-mix(in oklab, var(--brand) 18%, transparent);
   --glow-b: color-mix(in oklab, var(--brand-2) 14%, transparent);
@@ -241,7 +251,7 @@
 
   --background: #faf9f5; /* Ivory */
   --foreground: #141413; /* Slate */
-  --faint: #a8a59a;
+  --faint: #75736a;
   --muted-foreground: #6b6a62;
 
   /* Solid paper cards, no blur. */
@@ -270,14 +280,18 @@
 
   --brand: #d97757; /* Clay */
   --brand-2: #c6613f;
+  /* Clay is 3:1 on Ivory: text and white-on-fill use a deeper clay. */
+  --brand-strong: #b04f2c;
   --brand-contrast: #ffffff;
-  --primary: #d97757;
+  --primary: #b04f2c;
   --primary-foreground: #ffffff;
   --ring: rgb(217 119 87 / 0.55);
   --destructive: #b5412f;
   --destructive-foreground: #ffffff;
   --success: #5f7f4b;
   --warning: #b7791f;
+  --success-strong: #4f6b3a;
+  --warning-strong: #835510;
   --info: #4f6d93;
 
   --glow-a: transparent;

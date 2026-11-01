@@ -20,7 +20,7 @@ const TONE_DOT: Record<LogTone, string> = {
 
 const TONE_BADGE: Record<LogTone, string> = {
   error: 'bg-destructive/12 text-destructive',
-  warning: 'bg-warning/14 text-warning',
+  warning: 'bg-warning/14 text-warning-strong',
   notice: 'bg-info/12 text-info',
   info: 'text-muted-foreground',
 }
@@ -42,7 +42,7 @@ export function LogMessage({ msg }: { msg: string }) {
               e.stopPropagation()
               openTaskLog({ node: parsed.node, upid: seg.upid })
             }}
-            className="mx-0.5 inline-flex items-center gap-1 rounded-md bg-brand/10 px-1.5 align-baseline text-[0.95em] font-medium text-brand underline-offset-2 transition-colors hover:bg-brand/15 hover:underline paper:bg-secondary paper:text-foreground"
+            className="mx-0.5 inline-flex items-center gap-1 rounded-md bg-brand/10 px-1.5 align-baseline text-[0.95em] font-medium text-brand-strong underline-offset-2 transition-colors hover:bg-brand/15 hover:underline paper:bg-secondary paper:text-foreground"
           >
             {describeTask(parsed)}
             <ExternalLink className="size-3 opacity-70" aria-hidden />

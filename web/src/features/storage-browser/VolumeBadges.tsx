@@ -24,7 +24,7 @@ export function VolumeBadges({ volume: v, className }: { volume: StorageVolume; 
         </span>
       )}
       {state === 'ok' && (
-        <span className={cn(BADGE, 'bg-success/12 text-success paper:bg-secondary')}>
+        <span className={cn(BADGE, 'bg-success/12 text-success-strong paper:bg-secondary')}>
           <ShieldCheck className="size-3" aria-hidden />
           已校验
         </span>

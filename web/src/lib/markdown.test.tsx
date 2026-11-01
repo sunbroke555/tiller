@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 
 import { Markdown } from '@/components/Markdown'
 
-import { inlineText, parseInline, parseMarkdown, safeHref } from './markdown'
+import { externalHref, inlineText, parseInline, parseMarkdown, safeHref } from './markdown'
 
 describe('markdown parser', () => {
   it('parses blocks', () => {
@@ -31,6 +31,17 @@ describe('markdown parser', () => {
     expect(safeHref('//evil.com')).toBeNull()
     expect(safeHref('/nodes')).toBe('/nodes')
     expect(safeHref('mailto:a@b.c')).toBe('mailto:a@b.c')
+    // The URL parser drops leading C0 controls and reads \ as /.
+    expect(safeHref('\u0001javascript:alert(1)')).toBeNull()
+    expect(safeHref('\tjavascript:alert(1)')).toBeNull()
+    expect(safeHref('java\nscript:alert(1)')).toBeNull()
+    expect(safeHref('/\\evil.com')).toBeNull()
+    expect(safeHref('notes.html#x')).toBe('notes.html#x')
+    expect(safeHref('#top')).toBe('#top')
+    expect(externalHref('https://pve.proxmox.com/wiki')).toBe('https://pve.proxmox.com/wiki')
+    expect(externalHref('javascript:alert(1)')).toBeNull()
+    expect(externalHref('/local')).toBeNull()
+    expect(externalHref(undefined)).toBeNull()
     expect(parseInline('[x](javascript:alert(1))').some((n) => n.t === 'link')).toBe(false)
   })
 })

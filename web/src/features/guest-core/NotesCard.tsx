@@ -8,6 +8,7 @@ import { GlassCard } from '@/components/GlassCard'
 import { runTask } from '@/components/tasks/tracker'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useOpenSnapshot } from '@/hooks/useOpenSnapshot'
 import { configUpdateParams } from '@/lib/propstring'
 
 import { Markdown } from './markdown'
@@ -76,7 +77,7 @@ function NotesDialog({
   type,
   vmid,
   name,
-  config,
+  config: liveConfig,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -86,6 +87,9 @@ function NotesDialog({
   name: string
   config: GuestConfig | undefined
 }) {
+  // Diff against the config as it was when the sheet opened and send its
+  // digest: an edit made elsewhere meanwhile is rejected, not overwritten.
+  const config = useOpenSnapshot(open, liveConfig)
   const [text, setText] = useState('')
   useEffect(() => {
     if (open) setText(config?.description ?? '')
@@ -110,7 +114,7 @@ function NotesDialog({
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={12}
-          className="min-h-56 font-mono text-[13px] leading-relaxed"
+          className="min-h-56 font-mono text-base leading-relaxed md:text-[13px]"
           placeholder={'例如：\n# 用途\n内网 DNS 服务器\n\n- 负责人：张三'}
         />
       </FormField>

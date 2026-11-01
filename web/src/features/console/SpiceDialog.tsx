@@ -40,7 +40,7 @@ export function SpiceDialog({ open, onOpenChange, target, name }: SpiceDialogPro
       }}
     >
       <div className="mb-4 flex items-start gap-3 rounded-xl border border-border bg-(--field) p-3 text-sm text-muted-foreground">
-        <MonitorDown className="mt-0.5 size-5 shrink-0 text-brand paper:text-foreground/70" aria-hidden />
+        <MonitorDown className="mt-0.5 size-5 shrink-0 text-brand-strong paper:text-foreground/70" aria-hidden />
         <p>
           SPICE 支持剪贴板共享、USB 重定向和多显示器，适合桌面电脑。手机上建议直接使用网页控制台。
         </p>

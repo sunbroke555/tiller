@@ -218,7 +218,7 @@ function TimelineRow({
         <div className="flex min-h-16 min-w-0 flex-1 items-center gap-2 py-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-brand paper:text-foreground">当前状态</span>
+              <span className="font-medium text-brand-strong paper:text-foreground">当前状态</span>
               <Chip tone={guestRunning ? 'success' : 'neutral'}>{guestRunning ? '运行中' : '已停止'}</Chip>
             </div>
             <p className="mt-0.5 text-xs text-muted-foreground">
@@ -252,7 +252,7 @@ function TimelineRow({
                   {snap.snaptime ? formatDateTime(snap.snaptime) : '—'}
                 </span>
                 <span className="hidden shrink-0 text-faint sm:inline">· {formatRelativeTime(snap.snaptime)}</span>
-                {snap.vmstate === 1 && <MemoryStick className="size-3 shrink-0 text-brand sm:hidden" aria-label="含内存" />}
+                {snap.vmstate === 1 && <MemoryStick className="size-3 shrink-0 text-brand-strong sm:hidden" aria-label="含内存" />}
               </div>
               {firstLine(snap.description) && <p className="mt-1 line-clamp-1 text-sm text-foreground/75">{firstLine(snap.description)}</p>}
             </div>
@@ -312,8 +312,8 @@ function Node({ current, running, pending, ram }: { current: boolean; running: b
       className={cn(
         'flex size-7 items-center justify-center rounded-full border bg-card text-muted-foreground shadow-xs',
         'border-border paper:bg-background',
-        ram && 'border-brand/40 text-brand paper:border-foreground/30 paper:text-foreground/80',
-        pending && 'border-warning/50 text-warning',
+        ram && 'border-brand/40 text-brand-strong paper:border-foreground/30 paper:text-foreground/80',
+        pending && 'border-warning/50 text-warning-strong',
       )}
     >
       <Camera className="size-3.5" />

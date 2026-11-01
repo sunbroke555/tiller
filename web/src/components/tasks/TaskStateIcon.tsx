@@ -11,9 +11,9 @@ const ICON = {
 } as const
 
 export const TASK_STATE_TEXT_CLASS: Record<TaskState, string> = {
-  running: 'text-brand',
-  ok: 'text-success',
-  warning: 'text-warning',
+  running: 'text-brand-strong',
+  ok: 'text-success-strong',
+  warning: 'text-warning-strong',
   error: 'text-destructive',
 }
 
@@ -35,9 +35,9 @@ export function TaskStateBadge({ state, className }: { state: TaskState; classNa
     <span
       className={cn(
         'inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium',
-        state === 'running' && 'bg-brand/12 text-brand',
-        state === 'ok' && 'bg-success/12 text-success',
-        state === 'warning' && 'bg-warning/14 text-warning',
+        state === 'running' && 'bg-brand/12 text-brand-strong',
+        state === 'ok' && 'bg-success/12 text-success-strong',
+        state === 'warning' && 'bg-warning/14 text-warning-strong',
         state === 'error' && 'bg-destructive/12 text-destructive',
         className,
       )}

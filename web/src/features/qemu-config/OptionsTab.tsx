@@ -280,8 +280,8 @@ function ToggleRow({ row }: { row: OptionRow }) {
         aria-hidden
         className={
           pending
-            ? 'inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-warning/10 text-warning ring-1 ring-warning/20 ring-inset'
-            : 'inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand ring-1 ring-brand/15 ring-inset paper:bg-secondary paper:text-foreground/75 paper:ring-border'
+            ? 'inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-warning/10 text-warning-strong ring-1 ring-warning/20 ring-inset'
+            : 'inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand-strong ring-1 ring-brand/15 ring-inset paper:bg-secondary paper:text-foreground/75 paper:ring-border'
         }
       >
         {(() => {
@@ -292,7 +292,7 @@ function ToggleRow({ row }: { row: OptionRow }) {
       <label htmlFor={`opt-switch-${row.key}`} className="grid min-w-0 flex-1 cursor-pointer gap-0.5">
         <span className="font-medium">{row.title}</span>
         <span className="text-[13px] leading-snug text-muted-foreground">
-          {pending ? <span className="text-warning">已修改，{row.pendingSummary ? `重启后为“${row.pendingSummary}”` : '待生效'}</span> : TOGGLE_HINT[row.key]}
+          {pending ? <span className="text-warning-strong">已修改，{row.pendingSummary ? `重启后为“${row.pendingSummary}”` : '待生效'}</span> : TOGGLE_HINT[row.key]}
         </span>
       </label>
       {pending && (

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"strings"
@@ -32,6 +33,14 @@ type Config struct {
 	// on anything other than localhost.
 	TLSCert string
 	TLSKey  string
+	// AllowFrom, when set, limits which client addresses may use pve-web at
+	// all (ALLOW_FROM: comma separated IPs/CIDRs; loopback is always allowed).
+	// pveproxy's own ALLOW_FROM only ever sees pve-web's address.
+	AllowFrom []*net.IPNet
+	// TrustedProxies are reverse proxies in front of pve-web whose
+	// X-Forwarded-For is believed when working out the client address
+	// (TRUSTED_PROXIES, IPs/CIDRs). Without them the socket peer counts.
+	TrustedProxies []*net.IPNet
 }
 
 const defaultPVEURL = "https://127.0.0.1:8006"
@@ -56,7 +65,20 @@ func LoadConfig(getenv func(string) string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Plain http to PVE would carry passwords and tickets in clear text; only
+	// a loopback upstream (a local TLS-terminating proxy) or an explicit
+	// opt-in is accepted.
+	if u.Scheme == "http" && !isLoopbackHost(u.Hostname()) && !isTruthy(getenv("PVE_ALLOW_HTTP")) {
+		return nil, fmt.Errorf("PVE_URL 必须以 https:// 开头（当前 %q）；确需明文 http 时设置 PVE_ALLOW_HTTP=1", raw)
+	}
 	cfg.PVE = u
+
+	if cfg.AllowFrom, err = parseNets("ALLOW_FROM", getenv("ALLOW_FROM")); err != nil {
+		return nil, err
+	}
+	if cfg.TrustedProxies, err = parseNets("TRUSTED_PROXIES", getenv("TRUSTED_PROXIES")); err != nil {
+		return nil, err
+	}
 
 	if fp := strings.TrimSpace(getenv("PVE_TLS_FINGERPRINT")); fp != "" {
 		b, err := ParseFingerprint(fp)
@@ -123,4 +145,51 @@ func isTruthy(s string) bool {
 		return true
 	}
 	return false
+}
+
+// parseNets reads a comma (or space) separated list of IPs and CIDRs.
+func parseNets(name, raw string) ([]*net.IPNet, error) {
+	var out []*net.IPNet
+	for _, f := range strings.FieldsFunc(raw, func(r rune) bool { return r == ',' || r == ' ' || r == ';' }) {
+		if !strings.Contains(f, "/") {
+			ip := net.ParseIP(f)
+			if ip == nil {
+				return nil, fmt.Errorf("%s 中的 %q 不是 IP 地址或网段", name, f)
+			}
+			bits := 128
+			if ip.To4() != nil {
+				ip, bits = ip.To4(), 32
+			}
+			out = append(out, &net.IPNet{IP: ip, Mask: net.CIDRMask(bits, bits)})
+			continue
+		}
+		_, n, err := net.ParseCIDR(f)
+		if err != nil {
+			return nil, fmt.Errorf("%s 中的 %q 不是 IP 地址或网段", name, f)
+		}
+		out = append(out, n)
+	}
+	return out, nil
+}
+
+func isLoopbackHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+// PlainHTTPExposed reports whether the server would serve plain HTTP on an
+// address other than loopback, i.e. passwords and tickets cross the network
+// unencrypted (unless a TLS reverse proxy sits in front).
+func (c *Config) PlainHTTPExposed() bool {
+	if c.TLSCert != "" {
+		return false
+	}
+	host, _, err := net.SplitHostPort(c.Listen)
+	if err != nil {
+		host = c.Listen
+	}
+	return !isLoopbackHost(host)
 }

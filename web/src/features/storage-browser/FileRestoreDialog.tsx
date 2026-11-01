@@ -138,7 +138,7 @@ export function FileRestoreDialog({ node, storage, volume, open, onOpenChange }:
           <div className="grid gap-1 px-5 py-3 lg:px-6" aria-busy="true" aria-label="加载中">
             {slow && (
               <p className="mb-2 flex items-start gap-2 rounded-xl bg-brand/10 px-3 py-2.5 text-sm text-foreground/85 paper:bg-secondary">
-                <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-brand paper:text-foreground/70" aria-hidden />
+                <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-brand-strong paper:text-foreground/70" aria-hidden />
                 {vm
                   ? '正在启动用于恢复的临时虚拟机，第一次打开可能需要一分钟左右。'
                   : '正在从备份服务器读取目录，较大的备份需要一些时间。'}

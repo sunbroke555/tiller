@@ -12,8 +12,8 @@ import {
   type PropertyValue,
 } from '@/lib/propstring'
 
-import type { Arch } from './constants'
-import { parseCpu, parseMemory, stringifyCpuFlags, type Config } from './model'
+import { BACKEND_CPU, type Arch } from './constants'
+import { guestArch, parseCpu, parseMemory, stringifyCpuFlags, type Config } from './model'
 
 type Values = Record<string, string | number | boolean | null | undefined>
 
@@ -108,10 +108,12 @@ export function processorValues(cfg: Config, f: ProcessorForm, cpuunitsDefault =
   const flags = stringifyCpuFlags(f.flags)
   const props: Record<string, PropertyValue> = { ...old, cputype: f.cputype, flags: flags || undefined }
   let cpu = stringifyPropertyString(props, 'cputype')
-  // Options without a model need one in front (printQemuCpu).
-  if (cpu && !f.cputype) cpu = `kvm64,${cpu}`
-  // An unset cpu means kvm64: do not write the explicit form back.
-  if (!cfg.cpu && cpu === 'kvm64') cpu = ''
+  // Options without a model need one in front (printQemuCpu): the backend
+  // default of the guest's architecture (kvm64 would not start on aarch64).
+  const fallback = BACKEND_CPU[guestArch(cfg)]
+  if (cpu && !f.cputype) cpu = `${fallback},${cpu}`
+  // An unset cpu means the backend default: do not write the explicit form back.
+  if (!cfg.cpu && cpu === fallback) cpu = ''
   // Unset sockets/cores mean 1: keep them unset.
   const count = (key: 'sockets' | 'cores', n: number) => (n === 1 && cfg[key] === undefined ? '' : String(n))
   return {

@@ -24,7 +24,7 @@ import {
   type Ip6Mode,
   type NetForm,
 } from './model'
-import { Segmented, type LxcConfigApi } from './shared'
+import { Segmented, useDialogConfig, type LxcConfigApi } from './shared'
 
 const IP4_MODES: { value: Ip4Mode; label: string }[] = [
   { value: 'none', label: '无' },
@@ -60,7 +60,7 @@ export function newNicKey(cfg: Record<string, string>): { key: string | null; na
 export function NetworkDialog({
   open,
   onOpenChange,
-  api,
+  api: liveApi,
   netKey,
 }: {
   open: boolean
@@ -69,6 +69,7 @@ export function NetworkDialog({
   /** undefined = add a NIC. */
   netKey: string | undefined
 }) {
+  const api = useDialogConfig(liveApi, open)
   const isCreate = !netKey
   const fresh = newNicKey(api.cfg)
   const key = netKey ?? fresh.key ?? ''

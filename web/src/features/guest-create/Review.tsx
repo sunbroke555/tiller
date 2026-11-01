@@ -130,9 +130,9 @@ export function CreateStatus({ state, what }: { state: CreateState; what: string
       {failed ? (
         <CircleAlert className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden />
       ) : state.phase === 'opening' ? (
-        <CircleCheck className="mt-0.5 size-5 shrink-0 text-success" aria-hidden />
+        <CircleCheck className="mt-0.5 size-5 shrink-0 text-success-strong" aria-hidden />
       ) : (
-        <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-brand paper:text-primary" aria-hidden />
+        <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-brand-strong paper:text-primary" aria-hidden />
       )}
       <div className="grid min-w-0 flex-1 gap-0.5">
         <p className={cn('text-sm font-medium', failed ? 'text-destructive' : 'text-foreground')}>

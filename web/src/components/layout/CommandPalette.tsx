@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/command'
 import { globalCommands, guestCommands, nodeCommands } from '@/features/command/registry'
 import type { CommandContext } from '@/features/command/types'
+import { useKeyboardBox } from '@/hooks/useVisualViewport'
 import { errorMessage } from '@/lib/errors'
 import { allowedFor, type PermissionChecker } from '@/lib/permissions'
 import { byVmid, guestName, guestPath, nodePath, parseTags, storagePath } from '@/lib/resources'
@@ -174,6 +175,8 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (
       .catch((e: unknown) => toast.error(`${cmd.label}失败`, { description: errorMessage(e) }))
   }
 
+  const keyboard = useKeyboardBox(open)
+
   const renderBound = (c: BoundCommand) => (
     <CommandItem key={c.key} value={c.value} onSelect={() => execute(c)} className={c.destructive ? 'text-destructive' : undefined}>
       {c.icon ? <c.icon className="text-muted-foreground" /> : <Zap className="text-muted-foreground" />}
@@ -190,7 +193,11 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (
       className="top-[max(1rem,env(safe-area-inset-top))] translate-y-0 sm:top-[12vh] sm:max-w-xl"
     >
       <CommandInput placeholder="搜索资源、页面或操作…" value={search} onValueChange={setSearch} />
-      <CommandList className="max-h-[min(60vh,28rem)]">
+      <CommandList
+        className="max-h-[min(60vh,28rem)]"
+        // Phones: end the list above the on-screen keyboard (dialog top + input ≈ 5rem).
+        style={keyboard.visible !== null ? { maxHeight: Math.max(160, Math.min(448, keyboard.visible - 88)) } : undefined}
+      >
         <CommandEmpty>没有匹配的结果</CommandEmpty>
 
         {currentCommands.length > 0 && (

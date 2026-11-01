@@ -38,7 +38,7 @@ pve-web/
 
 浏览器 ←同源→ Go 服务（默认 :8080）→ PVE（https://<host>:8006）
 
-- Go 服务托管 SPA（history fallback 到 index.html），把 `/api2/` 原样反代到 PVE，支持 websocket 升级（vncwebsocket、termproxy）。
+- Go 服务托管 SPA（history fallback 到 index.html），把 `/api2/json/` 原样反代到 PVE，支持 websocket 升级（vncwebsocket、termproxy）；PVE 的其它格式（/api2/html 等）不转发。
 - 配置：环境变量 `PVE_URL`（如 `https://192.168.0.6:8006`）、`LISTEN`（默认 `:8080`）、`PVE_TLS_FINGERPRINT`（可选，SHA-256 证书指纹，固定信任）或 `PVE_INSECURE_TLS=1`（实验环境用）。
 - 反代时改写 `Host`/`Origin` 以符合 PVE 的校验；不持久化任何凭据，服务端无状态。
 
@@ -46,8 +46,9 @@ pve-web/
 
 - 登录：`POST /api2/json/access/ticket`（username、password、realm）。成功后得到 `ticket` 和 `CSRFPreventionToken`。
 - 两步验证：若返回的 ticket 带 `!tfa!` 前缀（`NeedTFA`），用 `tfa-challenge=<ticket>` 加 `password=totp:<code>`（或 `recovery:`、WebAuthn）再次请求。
-- 前端把 ticket 写入 cookie `PVEAuthCookie`（path=/，SameSite=Strict），由浏览器随请求带给 Go 服务再转发给 PVE；写操作带 `CSRFPreventionToken` 请求头。CSRF token 和用户名存在 sessionStorage/localStorage，刷新页面不掉登录。
-- ticket 有效期 2 小时，前端在过期前用当前 ticket 作为密码续签。
+- 前端登录请求带 `X-Pve-Web-Ticket: cookie`：Go 服务把返回的 ticket 写进 cookie `PVEAuthCookie`（HttpOnly、SameSite=Strict、Path=/api2/、会话 cookie），并从 JSON 里去掉（`!tfa!` 中间 ticket 照常返回）。浏览器随 API 请求带上它，Go 服务原样转发给 PVE；写操作带 `CSRFPreventionToken` 请求头。CSRF token 和用户名存在 localStorage，另有一个非机密的会话标记 cookie 表示 ticket cookie 仍在，刷新页面不掉登录。退出登录调用 `POST /api/logout` 清掉 ticket cookie。
+- ticket 有效期 2 小时，前端在过期前续签：密码填占位符，由 Go 服务换成 cookie 里的 ticket。
+- 登录失败按客户端地址/用户名限速并记日志；可选 `ALLOW_FROM` 客户端白名单（pveproxy 只能看到 pve-web 的地址）。
 
 ## 主题
 

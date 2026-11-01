@@ -9,7 +9,7 @@ import {
   ALLOWED_BUSES,
   BIOS,
   BUS_MAX,
-  DEFAULT_CPU,
+  BACKEND_CPU,
   DEFAULT_MACHINE,
   HW_MAX,
   NIC_MODEL_LABEL,
@@ -308,7 +308,7 @@ function processorSummary(cfg: Config, arch: Arch): string {
   const sockets = Number(cfg.sockets ?? 1) || 1
   const cores = Number(cfg.cores ?? 1) || 1
   const cpu = parseCpu(cfg.cpu)
-  const type = cpu.cputype ?? (arch === 'x86_64' ? 'kvm64' : DEFAULT_CPU[arch])
+  const type = cpu.cputype ?? BACKEND_CPU[arch]
   return join([
     `${sockets * cores} 核`,
     sockets > 1 ? `${sockets} 插槽 × ${cores} 核` : null,

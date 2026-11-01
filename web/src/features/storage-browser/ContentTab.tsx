@@ -380,7 +380,7 @@ function VolumeRow({
             </span>
             <VolumeBadges volume={v} className="hidden flex-nowrap sm:inline-flex" />
             {isDisk && ownerMissing && (
-              <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-warning/15 px-1.5 text-[11px] text-warning paper:bg-secondary paper:text-foreground/75">
+              <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-warning/15 px-1.5 text-[11px] text-warning-strong paper:bg-secondary paper:text-foreground/75">
                 孤立
               </span>
             )}
@@ -427,7 +427,14 @@ function ActionItem({ action: a }: { action: VolumeAction }) {
         className="min-h-9 pointer-coarse:min-h-11"
       >
         <a.icon />
-        {a.label}
+        {a.disabled ? (
+          <span className="grid">
+            <span>{a.label}</span>
+            <span className="text-[11px] text-muted-foreground">{a.disabled}</span>
+          </span>
+        ) : (
+          a.label
+        )}
       </DropdownMenuItem>
     </>
   )

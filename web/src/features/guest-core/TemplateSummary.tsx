@@ -16,7 +16,7 @@ import { CardTitle, InfoList, InfoRow } from './parts'
 export function TemplateHero({ type, onClone }: { type: GuestType; onClone?: () => void }) {
   return (
     <GlassCard className="flex flex-col gap-4 sm:flex-row sm:items-center">
-      <span className="inline-flex size-12 shrink-0 items-center justify-center rounded-2xl bg-brand/10 text-brand ring-1 ring-brand/15 ring-inset paper:bg-secondary paper:text-foreground/70 paper:ring-border">
+      <span className="inline-flex size-12 shrink-0 items-center justify-center rounded-2xl bg-brand/10 text-brand-strong ring-1 ring-brand/15 ring-inset paper:bg-secondary paper:text-foreground/70 paper:ring-border">
         <LayoutTemplate className="size-6" aria-hidden />
       </span>
       <div className="min-w-0 flex-1">
@@ -59,6 +59,11 @@ export function configDisks(config: GuestConfig, type: GuestType): ConfigDisk[] 
   return out.sort((a, b) => (a.key === 'rootfs' ? -1 : b.key === 'rootfs' ? 1 : a.key.localeCompare(b.key, undefined, { numeric: true })))
 }
 
+/** Configured memory in MiB; both qemu-server and pve-container default to 512. */
+export function configMemoryMiB(memory: string | number | undefined): number {
+  return Number(String(memory ?? '').replace(/^current=/, '').split(',')[0]) || 512
+}
+
 function sizeText(size: string | undefined): string | undefined {
   if (!size) return undefined
   const bytes = parsePveSize(size)
@@ -80,7 +85,7 @@ export function ConfigSummary({ type, config, loading }: { type: GuestType; conf
   }
   if (!config) return null
   const cores = Number(config.cores ?? 1) * Number(config.sockets ?? 1)
-  const memory = Number(String(config.memory ?? '').replace(/^current=/, '').split(',')[0]) || (type === 'lxc' ? 512 : 2048)
+  const memory = configMemoryMiB(config.memory)
   const disks = configDisks(config, type)
   const nets = Object.keys(config)
     .filter((k) => /^net\d+$/.test(k))

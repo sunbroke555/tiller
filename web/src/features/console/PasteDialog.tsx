@@ -79,7 +79,7 @@ export function PasteDialog({ open, onOpenChange, mode, initialText = '', clipbo
           spellCheck={false}
           autoCapitalize="off"
           autoCorrect="off"
-          className="font-mono text-sm"
+          className="font-mono text-base md:text-sm"
           placeholder="在这里粘贴文字…"
         />
       </FormField>

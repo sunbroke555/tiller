@@ -73,8 +73,7 @@ describe('consent text', () => {
 
 describe('ticket renewal edge cases', () => {
   const session = (issuedAgo: number) => {
-    document.cookie = 'PVEAuthCookie=PVE%3Aroot%40pam%3A1%3A%3Asig; Path=/'
-    setSession({ username: 'root@pam', csrfToken: 'c', ticketIssuedAt: Date.now() - issuedAgo }, 'PVE:root@pam:1::sig')
+    setSession({ username: 'root@pam', csrfToken: 'c', ticketIssuedAt: Date.now() - issuedAgo })
   }
 
   it('warns once when renewal fails offline and the ticket is about to expire', async () => {

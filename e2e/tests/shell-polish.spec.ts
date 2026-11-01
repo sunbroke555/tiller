@@ -306,7 +306,7 @@ test.describe('logged out', () => {
         'pve-web:session',
         JSON.stringify({ username: 'root@pam', csrfToken: 'x', ticketIssuedAt: Date.now() - 3 * 3600_000 }),
       )
-      document.cookie = 'PVEAuthCookie=PVE%3Aroot%40pam%3A0%3A%3Ax; Path=/'
+      document.cookie = 'pve-web-session=1; Path=/'
     })
     await page.goto('/datacenter')
     await expect(page).toHaveURL(/\/login\?next=%2Fdatacenter/)

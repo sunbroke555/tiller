@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { errorMessage } from '@/lib/errors'
+import { externalHref } from '@/lib/markdown'
 import { cn } from '@/lib/utils'
 
 import { volumeName } from './volumes'
@@ -158,12 +159,12 @@ export function TemplateCatalogDialog({ node, storage, open, onOpenChange }: Tem
                   </div>
                   <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
                     {[SECTION_LABEL[t.section] ?? t.section, t.os, t.headline].filter(Boolean).join(' · ')}
-                    {t.infopage && (
+                    {externalHref(t.infopage) && (
                       <a
-                        href={t.infopage}
+                        href={externalHref(t.infopage)!}
                         target="_blank"
                         rel="noreferrer"
-                        className="ml-1.5 inline-flex items-center gap-0.5 text-brand underline-offset-2 hover:underline"
+                        className="ml-1.5 inline-flex items-center gap-0.5 text-brand-strong underline-offset-2 hover:underline"
                       >
                         介绍 <ExternalLink className="size-3" aria-hidden />
                       </a>
@@ -177,7 +178,7 @@ export function TemplateCatalogDialog({ node, storage, open, onOpenChange }: Tem
                   disabled={!!state || present}
                   onClick={() => void download(t)}
                   aria-label={`下载 ${t.package} ${t.version}`}
-                  className={cn('shrink-0 pointer-coarse:h-10', (present || state === 'started') && 'text-success')}
+                  className={cn('shrink-0 pointer-coarse:h-10', (present || state === 'started') && 'text-success-strong')}
                 >
                   {state === 'starting' ? (
                     <Loader2 className="animate-spin" />

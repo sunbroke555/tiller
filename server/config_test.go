@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,6 +52,9 @@ func TestLoadConfigErrors(t *testing.T) {
 		"both tls modes":    {"PVE_TLS_FINGERPRINT": strings.Repeat("ab", 32), "PVE_INSECURE_TLS": "1"},
 		"cert without key":  {"TLS_CERT_FILE": "/x.pem"},
 		"missing CA file":   {"PVE_CA_FILE": "/nonexistent/ca.pem"},
+		"plain http to LAN": {"PVE_URL": "http://192.168.0.6:8006"},
+		"bad allow list":    {"ALLOW_FROM": "10.0.0.0/8,nope"},
+		"bad proxy list":    {"TRUSTED_PROXIES": "300.1.1.1"},
 	}
 	for name, env := range cases {
 		if _, err := LoadConfig(envMap(env)); err == nil {
@@ -93,5 +97,42 @@ func TestCAFileWithoutCertificates(t *testing.T) {
 	}
 	if _, err := LoadConfig(envMap(map[string]string{"PVE_CA_FILE": p})); err == nil {
 		t.Fatal("expected error for CA file without certificates")
+	}
+}
+
+func TestPlainHTTPUpstreamOnlyLoopbackOrOptIn(t *testing.T) {
+	for _, env := range []map[string]string{
+		{"PVE_URL": "http://127.0.0.1:8006"},
+		{"PVE_URL": "http://localhost:8006"},
+		{"PVE_URL": "http://192.168.0.6:8006", "PVE_ALLOW_HTTP": "1"},
+	} {
+		if _, err := LoadConfig(envMap(env)); err != nil {
+			t.Errorf("%v: %v", env, err)
+		}
+	}
+}
+
+func TestAccessLists(t *testing.T) {
+	cfg, err := LoadConfig(envMap(map[string]string{"ALLOW_FROM": "10.0.0.0/8, 192.168.1.5", "TRUSTED_PROXIES": "::1"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.AllowFrom) != 2 || !cfg.AllowFrom[1].Contains(net.ParseIP("192.168.1.5")) || cfg.AllowFrom[1].Contains(net.ParseIP("192.168.1.6")) {
+		t.Fatalf("allow list %v", cfg.AllowFrom)
+	}
+	if len(cfg.TrustedProxies) != 1 || !cfg.TrustedProxies[0].Contains(net.ParseIP("::1")) {
+		t.Fatalf("trusted proxies %v", cfg.TrustedProxies)
+	}
+}
+
+func TestPlainHTTPExposed(t *testing.T) {
+	cases := map[string]bool{":8080": true, "0.0.0.0:8080": true, "192.168.0.32:8121": true, "127.0.0.1:8080": false, "[::1]:8080": false, "localhost:8080": false}
+	for listen, want := range cases {
+		if got := (&Config{Listen: listen}).PlainHTTPExposed(); got != want {
+			t.Errorf("%s: got %v, want %v", listen, got, want)
+		}
+	}
+	if (&Config{Listen: ":8443", TLSCert: "c.pem"}).PlainHTTPExposed() {
+		t.Error("TLS listener reported as plain HTTP")
 	}
 }

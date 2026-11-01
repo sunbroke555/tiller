@@ -139,7 +139,7 @@ export function CiSshKeysDialog(props: DialogRenderProps) {
         <FieldTextarea
           value={keys}
           onChange={(e) => setKeys(e.target.value)}
-          className="min-h-40 font-mono text-xs break-all"
+          className="min-h-40 font-mono text-base break-all md:text-xs"
           placeholder="ssh-ed25519 AAAA… user@host"
           spellCheck={false}
         />

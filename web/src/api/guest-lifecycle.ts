@@ -25,18 +25,22 @@ export interface LocalDisk {
   shared?: PveBool
 }
 
-/** GET /nodes/{node}/{type}/{vmid}/migrate[?target=] (fields differ a bit between qemu and lxc). */
+/** Why a node cannot take the guest (qemu and lxc report different subsets). */
+export interface NotAllowedNode {
+  unavailable_storages?: string[]
+  'unavailable-resources'?: string[]
+  'blocking-ha-resources'?: { sid: string; cause: string }[]
+}
+
+/**
+ * GET /nodes/{node}/{type}/{vmid}/migrate[?target=] (fields differ a bit between
+ * qemu and lxc). Normalised by useMigratePrecondition: lxc spells the node lists
+ * `allowed-nodes` / `not-allowed-nodes`, qemu `allowed_nodes` / `not_allowed_nodes`.
+ */
 export interface MigratePrecondition {
   running?: PveBool | boolean
   allowed_nodes?: string[]
-  not_allowed_nodes?: Record<
-    string,
-    {
-      unavailable_storages?: string[]
-      'unavailable-resources'?: string[]
-      'blocking-ha-resources'?: { sid: string; cause: string }[]
-    }
-  >
+  not_allowed_nodes?: Record<string, NotAllowedNode>
   local_disks?: LocalDisk[]
   local_resources?: string[]
   'mapped-resources'?: string[]
@@ -93,6 +97,21 @@ const base = (node: string, type: GuestType, vmid: number) => p`/nodes/${node}/$
 
 // ------------------------------------------------------------------ hooks
 
+type RawMigratePrecondition = MigratePrecondition & {
+  'allowed-nodes'?: string[]
+  'not-allowed-nodes'?: Record<string, NotAllowedNode>
+}
+
+/** Accept both spellings of the node lists (lxc uses kebab-case). */
+export function normalizeMigratePrecondition(raw: RawMigratePrecondition): MigratePrecondition {
+  const { 'allowed-nodes': allowed, 'not-allowed-nodes': notAllowed, ...rest } = raw
+  return {
+    ...rest,
+    allowed_nodes: rest.allowed_nodes ?? allowed,
+    not_allowed_nodes: rest.not_allowed_nodes ?? notAllowed,
+  }
+}
+
 /** Migration preconditions, re-checked for each target node. */
 export function useMigratePrecondition(
   node: string,
@@ -103,7 +122,8 @@ export function useMigratePrecondition(
 ) {
   return useQuery({
     queryKey: lifecycleKeys.migrate(node, type, vmid, target),
-    queryFn: ({ signal }) => get<MigratePrecondition>(`${base(node, type, vmid)}/migrate`, { target }, { signal }),
+    queryFn: async ({ signal }) =>
+      normalizeMigratePrecondition(await get<RawMigratePrecondition>(`${base(node, type, vmid)}/migrate`, { target }, { signal })),
     staleTime: 0,
     retry: false,
     ...options,

@@ -94,7 +94,8 @@ export const backupKeys = {
     [...queryKeys.guest(node, type, vmid), 'snapshots', snap, 'config'] as const,
   snapshotFeature: (node: string, type: GuestType, vmid: number) =>
     [...queryKeys.guest(node, type, vmid), 'feature', 'snapshot'] as const,
-  guestConfig: (node: string, type: GuestType, vmid: number) => [...queryKeys.guest(node, type, vmid), 'config'] as const,
+  /** Running config (`current=1`): its own key, the plain 'config' entry holds the pending-applied one. */
+  guestConfig: (node: string, type: GuestType, vmid: number) => [...queryKeys.guest(node, type, vmid), 'config', 'current'] as const,
   backups: (node: string, storage: string, vmid?: number) =>
     [...queryKeys.storage(node, storage), 'content', 'backup', vmid === undefined ? '' : String(vmid)] as const,
   vzdumpDefaults: (node: string, storage: string) => [...queryKeys.node(node), 'vzdump', 'defaults', storage] as const,

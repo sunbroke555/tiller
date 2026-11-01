@@ -29,7 +29,8 @@ function mockColorScheme(dark: boolean) {
 function resetRoot() {
   const root = document.documentElement
   for (const a of ['data-theme', 'data-accent', 'data-glass', 'data-density', 'class', 'style']) root.removeAttribute(a)
-  document.head.innerHTML = '<meta name="theme-color" content="">'
+  document.head.innerHTML =
+    '<meta name="theme-color" content=""><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">'
 }
 
 function rootState() {
@@ -42,6 +43,7 @@ function rootState() {
     dark: root.classList.contains('dark'),
     scheme: root.style.colorScheme,
     meta: document.querySelector('meta[name="theme-color"]')?.getAttribute('content'),
+    statusBar: document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')?.getAttribute('content'),
   }
 }
 
@@ -95,6 +97,15 @@ describe('preferences', () => {
       accent: 'rose',
       glass: 'off',
     })
+  })
+})
+
+describe('iOS status bar style', () => {
+  it('uses dark text on the light themes and the translucent bar on dark', () => {
+    applyThemeAttributes(themeAttributes(parsePrefs(JSON.stringify({ mode: 'paper' })), false))
+    expect(rootState().statusBar).toBe('default')
+    applyThemeAttributes(themeAttributes(parsePrefs(JSON.stringify({ mode: 'dark' })), false))
+    expect(rootState().statusBar).toBe('black-translucent')
   })
 })
 

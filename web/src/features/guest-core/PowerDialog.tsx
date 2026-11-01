@@ -215,7 +215,7 @@ function ModeCards({
               <span className="flex items-center gap-2 text-[15px] font-medium text-foreground">
                 {m.label}
                 {m.recommended && (
-                  <span className="rounded-full bg-success/12 px-1.5 py-0.5 text-[10px] leading-none font-medium text-success">
+                  <span className="rounded-full bg-success/12 px-1.5 py-0.5 text-[10px] leading-none font-medium text-success-strong">
                     推荐
                   </span>
                 )}

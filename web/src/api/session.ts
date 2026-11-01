@@ -1,11 +1,24 @@
-// Login state. The ticket lives only in the PVEAuthCookie cookie (the browser
-// sends it to the Go server, which forwards it to PVE); the CSRF token and the
-// user name are kept in localStorage so a reload keeps the user logged in.
+// Login state. The ticket lives only in the PVEAuthCookie cookie, which the Go
+// server sets HttpOnly, as a session cookie, for /api2/ (the browser sends it
+// with API calls; JavaScript never sees it). The CSRF token and the user name
+// are kept in localStorage so a reload keeps the user logged in; a session
+// marker cookie tells whether the browser still has the ticket cookie (both
+// end when the browser closes).
 
 import type { Capabilities } from './types'
 
 export const AUTH_COOKIE = 'PVEAuthCookie'
+/** Not secret: only says "the HttpOnly ticket cookie was set in this browser session". */
+export const SESSION_MARKER_COOKIE = 'pve-web-session'
 const SESSION_KEY = 'pve-web:session'
+
+/**
+ * Sent with login, two-factor, OpenID and renewal requests: the Go server
+ * then keeps the ticket in the HttpOnly cookie instead of the JSON answer.
+ */
+export const TICKET_COOKIE_HEADERS = { 'X-Pve-Web-Ticket': 'cookie' } as const
+/** Renewal password the Go server replaces with the ticket from the cookie. */
+export const RENEW_FROM_COOKIE = 'pve-web:cookie-ticket'
 
 /** PVE tickets are valid for two hours. */
 export const TICKET_LIFETIME_MS = 2 * 60 * 60 * 1000
@@ -63,7 +76,7 @@ function readStored(): Session | null {
 export function getSession(): Session | null {
   if (cached === undefined) {
     const stored = readStored()
-    cached = stored && getTicket() && !isExpired(stored) ? stored : null
+    cached = stored && hasSessionMarker() && !isExpired(stored) ? stored : null
     // A leftover session (tab reopened after the ticket ran out): tell the
     // login page why, instead of silently showing an empty form.
     if (stored && !cached && lastLogoutReason === null) lastLogoutReason = 'expired'
@@ -75,32 +88,23 @@ export function isExpired(s: Session, now = Date.now()): boolean {
   return now - s.ticketIssuedAt >= TICKET_LIFETIME_MS
 }
 
-export function getTicket(): string | null {
-  if (typeof document === 'undefined') return null
-  for (const part of document.cookie.split(';')) {
-    const [name, ...rest] = part.trim().split('=')
-    if (name === AUTH_COOKIE) {
-      const value = rest.join('=')
-      try {
-        return value ? decodeURIComponent(value) : null
-      } catch {
-        return value || null
-      }
-    }
-  }
-  return null
+/** True while this browser session holds the (HttpOnly) ticket cookie. */
+export function hasSessionMarker(): boolean {
+  if (typeof document === 'undefined') return false
+  return document.cookie.split(';').some((part) => part.trim().startsWith(`${SESSION_MARKER_COOKIE}=1`))
 }
 
-function writeCookie(value: string, maxAgeSeconds: number) {
+function writeMarker(on: boolean) {
   const secure = window.location.protocol === 'https:' ? '; Secure' : ''
-  // pveproxy URI-unescapes the cookie value, so encoding is safe and keeps
-  // characters like ";" or "=" in the base64 signature intact.
-  document.cookie = `${AUTH_COOKIE}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAgeSeconds}; SameSite=Strict${secure}`
+  // A session cookie (no Max-Age), like the ticket cookie it stands for.
+  document.cookie = on
+    ? `${SESSION_MARKER_COOKIE}=1; Path=/; SameSite=Strict${secure}`
+    : `${SESSION_MARKER_COOKIE}=; Path=/; Max-Age=0; SameSite=Strict${secure}`
 }
 
-/** Store a freshly issued (or renewed) ticket. */
-export function setSession(session: Session, ticket: string): void {
-  writeCookie(ticket, Math.floor(TICKET_LIFETIME_MS / 1000))
+/** Record a login or renewal (the server has set the ticket cookie). */
+export function setSession(session: Session): void {
+  writeMarker(true)
   try {
     window.localStorage.setItem(SESSION_KEY, JSON.stringify(session))
   } catch {
@@ -115,7 +119,7 @@ export type LogoutReason = 'logout' | 'expired' | 'unauthorized'
 let lastLogoutReason: LogoutReason | null = null
 
 export function clearSession(reason: LogoutReason = 'logout'): void {
-  writeCookie('', 0)
+  writeMarker(false)
   try {
     window.localStorage.removeItem(SESSION_KEY)
   } catch {

@@ -6,7 +6,16 @@
 // (totp, recovery, yubico or webauthn) and returns the real ticket.
 
 import { PveApiError, get, post } from './client'
-import { TICKET_LIFETIME_MS, clearSession, getSession, getTicket, isExpired, setSession, type Session } from './session'
+import {
+  RENEW_FROM_COOKIE,
+  TICKET_COOKIE_HEADERS,
+  TICKET_LIFETIME_MS,
+  clearSession,
+  getSession,
+  isExpired,
+  setSession,
+  type Session,
+} from './session'
 import type { AuthDomain, TicketResponse } from './types'
 
 export interface LoginCredentials {
@@ -109,7 +118,7 @@ export async function login(creds: LoginCredentials): Promise<LoginResult> {
       // No `realm` parameter: PVE appends it to the user name, so
       // "root@pam" + realm=pam would become "root@pam@pam".
       { username, password: creds.password, 'new-format': 1 },
-      { noAuthRedirect: true },
+      { noAuthRedirect: true, headers: TICKET_COOKIE_HEADERS },
     )
   } catch (e) {
     throw loginErrorMessage(e)
@@ -134,7 +143,7 @@ export async function login(creds: LoginCredentials): Promise<LoginResult> {
   }
 
   const session = sessionFrom(data)
-  setSession(session, data.ticket)
+  setSession(session)
   return { kind: 'ok', session }
 }
 
@@ -147,10 +156,10 @@ export async function loginWithOpenId(code: string, state: string, redirectUrl: 
   const data = await post<TicketResponse>(
     '/access/openid/login',
     { code, state, 'redirect-url': redirectUrl },
-    { noAuthRedirect: true },
+    { noAuthRedirect: true, headers: TICKET_COOKIE_HEADERS },
   )
   const session = sessionFrom(data)
-  setSession(session, data.ticket)
+  setSession(session)
   return session
 }
 
@@ -160,7 +169,7 @@ export async function completeTfa(pending: PendingTfa, method: TfaMethod, code: 
     data = await post<TicketResponse>(
       '/access/ticket',
       { username: pending.username, 'tfa-challenge': pending.ticket, password: `${method}:${code.trim()}` },
-      { noAuthRedirect: true },
+      { noAuthRedirect: true, headers: TICKET_COOKIE_HEADERS },
     )
   } catch (e) {
     if (e instanceof PveApiError && e.status === 401) {
@@ -170,24 +179,31 @@ export async function completeTfa(pending: PendingTfa, method: TfaMethod, code: 
   }
   if (isTfaTicket(data.ticket)) throw new Error('两步验证未完成，请重试')
   const session = sessionFrom(data, pending)
-  setSession(session, data.ticket)
+  setSession(session)
   return session
 }
 
-/** Renew the ticket by logging in with the current ticket as password. */
+/**
+ * Renew the ticket by logging in with the current ticket as password. The
+ * ticket is in an HttpOnly cookie, so a placeholder goes in its place and
+ * the Go server substitutes the cookie's value.
+ */
 export async function renewTicket(): Promise<void> {
   const session = getSession()
-  const ticket = getTicket()
-  if (!session || !ticket) return
+  if (!session) return
   const data = await post<TicketResponse>(
     '/access/ticket',
-    { username: session.username, password: ticket },
-    { noAuthRedirect: true },
+    { username: session.username, password: RENEW_FROM_COOKIE },
+    { noAuthRedirect: true, headers: TICKET_COOKIE_HEADERS },
   )
-  setSession(sessionFrom(data, { username: session.username, csrfToken: session.csrfToken }), data.ticket)
+  setSession(sessionFrom(data, { username: session.username, csrfToken: session.csrfToken }))
 }
 
 export function logout(): void {
+  // Only the server can drop the HttpOnly ticket cookie; best effort.
+  Promise.resolve()
+    .then(() => fetch('/api/logout', { method: 'POST', headers: TICKET_COOKIE_HEADERS, credentials: 'same-origin' }))
+    .catch(() => {})
   clearSession('logout')
 }
 

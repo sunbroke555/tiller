@@ -4,6 +4,8 @@
 
 import type { ReactNode } from 'react'
 
+import { safeHref as sharedSafeHref } from '@/lib/markdown'
+
 export type MdBlock =
   | { kind: 'heading'; level: number; text: string }
   | { kind: 'paragraph'; text: string }
@@ -73,10 +75,10 @@ export function parseBlocks(src: string): MdBlock[] {
   return out
 }
 
-/** Only http(s) and mailto links are rendered as links. */
+/** Only absolute http(s) and mailto links are rendered as links (checked by the shared URL-parser test). */
 export function safeHref(url: string): string | null {
-  const u = url.trim()
-  return /^(https?:\/\/|mailto:)/i.test(u) ? u : null
+  const u = sharedSafeHref(url)
+  return u && /^(https?:\/\/|mailto:)/i.test(u) ? u : null
 }
 
 const INLINE = /(`[^`]+`)|(\*\*[^*]+\*\*|__[^_]+__)|(\*[^*\s][^*]*\*|_[^_\s][^_]*_)|(\[[^\]]+\]\([^)\s]+\))|(https?:\/\/[^\s<>()]+)/g
@@ -106,7 +108,7 @@ export function renderInline(text: string, keyBase = 'i'): ReactNode[] {
       const href = safeHref(lm[2]!)
       out.push(
         href ? (
-          <a key={key} href={href} target="_blank" rel="noopener noreferrer" className="text-brand underline-offset-2 hover:underline">
+          <a key={key} href={href} target="_blank" rel="noopener noreferrer" className="text-brand-strong underline-offset-2 hover:underline">
             {lm[1]}
           </a>
         ) : (
@@ -115,7 +117,7 @@ export function renderInline(text: string, keyBase = 'i'): ReactNode[] {
       )
     } else if (auto) {
       out.push(
-        <a key={key} href={auto} target="_blank" rel="noopener noreferrer" className="break-all text-brand underline-offset-2 hover:underline">
+        <a key={key} href={auto} target="_blank" rel="noopener noreferrer" className="break-all text-brand-strong underline-offset-2 hover:underline">
           {auto}
         </a>,
       )

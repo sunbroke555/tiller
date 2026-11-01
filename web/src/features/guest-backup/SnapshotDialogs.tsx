@@ -1,7 +1,7 @@
 // Dialogs of the snapshot tab: take, rollback, delete, and the details sheet
 // (description edit + stored config).
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { History, Loader2, MemoryStick, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -23,6 +23,7 @@ import { ResponsiveDialog } from '@/components/ResponsiveDialog'
 import { CheckboxField, FieldInput, FieldTextarea, FormDialog, FormField, FormSection, SwitchField } from '@/components/form'
 import { runTask } from '@/components/tasks/tracker'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { errorMessage } from '@/lib/errors'
 import { DASH, formatDateTime, formatRelativeTime } from '@/lib/format'
 
@@ -182,9 +183,16 @@ export function DeleteSnapshotDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const [force, setForce] = useState(false)
+  const [typed, setTyped] = useState('')
+  const confirmId = useId()
   useEffect(() => {
-    if (open) setForce(false)
+    if (open) {
+      setForce(false)
+      setTyped('')
+    }
   }, [open])
+  // Irreversible: type the snapshot name, like other deletions.
+  const confirmed = !!snapshot && typed.trim() === snapshot.name
   return (
     <FormDialog
       open={open}
@@ -194,7 +202,8 @@ export function DeleteSnapshotDialog({
       description="快照中的数据会被永久删除，当前状态不受影响。"
       submitLabel="删除"
       destructive
-      submitDisabled={!snapshot || (!!guest.lock && !force)}
+      dirty={false}
+      submitDisabled={!snapshot || !confirmed || (!!guest.lock && !force)}
       onSubmit={async () => {
         if (!snapshot) return
         await runTask(deleteSnapshot(guest.node, guest.type, guest.vmid, snapshot.name, { force }), {
@@ -209,6 +218,23 @@ export function DeleteSnapshotDialog({
         checked={force}
         onCheckedChange={setForce}
       />
+      {snapshot && (
+        <div className="grid gap-2">
+          {/* Plain block, not Label (flex + select-none): long names wrap and can be copied. */}
+          <label htmlFor={confirmId} className="block text-sm leading-relaxed text-muted-foreground">
+            请输入 <span className="font-mono font-medium break-all text-foreground select-all">{snapshot.name}</span> 以确认
+          </label>
+          <Input
+            id={confirmId}
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            autoComplete="off"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+          />
+        </div>
+      )}
     </FormDialog>
   )
 }

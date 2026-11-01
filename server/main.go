@@ -48,6 +48,12 @@ func run(logger *slog.Logger) error {
 	defer stop()
 	go CheckUpstream(ctx, cfg, transport, logger)
 
+	if cfg.PlainHTTPExposed() {
+		logger.Warn("SERVING PLAIN HTTP ON A NETWORK ADDRESS: PVE passwords, two-factor codes and tickets cross the network unencrypted. " +
+			"Set TLS_CERT_FILE/TLS_KEY_FILE, put a TLS reverse proxy in front, or listen on 127.0.0.1 only.",
+			"listen", cfg.Listen)
+	}
+
 	errc := make(chan error, 1)
 	go func() {
 		logger.Info("listening", "addr", cfg.Listen, "pve", cfg.PVE.String(),
@@ -99,7 +105,14 @@ func (emptyFS) Open(string) (fs.File, error) { return nil, fs.ErrNotExist }
 // NewHandler assembles the complete HTTP handler.
 func NewHandler(cfg *Config, web fs.FS, immutable bool, transport http.RoundTripper, logger *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle("/api2/", NewProxy(cfg.PVE, transport, logger))
+	// Only the JSON API (websockets included). PVE's other formatters
+	// (/api2/html with its own login form, /api2/extjs, /api2/png,
+	// /api2/spiceconfig) are not used by the SPA and stay off this origin.
+	mux.Handle("/api2/json/", newAuthGuard(NewProxy(cfg.PVE, transport, logger, cfg.TrustedProxies), cfg, logger))
+	mux.HandleFunc("/api2/", func(w http.ResponseWriter, _ *http.Request) {
+		writePVEError(w, http.StatusNotFound, "pve-web 只转发 /api2/json/")
+	})
+	mux.Handle("POST /api/logout", logoutHandler(cfg.TrustedProxies))
 	mux.Handle("GET /api/config", appConfigHandler(newConsentSource(cfg.PVE, transport, logger)))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -107,7 +120,7 @@ func NewHandler(cfg *Config, web fs.FS, immutable bool, transport http.RoundTrip
 		_, _ = w.Write([]byte("ok\n"))
 	})
 	mux.Handle("/", newSPAHandler(web, immutable))
-	return securityHeaders(mux)
+	return securityHeaders(allowFrom(cfg, logger, mux))
 }
 
 // securityHeaderNames lists the headers securityHeaders owns.

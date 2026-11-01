@@ -52,7 +52,7 @@ export function ErrorState({ error, onRetry, title, compact, className }: ErrorS
       description={
         <>
           {meta.hint && <span className="block">{meta.hint}</span>}
-          {kind !== 'offline' && detail && <span className="mt-1 block text-xs break-words text-faint">{detail}</span>}
+          {kind !== 'offline' && detail && <span className="mt-1 block text-xs break-words text-muted-foreground">{detail}</span>}
         </>
       }
       action={

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { GuestRrdPoint } from '@/api/guest-core'
 
 import { buildCharts } from './GuestCharts'
+import { configMemoryMiB } from './TemplateSummary'
 import { fromAgent, fromLxc, isMinorAddress, primaryAddress, visibleInterfaces } from './ips'
 import { downsample, field, hasData, lastValue, niceBytesMax, niceMax, timeLabel } from './rrd'
 import {
@@ -193,5 +194,14 @@ describe('configDisks', () => {
   it('lists LXC rootfs first, then mount points', () => {
     const disks = configDisks({ mp0: 'local-lvm:vm-200-disk-1,mp=/data,size=2G', rootfs: 'local-lvm:vm-200-disk-0,size=1G' }, 'lxc')
     expect(disks.map((d) => d.key)).toEqual(['rootfs', 'mp0'])
+  })
+})
+
+describe('configMemoryMiB', () => {
+  it('falls back to the PVE default of 512 MiB for qemu and lxc', () => {
+    expect(configMemoryMiB(undefined)).toBe(512)
+    expect(configMemoryMiB('')).toBe(512)
+    expect(configMemoryMiB('current=2048,min=1024')).toBe(2048)
+    expect(configMemoryMiB(4096)).toBe(4096)
   })
 })

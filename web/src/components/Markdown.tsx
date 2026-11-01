@@ -124,7 +124,7 @@ function renderInline(nodes: Inline[]): ReactNode {
           <a
             key={i}
             href={n.href}
-            className="text-brand underline decoration-brand/40 underline-offset-2 hover:decoration-brand"
+            className="text-brand-strong underline decoration-brand/40 underline-offset-2 hover:decoration-brand"
             {...(external ? { target: '_blank', rel: 'noreferrer noopener' } : {})}
           >
             {renderInline(n.c)}

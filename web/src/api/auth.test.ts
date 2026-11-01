@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { completeTfa, fullUserId, isTfaTicket, login, parseTfaChallenge, renewTicket } from './auth'
-import { getSession, getTicket, resetSessionCache, setSession } from './session'
+import { completeTfa, fullUserId, isTfaTicket, login, logout, parseTfaChallenge, renewTicket } from './auth'
+import { getSession, hasSessionMarker, resetSessionCache, setSession } from './session'
 
 const challengeJson = { totp: true, recovery: [0, 2, 5], webauthn: { publicKey: { challenge: 'abc' } } }
 const TFA_TICKET = `PVE:!tfa!${encodeURIComponent(JSON.stringify(challengeJson))}:6AE5E655::c2lnbmF0dXJl`
@@ -55,7 +55,7 @@ describe('login', () => {
     expect(fullUserId('admin@pve', 'pam')).toBe('admin@pve')
   })
 
-  it('stores the ticket cookie and session on success', async () => {
+  it('lets the server keep the ticket and stores the session on success', async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse({ data: { username: 'root@pam', ticket: REAL_TICKET, CSRFPreventionToken: 'csrf', clustername: 'lab' } }),
     )
@@ -66,7 +66,10 @@ describe('login', () => {
     expect(body.get('password')).toBe('secret')
     // The realm is part of the user id; sending it again makes PVE look up "root@pam@pam".
     expect(body.has('realm')).toBe(false)
-    expect(getTicket()).toBe(REAL_TICKET)
+    // The Go server moves the ticket into an HttpOnly cookie when asked to.
+    expect((fetchMock.mock.calls[0]![1] as RequestInit).headers).toMatchObject({ 'X-Pve-Web-Ticket': 'cookie' })
+    expect(hasSessionMarker()).toBe(true)
+    expect(document.cookie).not.toContain('PVEAuthCookie')
     expect(getSession()).toMatchObject({ username: 'root@pam', csrfToken: 'csrf', clustername: 'lab' })
   })
 
@@ -79,7 +82,7 @@ describe('login', () => {
     if (result.kind !== 'tfa') return
     expect(result.pending.challenge.totp).toBe(true)
     expect(getSession()).toBeNull()
-    expect(getTicket()).toBeNull()
+    expect(hasSessionMarker()).toBe(false)
 
     // Second factor: the !tfa! ticket goes back as tfa-challenge.
     fetchMock.mockResolvedValueOnce(jsonResponse({ data: { username: 'root@pam', ticket: REAL_TICKET } }))
@@ -90,7 +93,8 @@ describe('login', () => {
     expect(body.get('username')).toBe('root@pam')
     // The CSRF token from the first step is kept when the second omits it.
     expect(session.csrfToken).toBe('csrf-1')
-    expect(getTicket()).toBe(REAL_TICKET)
+    expect((fetchMock.mock.calls[1]![1] as RequestInit).headers).toMatchObject({ 'X-Pve-Web-Ticket': 'cookie' })
+    expect(getSession()?.username).toBe('root@pam')
   })
 
   it('sends recovery keys with the recovery: prefix', async () => {
@@ -112,14 +116,29 @@ describe('login', () => {
     expect(getSession()).toBeNull()
   })
 
-  it('renews the ticket using the current ticket as password', async () => {
-    setSession({ username: 'root@pam', csrfToken: 'old', ticketIssuedAt: 0 }, REAL_TICKET)
-    const next = 'PVE:root@pam:6AE5F000::bmV3'
-    fetchMock.mockResolvedValueOnce(jsonResponse({ data: { username: 'root@pam', ticket: next, CSRFPreventionToken: 'new' } }))
+  it('renews the ticket with the cookie placeholder as password', async () => {
+    setSession({ username: 'root@pam', csrfToken: 'old', ticketIssuedAt: 0 })
+    fetchMock.mockResolvedValueOnce(jsonResponse({ data: { username: 'root@pam', ticket: '', CSRFPreventionToken: 'new' } }))
     await renewTicket()
-    expect(bodyOf(0).get('password')).toBe(REAL_TICKET)
-    expect(getTicket()).toBe(next)
+    // The Go server swaps this placeholder for the HttpOnly cookie's ticket.
+    expect(bodyOf(0).get('password')).toBe('pve-web:cookie-ticket')
     expect(getSession()?.csrfToken).toBe('new')
     expect(getSession()?.ticketIssuedAt).toBeGreaterThan(0)
+  })
+
+  it('logs out on the server too (only it can drop the HttpOnly cookie)', async () => {
+    setSession({ username: 'root@pam', csrfToken: 'c', ticketIssuedAt: Date.now() })
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
+    logout()
+    expect(getSession()).toBeNull()
+    expect(hasSessionMarker()).toBe(false)
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/logout', expect.objectContaining({ method: 'POST' })))
+  })
+
+  it('counts a stored session without the browser-session marker as logged out', () => {
+    setSession({ username: 'root@pam', csrfToken: 'c', ticketIssuedAt: Date.now() })
+    document.cookie = 'pve-web-session=; Path=/; Max-Age=0'
+    resetSessionCache()
+    expect(getSession()).toBeNull()
   })
 })

@@ -182,7 +182,7 @@ export function BackupDetailDialog({
                   { label: '加密', value: backup.encrypted ? <span className="inline-flex items-center gap-1"><KeyRound className="size-3.5" /> 已加密</span> : '未加密' },
                   {
                     label: '校验',
-                    value: !verify ? '未校验' : verify === 'ok' ? <span className="text-success">通过</span> : <span className="text-destructive">失败</span>,
+                    value: !verify ? '未校验' : verify === 'ok' ? <span className="text-success-strong">通过</span> : <span className="text-destructive">失败</span>,
                   },
                 ]
               : []),
@@ -263,7 +263,7 @@ function ActionTile({
 export function VerifyIcon({ state }: { state: string | undefined }) {
   if (!state) return null
   return state === 'ok' ? (
-    <ShieldCheck className="size-3.5 text-success" aria-label="校验通过" />
+    <ShieldCheck className="size-3.5 text-success-strong" aria-label="校验通过" />
   ) : (
     <ShieldAlert className="size-3.5 text-destructive" aria-label="校验失败" />
   )
@@ -366,6 +366,8 @@ export function useBackupDialogs({ node, isPBS, target }: UseBackupDialogsOption
         }
         confirmLabel="删除"
         destructive
+        // Irreversible: type the guest ID (like deleting it from the storage page).
+        typeToConfirm={b.vmid !== undefined ? String(b.vmid) : backupFileName(b.volid)}
         onConfirm={() =>
           runTask(deleteBackup(node, b.storage, b.volid), {
             title: `删除备份 ${backupFileName(b.volid)}`,

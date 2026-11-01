@@ -12,7 +12,7 @@ export function Logo({ className }: { className?: string }) {
       )}
       aria-hidden
     >
-      <svg viewBox="0 0 24 24" className="size-[60%] text-brand paper:text-white" fill="none" stroke="currentColor" strokeWidth="2.2">
+      <svg viewBox="0 0 24 24" className="size-[60%] text-brand-strong paper:text-white" fill="none" stroke="currentColor" strokeWidth="2.2">
         <rect x="4" y="4.5" width="16" height="6" rx="1.8" />
         <rect x="4" y="13.5" width="16" height="6" rx="1.8" opacity="0.7" />
         <circle cx="16.5" cy="7.5" r="1.1" fill="currentColor" stroke="none" />

@@ -67,7 +67,7 @@ export function TaskFilterBar({ filters, onChange, nodes = [], showVmid = true, 
               <ToggleGroupItem key={s.value} value={s.value} className="gap-1.5 px-3 text-xs">
                 {s.label}
                 {s.value === 'running' && !!runningCount && (
-                  <span className="rounded-full bg-brand/15 px-1.5 text-[10px] leading-4 font-semibold text-brand tabular">
+                  <span className="rounded-full bg-brand/15 px-1.5 text-[10px] leading-4 font-semibold text-brand-strong tabular">
                     {runningCount}
                   </span>
                 )}
@@ -127,7 +127,7 @@ export function TaskFilterBar({ filters, onChange, nodes = [], showVmid = true, 
 
 function FilterChip({ label, onRemove }: { label: ReactNode; onRemove: () => void }) {
   return (
-    <span className="inline-flex h-8 items-center gap-0.5 rounded-full bg-brand/10 pr-0.5 pl-3 text-xs text-brand ring-1 ring-brand/15 ring-inset pointer-coarse:h-9 paper:bg-secondary paper:text-foreground paper:ring-border">
+    <span className="inline-flex h-8 items-center gap-0.5 rounded-full bg-brand/10 pr-0.5 pl-3 text-xs text-brand-strong ring-1 ring-brand/15 ring-inset pointer-coarse:h-9 paper:bg-secondary paper:text-foreground paper:ring-border">
       <span className="max-w-48 truncate">{label}</span>
       <button
         type="button"

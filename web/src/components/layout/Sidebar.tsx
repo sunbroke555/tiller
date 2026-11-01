@@ -29,7 +29,7 @@ function SideLink({ item }: { item: NavItem }) {
     >
       {({ isActive }) => (
         <>
-          <item.icon className={cn('size-[18px]', isActive && 'text-brand')} />
+          <item.icon className={cn('size-[18px]', isActive && 'text-brand-strong')} />
           {item.label}
           {item.badge && <item.badge className="ml-auto" />}
         </>

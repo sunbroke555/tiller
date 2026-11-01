@@ -28,9 +28,9 @@ export interface TaskListProps {
 }
 
 const STATUS_TEXT: Record<TaskState, string> = {
-  running: 'text-brand',
+  running: 'text-brand-strong',
   ok: 'text-muted-foreground',
-  warning: 'text-warning',
+  warning: 'text-warning-strong',
   error: 'text-destructive',
 }
 

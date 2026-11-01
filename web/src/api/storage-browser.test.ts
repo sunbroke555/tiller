@@ -71,7 +71,7 @@ describe('uploadToStorage', () => {
   beforeEach(() => {
     vi.stubGlobal('XMLHttpRequest', FakeXhr)
     resetSessionCache()
-    setSession({ username: 'root@pam', csrfToken: 'csrf-1', ticketIssuedAt: Date.now() }, 'PVE:root@pam::sig')
+    setSession({ username: 'root@pam', csrfToken: 'csrf-1', ticketIssuedAt: Date.now() })
   })
   afterEach(() => {
     vi.unstubAllGlobals()

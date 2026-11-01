@@ -8,6 +8,7 @@ import { revertQemuPending, writeQemuConfig } from '@/api/qemu-config'
 import { usePermissions } from '@/api/permissions'
 import { queryKeys } from '@/api/queries'
 import { useSession } from '@/api/useSession'
+import { ConfigChangedContext } from '@/components/form/FormDialog'
 import { runTask } from '@/components/tasks/tracker'
 import type { GuestResource } from '@/api/types'
 
@@ -126,8 +127,11 @@ export interface DialogRenderProps {
 type Render = (props: DialogRenderProps) => ReactNode
 
 /**
- * One dialog at a time, mounted when opened (so it starts from the current
- * config) and unmounted after its close animation.
+ * One dialog at a time, mounted when opened and unmounted after its close
+ * animation. The dialog sees the config and digest as they were when it
+ * opened (not the 5 s poll): it diffs against that snapshot and sends its
+ * digest, so PVE rejects the save if someone else changed the VM meanwhile
+ * instead of the stale form values silently undoing their change.
  */
 export function useDialogHost() {
   const [entry, setEntry] = useState<{ id: number; render: Render; open: boolean } | null>(null)
@@ -142,5 +146,15 @@ export function useDialogHost() {
 }
 
 function DialogSlot({ render, open, onOpenChange }: { render: Render; open: boolean; onOpenChange: (o: boolean) => void }) {
-  return <>{render({ open, onOpenChange })}</>
+  const live = use(Ctx)
+  const [snap] = useState(() => (live ? { cfg: live.cfg, digest: live.digest, state: live.state, arch: live.arch } : null))
+  const value = useMemo(() => (live && snap ? { ...live, ...snap } : null), [live, snap])
+  const content = render({ open, onOpenChange })
+  if (!value) return <>{content}</>
+  const changed = open && !!snap?.digest && !!live?.digest && live.digest !== snap.digest
+  return (
+    <Ctx value={value}>
+      <ConfigChangedContext value={changed}>{content}</ConfigChangedContext>
+    </Ctx>
+  )
 }

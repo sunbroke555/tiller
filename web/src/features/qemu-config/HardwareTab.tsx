@@ -409,7 +409,7 @@ function AddHardwareDialog({ onPick, ...props }: DialogRenderProps & { onPick: (
                 'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border/70 disabled:hover:bg-(--field)',
               )}
             >
-              <span className="inline-flex size-8 items-center justify-center rounded-lg bg-brand/10 text-brand paper:bg-secondary paper:text-foreground/75">
+              <span className="inline-flex size-8 items-center justify-center rounded-lg bg-brand/10 text-brand-strong paper:bg-secondary paper:text-foreground/75">
                 <item.icon className="size-4" aria-hidden />
               </span>
               <span className="grid gap-0.5">

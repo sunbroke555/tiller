@@ -45,7 +45,7 @@ export function ResourceIcon({ type, template, variant = 'plain', className }: R
       aria-label={label}
       className={cn(
         'inline-flex size-9 shrink-0 items-center justify-center rounded-xl',
-        'bg-brand/10 text-brand ring-1 ring-brand/15 ring-inset',
+        'bg-brand/10 text-brand-strong ring-1 ring-brand/15 ring-inset',
         'paper:bg-secondary paper:text-foreground/80 paper:ring-border',
         className,
       )}

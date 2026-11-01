@@ -24,14 +24,34 @@ export type Block =
   | { t: 'hr' }
   | { t: 'table'; align: ('left' | 'center' | 'right' | null)[]; head: Inline[][]; rows: Inline[][][] }
 
-/** Only these URL schemes become links; everything else stays text. */
+/**
+ * Only http(s), mailto and same-origin links survive; everything else stays
+ * text. Decided by the URL parser (like the browser) rather than a prefix
+ * test: browsers strip leading control characters and read `\` as `/`, so
+ * "\u0001javascript:…" or "/\\evil.com" would slip past a regex.
+ */
 export function safeHref(href: string): string | null {
   const h = href.trim()
-  if (h.startsWith('//')) return null // protocol-relative: another host
-  if (/^(https?:|mailto:)/i.test(h)) return h
-  if (/^[/#?]/.test(h) && !h.startsWith('//')) return h
-  if (/^[a-z][a-z0-9+.-]*:/i.test(h)) return null // javascript:, data:, …
-  return h ? h : null
+  if (!h || /[\u0000-\u001f\u007f\s\\]/.test(h)) return null
+  const origin = typeof window !== 'undefined' && window.location?.origin?.startsWith('http') ? window.location.origin : 'http://localhost'
+  let url: URL
+  try {
+    url = new URL(h, origin)
+  } catch {
+    return null
+  }
+  const absolute = /^[a-z][a-z0-9+.-]*:/i.test(h)
+  if (url.protocol === 'mailto:') return absolute ? h : null
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+  // Relative links must stay on this origin ("//host" leaves it).
+  if (!absolute && url.origin !== origin) return null
+  return h
+}
+
+/** An absolute http(s) URL, or null (for links to other sites, e.g. aplinfo `infopage`). */
+export function externalHref(href: string | undefined): string | null {
+  const h = href ? safeHref(href) : null
+  return h && /^https?:\/\//i.test(h) ? h : null
 }
 
 // ---------------------------------------------------------------- inline

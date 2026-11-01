@@ -156,9 +156,10 @@ export function ActionBar<Ctx>({ actions, ctx, trigger, variant, maxPrimary, cla
             key={a.id}
             label={actionLabel(a, ctx)}
             icon={Icon ? <Icon /> : null}
-            disabled={!!reason}
+            // Still tappable when unavailable: touch has no tooltip, so a tap says why.
+            aria-disabled={reason ? true : undefined}
             destructive={a.destructive}
-            onClick={() => trigger(a)}
+            onClick={() => (reason ? toast.info(`暂时不能${actionLabel(a, ctx)}`, { description: reason }) : trigger(a))}
           />
         )
       })}
@@ -178,7 +179,7 @@ function DockButton({
     <button
       type="button"
       className={cn(
-        'flex h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-2 text-[11px] font-medium transition-colors active:bg-foreground/[0.06] disabled:opacity-40 [&_svg]:size-5',
+        'flex h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-2 text-[11px] font-medium transition-colors active:bg-foreground/[0.06] disabled:opacity-40 aria-disabled:opacity-40 [&_svg]:size-5',
         destructive ? 'text-destructive' : 'text-foreground/85',
         className,
       )}
@@ -224,7 +225,15 @@ export function ActionMenuItems<Ctx>({
                 className="min-h-9 pointer-coarse:min-h-11"
               >
                 {a.icon && <a.icon />}
-                {actionLabel(a, ctx)}
+                {reason ? (
+                  // The reason as a second line: `title` never shows on touch.
+                  <span className="grid">
+                    <span>{actionLabel(a, ctx)}</span>
+                    <span className="text-[11px] text-muted-foreground">{reason}</span>
+                  </span>
+                ) : (
+                  actionLabel(a, ctx)
+                )}
               </DropdownMenuItem>
             )
           })}

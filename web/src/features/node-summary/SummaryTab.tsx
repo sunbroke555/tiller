@@ -35,7 +35,7 @@ export default function SummaryTab({ node, resource }: NodeTabProps) {
     <div className="grid gap-(--section-gap)">
       {status.isError && !status.data && (
         <GlassCard className="flex items-start gap-3 text-sm">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-strong" aria-hidden />
           <span>无法读取节点状态：{errorMessage(status.error)}</span>
         </GlassCard>
       )}

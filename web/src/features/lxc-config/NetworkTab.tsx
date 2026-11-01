@@ -153,7 +153,7 @@ function NicCard({
         >
           <span
             aria-hidden
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand ring-1 ring-brand/15 ring-inset paper:bg-secondary paper:text-foreground/70 paper:ring-border"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand-strong ring-1 ring-brand/15 ring-inset paper:bg-secondary paper:text-foreground/70 paper:ring-border"
           >
             <EthernetPort className="size-5" />
           </span>
@@ -221,7 +221,7 @@ function NicCard({
         )}
       </dl>
       {pending && (
-        <p className="flex items-start gap-1.5 border-t border-border/60 px-(--card-p) py-2.5 text-xs text-warning">
+        <p className="flex items-start gap-1.5 border-t border-border/60 px-(--card-p) py-2.5 text-xs text-warning-strong">
           <Clock className="mt-px size-3.5 shrink-0" aria-hidden />
           {pending.delete ? '重启后删除这块网卡' : pending.current === undefined ? '新增，重启后生效' : '有更改将在重启后生效'}
         </p>
@@ -244,7 +244,7 @@ function Tag({ children, icon, tone }: { children: ReactNode; icon?: ReactNode; 
     <span
       className={cn(
         'inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground',
-        tone === 'warning' && 'bg-warning/12 text-warning',
+        tone === 'warning' && 'bg-warning/12 text-warning-strong',
       )}
     >
       {icon}

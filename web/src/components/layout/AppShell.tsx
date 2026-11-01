@@ -30,6 +30,12 @@ export function AppShell() {
           </main>
         </div>
         <TaskFooterBar />
+        {/* Installed PWA on a notched phone: content scrolling under the
+            status bar gets a frosted band behind the clock and battery. */}
+        <div
+          aria-hidden
+          className="pointer-events-none fixed inset-x-0 top-0 z-40 h-[env(safe-area-inset-top)] bg-background/85 backdrop-blur-md lg:hidden"
+        />
       </BottomDock>
       <TaskLogHost />
       <KeyboardShortcuts />

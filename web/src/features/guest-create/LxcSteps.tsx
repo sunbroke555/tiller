@@ -169,7 +169,7 @@ export function LxcGeneralStep({ form, set, onVmidValidity }: LxcStepProps & { o
             placeholder="ssh-ed25519 AAAA…"
             spellCheck={false}
             autoCapitalize="none"
-            className="min-h-20 font-mono text-xs"
+            className="min-h-20 font-mono text-base md:text-xs"
           />
         </FormField>
         <input
@@ -248,7 +248,7 @@ function MountPointCard({ form, mp, update }: LxcStepProps & { mp: LxcMountPoint
   return (
     <section aria-label={`挂载点 ${id}`} className="grid gap-4 rounded-xl border border-border bg-(--field) p-3.5 sm:p-4">
       <header className="flex items-center gap-2.5">
-        <span className="inline-flex size-8 items-center justify-center rounded-lg bg-brand/12 text-brand paper:bg-primary/10 paper:text-primary">
+        <span className="inline-flex size-8 items-center justify-center rounded-lg bg-brand/12 text-brand-strong paper:bg-primary/10 paper:text-primary">
           <FolderInput className="size-4" aria-hidden />
         </span>
         <div className="min-w-0 flex-1">
@@ -322,7 +322,7 @@ export function LxcDisksStep(props: LxcStepProps) {
     <div className="grid gap-4">
       <section aria-label="根磁盘" className="grid gap-4 rounded-xl border border-border bg-(--field) p-3.5 sm:p-4">
         <header className="flex items-center gap-2.5">
-          <span className="inline-flex size-8 items-center justify-center rounded-lg bg-brand/12 text-brand paper:bg-primary/10 paper:text-primary">
+          <span className="inline-flex size-8 items-center justify-center rounded-lg bg-brand/12 text-brand-strong paper:bg-primary/10 paper:text-primary">
             <HardDrive className="size-4" aria-hidden />
           </span>
           <div>
@@ -507,7 +507,7 @@ export function LxcDnsStep({ form, set }: LxcStepProps) {
   return (
     <div className="grid gap-5">
       <div className="flex items-start gap-2.5 rounded-xl border border-border bg-(--field) px-3.5 py-3 text-sm text-muted-foreground">
-        <ShieldCheck className="mt-0.5 size-4 shrink-0 text-brand paper:text-primary" aria-hidden />
+        <ShieldCheck className="mt-0.5 size-4 shrink-0 text-brand-strong paper:text-primary" aria-hidden />
         留空时容器使用主机的 DNS 设置，大多数情况下不需要修改。
       </div>
       <FormField label="DNS 域" name="searchdomain">

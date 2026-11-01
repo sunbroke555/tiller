@@ -230,7 +230,7 @@ export function UploadDialog({ node, storage, contents, initialContent, open, on
             disabled={uploading}
             onChange={(e) => pick(e.target.files?.[0])}
           />
-          <span className="inline-flex size-11 items-center justify-center rounded-2xl bg-brand/10 text-brand ring-1 ring-brand/15 ring-inset paper:bg-secondary paper:text-foreground/70 paper:ring-border">
+          <span className="inline-flex size-11 items-center justify-center rounded-2xl bg-brand/10 text-brand-strong ring-1 ring-brand/15 ring-inset paper:bg-secondary paper:text-foreground/70 paper:ring-border">
             <FileUp className="size-5" aria-hidden />
           </span>
           {file ? (
@@ -298,7 +298,7 @@ export function UploadDialog({ node, storage, contents, initialContent, open, on
                 value={checksum}
                 onChange={(e) => setChecksum(e.target.value)}
                 disabled={uploading}
-                className="font-mono text-xs"
+                className="font-mono text-base md:text-xs"
                 spellCheck={false}
                 autoCapitalize="off"
                 placeholder="十六进制字符串"

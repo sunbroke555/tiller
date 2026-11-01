@@ -11,8 +11,8 @@ const ICON = { info: Info, ok: CircleCheck, warn: TriangleAlert, error: CircleAl
 
 const TONE: Record<Tone, string> = {
   info: 'bg-info/10 text-foreground/85 [&>svg]:text-info paper:bg-secondary',
-  ok: 'bg-success/10 text-foreground/85 [&>svg]:text-success',
-  warn: 'bg-warning/12 text-foreground/90 [&>svg]:text-warning',
+  ok: 'bg-success/10 text-foreground/85 [&>svg]:text-success-strong',
+  warn: 'bg-warning/12 text-foreground/90 [&>svg]:text-warning-strong',
   error: 'bg-destructive/10 text-destructive [&>svg]:text-destructive',
 }
 

@@ -112,7 +112,7 @@ export default function MonitorTab({ node, vmid, guest }: GuestTabProps) {
       <GlassCard flush className="overflow-hidden">
         <div className="flex items-center justify-between gap-3 border-b border-border/70 px-(--card-p) py-2">
           <span className="inline-flex items-center gap-2 text-sm font-medium">
-            <Gauge className="size-4 text-brand" aria-hidden />
+            <Gauge className="size-4 text-brand-strong" aria-hidden />
             QEMU 监视器
           </span>
           <Button variant="ghost" size="sm" onClick={() => setEntries([])} disabled={entries.length === 0} className="text-muted-foreground">
@@ -135,7 +135,7 @@ export default function MonitorTab({ node, vmid, guest }: GuestTabProps) {
           ) : (
             entries.map((e) => (
               <div key={e.id} className="mb-3 last:mb-0">
-                <div className="text-brand">
+                <div className="text-brand-strong">
                   <span className="select-none text-faint"># </span>
                   {e.command}
                 </div>

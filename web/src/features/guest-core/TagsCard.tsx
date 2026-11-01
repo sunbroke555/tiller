@@ -9,6 +9,7 @@ import { FieldInput, FormDialog, FormField } from '@/components/form'
 import { GlassCard } from '@/components/GlassCard'
 import { runTask } from '@/components/tasks/tracker'
 import { Button } from '@/components/ui/button'
+import { useOpenSnapshot } from '@/hooks/useOpenSnapshot'
 import { configUpdateParams } from '@/lib/propstring'
 
 import { CardAction, CardTitle } from './parts'
@@ -56,7 +57,7 @@ function TagsDialog({
   type,
   vmid,
   name,
-  config,
+  config: liveConfig,
   fallback,
 }: {
   open: boolean
@@ -68,6 +69,8 @@ function TagsDialog({
   config: GuestConfig | undefined
   fallback: string | undefined
 }) {
+  // Config and digest as of opening: a concurrent edit is rejected, not undone.
+  const config = useOpenSnapshot(open, liveConfig)
   const style = useTagStyle()
   const { data: options } = useClusterOptions()
   const session = useSession()

@@ -60,7 +60,12 @@ export function App() {
         <TooltipProvider delayDuration={300}>
           <SessionEffects queryClient={queryClient} />
           <RouterProvider router={router} />
-          <Toaster position="top-center" />
+          {/* Below the notch / Dynamic Island in the installed PWA (viewport-fit=cover). */}
+          <Toaster
+            position="top-center"
+            offset={{ top: 'max(24px, env(safe-area-inset-top))' }}
+            mobileOffset={{ top: 'max(16px, env(safe-area-inset-top))' }}
+          />
         </TooltipProvider>
       </QueryClientProvider>
     </ThemeProvider>

@@ -99,7 +99,7 @@ export function ChoiceCards<V extends string>({
                 className={cn(
                   'mt-0.5 inline-flex shrink-0 [&_svg]:size-5',
                   size === 'sm' && 'mt-0',
-                  checked ? 'text-brand paper:text-primary' : 'text-muted-foreground',
+                  checked ? 'text-brand-strong paper:text-primary' : 'text-muted-foreground',
                 )}
                 aria-hidden
               >
@@ -158,7 +158,7 @@ export function ChipToggles({
                 : 'border-input bg-(--field) text-muted-foreground hover:text-foreground',
             )}
           >
-            {on && <Check className="size-3.5 text-brand paper:text-primary" aria-hidden />}
+            {on && <Check className="size-3.5 text-brand-strong paper:text-primary" aria-hidden />}
             {o}
           </button>
         )
@@ -371,7 +371,7 @@ export function ComboboxField({
       </PopoverTrigger>
       <PopoverContent align="start" className="w-(--radix-popover-trigger-width) min-w-64 p-0">
         <Command>
-          <CommandInput placeholder={searchPlaceholder} className="text-base md:text-sm" />
+          <CommandInput placeholder={searchPlaceholder} />
           <CommandList className="max-h-[min(20rem,50dvh)]">
             <CommandEmpty>没有匹配项</CommandEmpty>
             {groups.map(([group, items]) => (
@@ -413,7 +413,7 @@ export function TemplateShortcut({ type }: { type: GuestType }) {
   return (
     <div className="flex flex-col gap-2.5 rounded-xl border border-dashed border-input px-3.5 py-3 sm:flex-row sm:items-center">
       <div className="flex min-w-0 flex-1 items-start gap-2.5">
-        <Copy className="mt-0.5 size-4 shrink-0 text-brand paper:text-primary" aria-hidden />
+        <Copy className="mt-0.5 size-4 shrink-0 text-brand-strong paper:text-primary" aria-hidden />
         <p className="text-sm text-muted-foreground">
           <span className="text-foreground">从模板克隆更快：</span>打开模板后点“克隆”即可。
         </p>
