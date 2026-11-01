@@ -6,6 +6,7 @@
 // A section component owns everything below /datacenter/<id>/ — use nested
 // <Routes> or the `*` splat for sub-pages (e.g. firewall/rules, firewall/ipset).
 
+import { lazy } from 'react'
 import {
   Archive,
   Bell,
@@ -41,7 +42,17 @@ export interface DatacenterSectionDef extends TabDef<DatacenterSectionProps> {
 export const datacenterSections: DatacenterSectionDef[] = [
   // Phase 2
   { id: 'storage', title: '存储配置', hint: '添加 NFS、CIFS、PBS 等存储', icon: HardDrive, order: 10, phase: 2, component: comingSoonTab('存储的添加、编辑、删除，以及内容类型和节点限制。', 2) },
-  { id: 'backup', title: '备份计划', hint: '定时备份任务', icon: Archive, order: 20, phase: 2, component: comingSoonTab('定时备份任务、保留策略和未备份的客户机。', 2) },
+  {
+    id: 'backup',
+    title: '备份计划',
+    hint: '定时备份任务',
+    icon: Archive,
+    order: 20,
+    phase: 2,
+    ready: true,
+    permission: { privs: 'Sys.Audit' },
+    component: lazy(() => import('@/features/backup-jobs/BackupJobsPage')),
+  },
   { id: 'replication', title: '存储复制', hint: 'ZFS 复制任务', icon: Repeat, order: 30, phase: 2, component: comingSoonTab('集群内的存储复制任务。', 2) },
   { id: 'firewall', title: '防火墙', hint: '规则、安全组、IPSet', icon: Shield, order: 40, phase: 2, component: comingSoonTab('数据中心防火墙规则、安全组、别名、IPSet 和选项。', 2) },
   // Phase 3
