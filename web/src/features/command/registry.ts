@@ -2,6 +2,7 @@
 // add a new area's list here once.
 
 import { consoleCommands } from '@/features/console/commands'
+import { guestBackupCommands } from '@/features/guest-backup/commands'
 import { guestCoreCommands } from '@/features/guest-core/commands'
 import { guestCreateCommands } from '@/features/guest-create/commands'
 import { guestLifecycleCommands } from '@/features/guest-lifecycle/commands'
@@ -13,6 +14,7 @@ import type { CommandDef, GlobalCommand, GuestCommand, NodeCommand } from './typ
 export const commands: CommandDef[] = [
   ...guestCoreCommands,
   ...consoleCommands,
+  ...guestBackupCommands,
   ...guestLifecycleCommands,
   ...guestCreateCommands,
   ...nodeSummaryCommands,
