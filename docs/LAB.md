@@ -84,6 +84,7 @@ qm start 101 2>/dev/null; pct start 200 2>/dev/null  # 101 和 200 应保持运�
 | storage | 3800–3899 |
 | shell-polish | 3900–3999 |
 | e2e-full | 4000–4999 |
+| replication（实验集群） | 5700–5799 |
 
 保留 VMID：100、101、200、9000（固定样例）。其他号段不要使用。
 
@@ -111,3 +112,4 @@ qm start 101 2>/dev/null; pct start 200 2>/dev/null  # 101 和 200 应保持运�
 - 样例客户机和用户与单机实验机相同（在 c1 上：100、101、200、9000 模板、`tester@pve`、`lab-pool`）。VMID 在整个集群内唯一，号段规则同上。
 - 回滚：在测试服务器上 `ssh pve5 'for i in 9901 9902 9903; do qm rollback $i fresh; qm start $i; done'`。
 - 重建：`~/pvelab-build/cluster/cluster-setup.sh`（需要先用自动安装 ISO 装好 3 台节点）。
+- 存储复制（`replication` 区，VMID 5700–5799）：c1、c2 的 `sdb` 上各有一个 ZFS 池 `e2erep`，集群存储 `e2e-rep`（zfspool，节点 pvelab-c1、pvelab-c2，content images,rootdir）。由 `e2e/tests/replication.spec.ts` 按需创建（幂等），测试结束后**保留**，留给后续阶段（HA、迁移）使用；`sdc` 保持空白。不需要时：`pvesm remove e2e-rep`，再在 c1、c2 上 `zpool destroy e2erep && wipefs -a /dev/sdb`。

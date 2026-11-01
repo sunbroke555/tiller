@@ -101,7 +101,7 @@ export const nodeTabs: NodeTabDef[] = [
   { id: 'disks', title: '磁盘', icon: HardDrive, order: 90, component: comingSoonTab('磁盘列表、SMART、LVM / ZFS / 目录存储创建。', 2) },
   { id: 'updates', title: '更新', icon: Download, order: 100, component: comingSoonTab('软件包更新、changelog 和软件源。', 2) },
   { id: 'firewall', title: '防火墙', icon: Shield, order: 110, component: comingSoonTab('节点防火墙规则、选项和日志。', 2) },
-  { id: 'replication', title: '复制', icon: Repeat, order: 120, component: comingSoonTab('本节点的存储复制任务。', 2) },
+  { id: 'replication', title: '复制', icon: Repeat, order: 120, component: lazy(() => import('@/features/replication/NodeReplicationTab')) },
 ]
 
 export const nodeActions: NodeActionDef[] = [...nodeSummaryActions, ...consoleNodeActions, ...nodeBulkActions]
