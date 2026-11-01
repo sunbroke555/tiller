@@ -75,7 +75,7 @@ export function InstallWizard({ initialNode, base }: { initialNode?: string | un
 
   return (
     <div className="grid min-w-0 gap-(--section-gap)" data-testid="ceph-install-wizard">
-      <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm" aria-label="安装步骤">
+      <ol className="flex items-center gap-x-2 gap-y-1 text-sm" aria-label="安装步骤">
         {STEPS.map((s, i) => (
           <li key={s} className="flex items-center gap-2" aria-current={i === step ? 'step' : undefined}>
             <span
@@ -86,7 +86,7 @@ export function InstallWizard({ initialNode, base }: { initialNode?: string | un
             >
               {i < step ? <Check className="size-3.5" aria-hidden /> : i + 1}
             </span>
-            <span className={cn(i === step ? 'font-medium' : 'text-muted-foreground')}>{s}</span>
+            <span className={cn(i === step ? 'font-medium' : 'sr-only text-muted-foreground sm:not-sr-only')}>{s}</span>
             {i < STEPS.length - 1 && <span className="mx-1 h-px w-4 bg-border sm:w-8" aria-hidden />}
           </li>
         ))}

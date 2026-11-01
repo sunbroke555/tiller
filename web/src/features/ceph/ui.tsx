@@ -119,9 +119,9 @@ export function Section({
     <GlassCard flush className={cn('min-w-0 overflow-hidden', className)} {...rest}>
       <section aria-label={typeof title === 'string' ? title : undefined}>
         <div className="flex min-h-12 items-center gap-2 border-b border-border/60 px-4 py-1.5">
-          <h2 className="min-w-0 flex-1 truncate text-sm font-medium">
-            {title}
-            {count !== undefined && <span className="ml-1.5 text-muted-foreground tabular">{count}</span>}
+          <h2 className="flex min-w-0 flex-1 items-center gap-1.5 text-sm font-medium">
+            <span className="min-w-0 truncate">{title}</span>
+            {count !== undefined && <span className="shrink-0 text-muted-foreground tabular">{count}</span>}
           </h2>
           {actions}
         </div>

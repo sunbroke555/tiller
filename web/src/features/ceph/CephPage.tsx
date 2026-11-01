@@ -4,7 +4,7 @@
 // one node with Ceph installed (useCephNodes); services are managed on the
 // node they run on.
 
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { Database, Download, TriangleAlert } from 'lucide-react'
 
@@ -135,8 +135,13 @@ function ViewBody({ view, apiNode, children }: { view: View; apiNode: string; ch
 }
 
 function CephNav({ view }: { view: View }) {
+  const ref = useRef<HTMLElement>(null)
+  // Phones: keep the current view's tab visible in the scrolling bar.
+  useEffect(() => {
+    ref.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [view])
   return (
-    <nav aria-label="Ceph" className="-mx-1 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none]">
+    <nav ref={ref} aria-label="Ceph" className="-mx-1 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none]">
       <ul className="flex w-max gap-1 rounded-xl bg-secondary/60 p-1 paper:bg-secondary">
         {VIEWS.map((v) => (
           <li key={v.id}>

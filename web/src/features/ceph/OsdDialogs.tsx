@@ -66,10 +66,10 @@ export function CreateOsdDialog({ apiNode, defaultNode, open, onOpenChange }: Di
 
   useEffect(() => {
     if (open) {
-      setNode(defaultNode)
+      setNode(defaultNode ?? apiNode)
       setForm(EMPTY_FORM)
     }
-  }, [open, defaultNode])
+  }, [open, defaultNode, apiNode])
   // Another node: its disks differ.
   useEffect(() => setForm((f) => ({ ...f, dev: '', dbDev: '', walDev: '' })), [node])
 

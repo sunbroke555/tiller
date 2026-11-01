@@ -179,7 +179,7 @@ export function ServicesView({ apiNode, host, types = ['mon', 'mgr', 'mds'] }: {
 
       <CreateServiceDialog
         type={shown?.kind === 'create' ? shown.type : 'mon'}
-        defaultNode={host}
+        defaultNode={host ?? apiNode}
         open={dialog?.kind === 'create'}
         onOpenChange={(o) => !o && setDialog(null)}
       />
