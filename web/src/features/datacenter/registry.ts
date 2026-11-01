@@ -54,7 +54,7 @@ export const datacenterSections: DatacenterSectionDef[] = [
     component: lazy(() => import('@/features/backup-jobs/BackupJobsPage')),
   },
   { id: 'replication', title: '存储复制', hint: 'ZFS 复制任务', icon: Repeat, order: 30, phase: 2, ready: true, component: lazy(() => import('@/features/replication/ReplicationPage')) },
-  { id: 'firewall', title: '防火墙', hint: '规则、安全组、IPSet', icon: Shield, order: 40, phase: 2, component: comingSoonTab('数据中心防火墙规则、安全组、别名、IPSet 和选项。', 2) },
+  { id: 'firewall', title: '防火墙', hint: '规则、安全组、IPSet', icon: Shield, order: 40, phase: 2, ready: true, permission: { privs: 'Sys.Audit' }, component: lazy(() => import('@/features/firewall/DatacenterFirewallPage')) },
   // Phase 3
   { id: 'users', title: '用户与令牌', hint: '用户、组、API 令牌、两步验证', icon: Users, order: 50, phase: 3, component: comingSoonTab('用户、组、API 令牌和两步验证。', 3) },
   { id: 'permissions', title: '权限与认证', hint: '角色、ACL、认证域、资源池', icon: KeyRound, order: 60, phase: 3, component: comingSoonTab('角色、权限（ACL）、认证域和同步。', 3) },

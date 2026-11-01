@@ -166,7 +166,8 @@ export const guestTabs: GuestTabDef[] = [
     icon: Shield,
     order: 110,
     types: BOTH,
-    component: comingSoonTab('客户机防火墙规则、选项、别名、IPSet 和日志。', 2),
+    permission: { privs: 'VM.Audit' },
+    component: lazy(() => import('@/features/firewall/GuestFirewallTab')),
   },
   {
     id: 'permissions',

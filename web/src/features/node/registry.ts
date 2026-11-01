@@ -117,7 +117,14 @@ export const nodeTabs: NodeTabDef[] = [
     permission: { privs: 'Sys.Audit' },
     component: lazy(() => import('@/features/node-updates/UpdatesTab')),
   },
-  { id: 'firewall', title: '防火墙', icon: Shield, order: 110, component: comingSoonTab('节点防火墙规则、选项和日志。', 2) },
+  {
+    id: 'firewall',
+    title: '防火墙',
+    icon: Shield,
+    order: 110,
+    permission: { privs: 'Sys.Audit' },
+    component: lazy(() => import('@/features/firewall/NodeFirewallTab')),
+  },
   { id: 'replication', title: '复制', icon: Repeat, order: 120, component: lazy(() => import('@/features/replication/NodeReplicationTab')) },
 ]
 
