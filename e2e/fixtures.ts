@@ -26,7 +26,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { test as base, expect, request, type APIRequestContext, type Browser } from '@playwright/test'
+import { execFile } from 'node:child_process'
+
+import { test as base, expect, request, type APIRequestContext, type Browser, type Locator, type Page } from '@playwright/test'
 
 export { expect }
 
@@ -39,6 +41,35 @@ export const env = {
   testerUser: process.env.PVE_LAB_TESTER_USER ?? 'tester@pve',
   testerPassword: process.env.PVE_LAB_TESTER_PASSWORD ?? '',
   node: process.env.PVE_LAB_NODE ?? 'pve-lab',
+}
+
+/** Nodes of the lab (PVE_LAB_NODES on the cluster, else the single PVE_LAB_NODE). */
+export const labNodes = (process.env.PVE_LAB_NODES ?? env.node).split(/[\s,]+/).filter(Boolean)
+
+/**
+ * Run a shell command as root on a lab node over SSH from the test server
+ * (setup the API cannot do, e.g. a directory on the host). Defaults to the
+ * node the app talks to; PVE_LAB_NODE_IPS maps cluster nodes to addresses.
+ */
+export function labSsh(cmd: string, node = env.node): Promise<void> {
+  const ips = (process.env.PVE_LAB_NODE_IPS ?? '').split(/[\s,]+/).filter(Boolean)
+  const host = ips[labNodes.indexOf(node)] ?? (node === env.node ? process.env.PVE_LAB_HOST : undefined)
+  if (!host) return Promise.reject(new Error(`不知道实验节点 ${node} 的地址（PVE_LAB_HOST / PVE_LAB_NODE_IPS）`))
+  const args = ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=5', '-o', 'StrictHostKeyChecking=accept-new', `root@${host}`, cmd]
+  return new Promise((resolve, reject) => execFile('ssh', args, { timeout: 15_000 }, (err) => (err ? reject(err) : resolve())))
+}
+
+/**
+ * Pick `option` (its label) in a select field: waits until the options have
+ * loaded, opens it and clicks the option. Tests that depend on a value (e.g.
+ * the storage local-lvm) choose it instead of relying on the preselection,
+ * which follows the lab's state (first storage by name, like the official UI).
+ */
+export async function chooseOption(page: Page, combobox: Locator, option: string) {
+  await expect(combobox).toBeEnabled()
+  await combobox.click()
+  await page.getByRole('option').filter({ has: page.getByText(option, { exact: true }) }).click()
+  await expect(combobox).toContainText(option)
 }
 
 export function splitUser(user: string): { username: string; realm: string } {

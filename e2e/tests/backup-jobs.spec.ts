@@ -159,7 +159,12 @@ test.describe('backup jobs on the lab', { tag: '@lab' }, () => {
     await page.goto(`/datacenter/backup/${id}`)
     await page.getByRole('toolbar', { name: '计划操作' }).getByRole('button', { name: '立即运行' }).click()
     const confirm = page.getByRole('alertdialog')
-    await expect(confirm).toContainText(`在节点 ${pve.node} 上开始备份任务`)
+    // The job has no node restriction: like the official UI, it starts on every online node.
+    const online = (await pve.get<{ node: string; status: string }[]>('/nodes'))
+      .filter((n) => n.status === 'online')
+      .map((n) => n.node)
+      .sort()
+    await expect(confirm).toContainText(`在节点 ${online.join('、')} 上开始备份任务`)
     await confirm.getByRole('button', { name: '立即运行' }).click()
     await expect(confirm).toBeHidden()
 

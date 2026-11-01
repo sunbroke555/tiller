@@ -28,6 +28,29 @@ async function ensureFixtureVm(pve: PveApi) {
   await pve.waitForGuest(VMID, (g) => g.name === 'e2e-shell-polish')
 }
 
+interface StatusEntry {
+  type: 'cluster' | 'node'
+  name: string
+  online?: number
+  quorate?: number
+}
+
+/** The health card's cluster line and node count, from /cluster/status (single node or cluster). */
+async function expectClusterHealth(page: Page, pve: PveApi) {
+  const status = await pve.get<StatusEntry[]>('/cluster/status')
+  const cluster = status.find((e) => e.type === 'cluster')
+  const nodes = status.filter((e) => e.type === 'node')
+  const health = page.locator('[aria-labelledby="dc-health"]')
+  if (cluster) {
+    await expect(health.getByText(`集群 ${cluster.name}`, { exact: true })).toBeVisible()
+    await expect(health).toContainText(cluster.quorate ? '正常（Quorate）' : '已失去法定人数')
+  } else {
+    await expect(health.getByText('单节点，未组建集群')).toBeVisible()
+  }
+  await expect(health).toContainText(`${nodes.filter((n) => n.online === 1).length} / ${nodes.length} 在线`)
+  return health
+}
+
 async function removeFixtures(pve: PveApi) {
   await pve.destroyGuest(VMID)
   try {
@@ -48,8 +71,10 @@ test.describe('datacenter, pools and tags', { tag: '@lab' }, () => {
   test('datacenter summary shows health, guests, nodes and subscriptions', async ({ page, pve }) => {
     await page.goto('/datacenter')
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('数据中心')
-    await expect(page.getByText('运行正常')).toBeVisible()
-    await expect(page.getByText('单节点，未组建集群')).toBeVisible()
+    const health = await expectClusterHealth(page, pve)
+    // With Ceph, the ceph spec sets noout (HEALTH_WARN → 需要关注) while it runs in parallel.
+    const ceph = await pve.get('/cluster/ceph/status').then(() => true, () => false)
+    await expect(health.getByText(ceph ? /^(运行正常|需要关注)$/ : /^运行正常$/)).toBeVisible()
     const nodes = page.locator('section[aria-labelledby="dc-nodes"]')
     await expect(nodes.getByRole('link', { name: pve.node }).first()).toBeVisible()
     await expect(page.getByText('没有有效订阅')).toBeVisible()
@@ -181,7 +206,8 @@ test('datacenter: per-type template links and the storages counted in the total'
   await expect(usage.getByText(/^存储 · \d+ 个$/)).toBeVisible()
   await usage.getByRole('button', { name: '选择存储' }).click()
   const dlg = page.getByRole('dialog', { name: '计入总量的存储' })
-  const lvm = dlg.getByRole('checkbox', { name: /^local-lvm/ })
+  // On a cluster every node has its own local-lvm ("local-lvm <node>").
+  const lvm = dlg.getByRole('checkbox', { name: new RegExp(`^local-lvm( ${pve.node})?$`) })
   await expect(lvm).toBeChecked()
   await lvm.click()
   await expect(lvm).not.toBeChecked()
@@ -390,7 +416,7 @@ test('phone: datacenter, pools and tag chips (lab samples)', { tag: '@mobile' },
   const guests = await pve.guests()
   await page.goto('/datacenter')
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('数据中心')
-  await expect(page.getByText('单节点，未组建集群')).toBeVisible()
+  await expectClusterHealth(page, pve)
   await expect(page.getByRole('meter', { name: 'CPU' })).toBeVisible()
 
   const pooled = guests.find((g) => g.pool === 'lab-pool')

@@ -1,16 +1,15 @@
-import { execFile } from 'node:child_process'
-
 import type { Page } from '@playwright/test'
 
-import { expect, test, type PveApi } from '../fixtures'
+import { expect, labSsh, test, type PveApi } from '../fixtures'
 import { mockMappingApi } from './resource-mappings.mocks'
 
 // Area resource-mappings: PCI / USB / directory mappings and custom CPU
 // models (/datacenter/mappings/{pci,usb,dir,cpu}).
 //
 // Lab tests (@lab, desktop) create mappings and CPU models named e2e-rm-*
-// on the single-node lab, using its real (virtio) PCI devices, the QEMU USB
-// tablet and the directory /var/lib/e2e-rm-dir (made over `ssh pvelab`).
+// for the lab node the app talks to (PVE_LAB_NODE; on the cluster the dialog
+// preselects it), using its real (virtio) PCI devices, the QEMU USB tablet
+// and the directory /var/lib/e2e-rm-dir (made over SSH, see labSsh).
 // Everything e2e-rm-* is removed before and after. Phone tests (@mobile)
 // only check layout, with page.route() mocks (GPUs, mdev, USB devices).
 
@@ -24,11 +23,8 @@ interface Mapping {
   'live-migration-capable'?: number
 }
 
-function ssh(cmd: string): Promise<void> {
-  return new Promise((resolve, reject) =>
-    execFile('ssh', ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=5', 'pvelab', cmd], { timeout: 15_000 }, (err) => (err ? reject(err) : resolve())),
-  )
-}
+/** On the node the app talks to (pve.node), single lab or cluster. */
+const ssh = (cmd: string) => labSsh(cmd)
 
 async function sweep(pve: PveApi) {
   for (const kind of ['pci', 'usb', 'dir']) {

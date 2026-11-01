@@ -1,4 +1,6 @@
-import { expect, test, type Page, type PveApi } from '../fixtures'
+import type { Page } from '@playwright/test'
+
+import { expect, test, type PveApi } from '../fixtures'
 import { mockSdn } from './sdn.mocks'
 
 // Areas sdn + sdn-fabrics: /datacenter/sdn.

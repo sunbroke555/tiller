@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test'
 
-import { expect, test, type PveApi } from '../fixtures'
+import { chooseOption, expect, test, type PveApi } from '../fixtures'
 
 // Area qemu-config: VM hardware, options, Cloud-Init and monitor, against the
 // lab. Every @lab test (desktop) creates its own tiny VM in the area's VMID
@@ -87,7 +87,7 @@ test.describe('qemu-config', { tag: '@lab' }, () => {
     await panel.getByRole('button', { name: '添加硬件' }).click()
     await dialog(page, '添加硬件').getByRole('button', { name: /^硬盘/ }).click()
     d = dialog(page, '添加硬盘')
-    await expect(d.getByRole('combobox', { name: '存储' })).toContainText('local-lvm')
+    await chooseOption(page, d.getByRole('combobox', { name: '存储' }), 'local-lvm')
     await d.getByRole('textbox', { name: '大小' }).fill('1')
     await d.getByRole('button', { name: '添加' }).click()
     await expect(d).toBeHidden()
@@ -242,7 +242,7 @@ test.describe('qemu-config', { tag: '@lab' }, () => {
     await expect(panel).toContainText('没有 Cloud-Init 驱动器')
     await panel.getByRole('button', { name: '添加 Cloud-Init 驱动器' }).click()
     let d = dialog(page, '添加 Cloud-Init 驱动器')
-    await expect(d.getByRole('combobox', { name: '存储' })).toContainText('local-lvm')
+    await chooseOption(page, d.getByRole('combobox', { name: '存储' }), 'local-lvm')
     await d.getByRole('button', { name: '添加' }).click()
     await expect(d).toBeHidden()
     await expectConfig(pve, vmid, (c) => /vm-\d+-cloudinit/.test(String(c.ide0)), 'cloud-init drive on ide0')

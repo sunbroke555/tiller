@@ -190,7 +190,7 @@ export function MappingDialog({
           </FormField>
         ) : (
           <FormField label="节点" name="node" required error={errors.node} hint={configured.length ? `已映射：${configured.join('、')}` : undefined}>
-            <NodeSelect value={f.node} onValueChange={(node) => set({ node, pciPaths: [] })} exclude={configured} />
+            <NodeSelect value={f.node} onValueChange={(node) => set({ node, pciPaths: [] })} exclude={configured} preferLocal />
           </FormField>
         ))}
 

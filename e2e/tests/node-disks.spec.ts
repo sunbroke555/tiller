@@ -6,13 +6,21 @@ import { expect, test, type PveApi } from '../fixtures'
 // directory / ZFS storages on unused disks.
 //
 // Lab writes (@lab, desktop) only touch node pvelab-c3 of the 3-node lab
-// cluster and only its two blank 16 GiB disks /dev/sdb and /dev/sdc (never
-// sda, the OS disk; the replication area uses the blank disks of c1 / c2).
-// Storages are named e2e-disks-*; afterAll destroys leftovers with cleanup
-// and wipes sdb / sdc so they are blank again. Phone checks use mocks.
+// cluster and only its two blank 16 GiB test disks /dev/sdc and /dev/sdd
+// (never sda, the OS disk, nor sdb, a Ceph OSD; the replication area uses
+// the blank disks of c1 / c2). Before anything is written, assertTargets
+// checks that both are exactly those disks and completely unused, and
+// refuses otherwise. Storages are named e2e-disks-*; beforeAll / afterAll
+// destroy leftovers with cleanup and wipe sdc / sdd so they are blank again.
+// Phone checks use mocks.
 
 const NODE = 'pvelab-c3'
-const TARGETS = ['/dev/sdb', '/dev/sdc'] as const
+/** The test disks: device and QEMU serial (identifies the virtual disk). */
+const TARGETS = [
+  { dev: '/dev/sdc', serial: 'drive-scsi2' },
+  { dev: '/dev/sdd', serial: 'drive-scsi3' },
+] as const
+const [DISK_A, DISK_B] = [TARGETS[0].dev, TARGETS[1].dev]
 const SIZE_16G = 16 * 1024 ** 3
 const PREFIX = 'e2e-disks-'
 
@@ -22,27 +30,77 @@ const diskRow = (page: Page, devpath: string) => panel(page).getByRole('button',
 interface Disk {
   devpath: string
   size: number
+  serial?: string
+  by_id_link?: string
   gpt?: number
   used?: string
   parent?: string
+  mounted?: number
+  osdid?: number | string
+  'osdid-list'?: (number | string)[] | null
+  bluestore?: number
+  db?: number
+  wal?: number
+  journals?: number
 }
 
 async function disks(pve: PveApi) {
   return pve.get<Disk[]>(`/nodes/${NODE}/disks/list`, { 'include-partitions': 1, skipsmart: 1 })
 }
 
-/** Refuse to write unless sdb / sdc on c3 are the lab's 16 GiB data disks. */
+async function hasNode(pve: PveApi) {
+  return (await pve.get<{ node: string }[]>('/nodes')).some((n) => n.node === NODE)
+}
+
+interface Vdev {
+  name?: string
+  children?: Vdev[]
+}
+
+/** Every name in a ZFS pool's vdev tree. */
+const vdevNames = (v: Vdev): string[] => [v.name ?? '', ...(v.children ?? []).flatMap(vdevNames)]
+
+/**
+ * Refuse to write unless sdc / sdd on c3 are the lab's 16 GiB test disks
+ * (size and QEMU serial) and completely unused: no `used` value, not
+ * mounted, no partitions, no Ceph OSD, not a physical volume of any LVM
+ * volume group and not in any ZFS pool. A GPT label without partitions is
+ * allowed (an interrupted GPT test leaves one).
+ */
 async function assertTargets(pve: PveApi) {
-  const nodes = await pve.get<{ node: string }[]>('/nodes')
-  test.skip(!nodes.some((n) => n.node === NODE), `实验集群里没有 ${NODE}（需要 lab-cluster.env）`)
   const list = await disks(pve)
-  for (const dev of TARGETS) {
-    const d = list.find((x) => x.devpath === dev)
-    if (!d || d.size !== SIZE_16G) throw new Error(`${NODE} 上的 ${dev} 不是 16G 测试盘，拒绝写入`)
+  const lvm = await pve.get<{ children?: { name: string; children?: { name: string }[] }[] }>(`/nodes/${NODE}/disks/lvm`)
+  const pvs = (lvm.children ?? []).flatMap((vg) => (vg.children ?? []).map((pv) => ({ vg: vg.name, pv: pv.name })))
+  const pools: { pool: string; names: string[] }[] = []
+  for (const z of await pve.get<{ name: string }[]>(`/nodes/${NODE}/disks/zfs`)) {
+    pools.push({ pool: z.name, names: vdevNames(await pve.get<Vdev>(`/nodes/${NODE}/disks/zfs/${z.name}`)) })
+  }
+  for (const { dev, serial } of TARGETS) {
+    const refuse = (why: string): never => {
+      throw new Error(`拒绝写入 ${NODE}:${dev}：${why}`)
+    }
+    const d = list.find((x) => x.devpath === dev) ?? refuse('磁盘不存在')
+    if (d.size !== SIZE_16G) refuse(`不是 16G 测试盘（${d.size} 字节）`)
+    if (d.serial !== serial) refuse(`序列号是 ${d.serial ?? '无'}，应为 ${serial}`)
+    if (d.used) refuse(`正在使用（${d.used}）`)
+    if (d.mounted) refuse('已挂载')
+    const parts = list.filter((x) => x.parent === dev)
+    if (parts.length) refuse(`有分区 ${parts.map((x) => x.devpath).join(', ')}`)
+    const osds = [d.osdid, ...(d['osdid-list'] ?? [])].filter((id) => id !== undefined && String(id) !== '-1')
+    if (osds.length || d.bluestore || d.db || d.wal || d.journals) refuse(`属于 Ceph OSD ${osds.join(', ')}`)
+    const pv = pvs.find((x) => x.pv.startsWith(dev))
+    if (pv) refuse(`是卷组 ${pv.vg} 的物理卷 ${pv.pv}`)
+    const base = dev.replace('/dev/', '')
+    const ids = [serial, d.by_id_link?.replace(/^.*\//, '')].filter((x): x is string => !!x)
+    const pool = pools.find((p) => p.names.some((n) => n.replace('/dev/', '').startsWith(base) || ids.some((id) => n.includes(id))))
+    if (pool) refuse(`属于 ZFS 池 ${pool.pool}`)
   }
 }
 
-/** Destroy e2e-disks-* storages (with cleanup) and wipe sdb / sdc. */
+/**
+ * Destroy e2e-disks-* storages (with cleanup), then wipe sdc / sdd, but only
+ * after assertTargets passed: a disk that is in use is never wiped.
+ */
 async function resetDisks(pve: PveApi) {
   const base = `/nodes/${NODE}/disks`
   const cleanup = { 'cleanup-disks': 1, 'cleanup-config': 1 }
@@ -63,7 +121,8 @@ async function resetDisks(pve: PveApi) {
   for (const s of await pve.get<{ storage: string }[]>('/storage')) {
     if (s.storage.startsWith(PREFIX)) await pve.del(`/storage/${s.storage}`)
   }
-  for (const dev of TARGETS) await pve.run('PUT', `${base}/wipedisk`, { disk: dev })
+  await assertTargets(pve)
+  for (const { dev } of TARGETS) await pve.run('PUT', `${base}/wipedisk`, { disk: dev })
 }
 
 async function waitDisk(pve: PveApi, devpath: string, match: (d: Disk | undefined) => boolean) {
@@ -90,12 +149,11 @@ async function destroyViaUi(page: Page, button: string, confirmText: string) {
 
 test.describe('node disks (lab)', { tag: '@lab' }, () => {
   test.beforeAll(async ({ pve }) => {
-    await assertTargets(pve)
+    test.skip(!(await hasNode(pve)), `实验集群里没有 ${NODE}（需要 lab-cluster.env）`)
     await resetDisks(pve)
   })
   test.afterAll(async ({ pve }) => {
-    const nodes = await pve.get<{ node: string }[]>('/nodes')
-    if (nodes.some((n) => n.node === NODE)) await resetDisks(pve)
+    if (await hasNode(pve)) await resetDisks(pve)
   })
 
   test('disk list, SMART, initialise GPT and wipe', async ({ page, pve }) => {
@@ -104,27 +162,27 @@ test.describe('node disks (lab)', { tag: '@lab' }, () => {
     const list = panel(page).getByRole('list', { name: '磁盘' })
     await expect(list).toContainText('/dev/sda')
     await expect(panel(page).getByRole('list', { name: '/dev/sda 的分区' })).toContainText('/dev/sda3')
-    await expect(diskRow(page, '/dev/sdb')).toContainText('未使用')
+    await expect(diskRow(page, DISK_A)).toContainText('未使用')
 
-    await diskRow(page, '/dev/sdb').click()
-    const dialog = page.getByRole('dialog', { name: '/dev/sdb' })
-    await expect(dialog.getByRole('group', { name: '序列号' })).toContainText('drive-scsi1')
+    await diskRow(page, DISK_A).click()
+    const dialog = page.getByRole('dialog', { name: DISK_A })
+    await expect(dialog.getByRole('group', { name: '序列号' })).toContainText(TARGETS[0].serial)
     // QEMU disks report SMART as text.
     await expect(dialog.getByRole('region', { name: 'S.M.A.R.T. 值' })).toContainText('Temperature')
     await expect(dialog.getByRole('group', { name: 'GPT' })).toContainText('否')
 
     await dialog.getByRole('button', { name: '初始化 GPT' }).click()
-    const gpt = page.getByRole('alertdialog', { name: '初始化 /dev/sdb？' })
+    const gpt = page.getByRole('alertdialog', { name: `初始化 ${DISK_A}？` })
     await gpt.getByRole('button', { name: '初始化' }).click()
-    await waitDisk(pve, '/dev/sdb', (d) => d?.gpt === 1)
+    await waitDisk(pve, DISK_A, (d) => d?.gpt === 1)
     await expect(dialog.getByRole('group', { name: 'GPT' })).toContainText('是', { timeout: 30_000 })
 
     await dialog.getByRole('button', { name: '擦除磁盘' }).click()
-    const wipe = page.getByRole('alertdialog', { name: '擦除 /dev/sdb？' })
+    const wipe = page.getByRole('alertdialog', { name: `擦除 ${DISK_A}？` })
     await expect(wipe.getByRole('button', { name: '擦除' })).toBeDisabled()
-    await wipe.getByRole('textbox').fill('/dev/sdb')
+    await wipe.getByRole('textbox').fill(DISK_A)
     await wipe.getByRole('button', { name: '擦除' }).click()
-    await waitDisk(pve, '/dev/sdb', (d) => !d?.gpt)
+    await waitDisk(pve, DISK_A, (d) => !d?.gpt)
     await expect(dialog.getByRole('group', { name: 'GPT' })).toContainText('否', { timeout: 30_000 })
   })
 
@@ -141,10 +199,10 @@ test.describe('node disks (lab)', { tag: '@lab' }, () => {
     await dialog.getByRole('combobox', { name: '压缩' }).click()
     await page.getByRole('option', { name: 'lz4', exact: true }).click()
     const create = dialog.getByRole('button', { name: '创建', exact: true })
-    await dialog.getByRole('checkbox', { name: /\/dev\/sdb/ }).click()
+    await dialog.getByRole('checkbox', { name: new RegExp(DISK_A) }).click()
     await expect(dialog).toContainText('至少需要 2 块')
     await expect(create).toBeDisabled()
-    await dialog.getByRole('checkbox', { name: /\/dev\/sdc/ }).click()
+    await dialog.getByRole('checkbox', { name: new RegExp(DISK_B) }).click()
     await expect(dialog.getByRole('checkbox', { name: '添加为存储' })).toBeChecked()
 
     const request = page.waitForRequest((r) => r.method() === 'POST' && r.url().endsWith(`/nodes/${NODE}/disks/zfs`))
@@ -153,7 +211,7 @@ test.describe('node disks (lab)', { tag: '@lab' }, () => {
     expect(Object.fromEntries(body)).toMatchObject({
       name,
       raidlevel: 'mirror',
-      devices: '/dev/sdb,/dev/sdc',
+      devices: `${DISK_A},${DISK_B}`,
       compression: 'lz4',
       ashift: '12',
       add_storage: '1',
@@ -168,7 +226,7 @@ test.describe('node disks (lab)', { tag: '@lab' }, () => {
     const vdevs = detail.getByRole('list', { name: 'vdev' })
     await expect(vdevs).toContainText('mirror-0')
     await expect(vdevs.getByRole('listitem')).toHaveCount(4)
-    await expect(vdevs).toContainText('drive-scsi1')
+    await expect(vdevs).toContainText(TARGETS[0].serial)
     await expect(detail.getByRole('group', { name: '健康' })).toContainText('ONLINE')
     await expect(detail.getByRole('group', { name: '错误', exact: true })).toContainText('No known data errors')
     await page.keyboard.press('Escape')
@@ -182,28 +240,28 @@ test.describe('node disks (lab)', { tag: '@lab' }, () => {
   test('LVM, LVM-Thin and directory: create and destroy', async ({ page, pve }) => {
     test.setTimeout(240_000)
 
-    // LVM volume group on sdb (without storage).
+    // LVM volume group on the first disk (without storage).
     const vg = `${PREFIX}vg`
     await page.goto(`/node/${NODE}/disks?view=lvm`)
     await panel(page).getByRole('button', { name: '创建卷组' }).click()
     let dialog = page.getByRole('dialog', { name: '创建 LVM 卷组' })
-    await pickDisk(page, dialog, '/dev/sdb')
+    await pickDisk(page, dialog, DISK_A)
     await dialog.getByLabel('名称').fill(vg)
     await dialog.getByRole('checkbox', { name: '添加为存储' }).click()
     await dialog.getByRole('button', { name: '创建', exact: true }).click()
     const vgs = panel(page).getByRole('list', { name: 'LVM 卷组' })
     await expect(vgs).toContainText(vg, { timeout: 60_000 })
-    await expect(panel(page).getByRole('list', { name: `${vg} 的物理卷` })).toContainText('/dev/sdb')
+    await expect(panel(page).getByRole('list', { name: `${vg} 的物理卷` })).toContainText(DISK_A)
     await destroyViaUi(page, `删除卷组 ${vg}`, vg)
     await expect(vgs).not.toContainText(vg, { timeout: 60_000 })
-    await waitDisk(pve, '/dev/sdb', (d) => !d?.used)
+    await waitDisk(pve, DISK_A, (d) => !d?.used)
 
-    // LVM-Thin pool on sdc, added as storage.
+    // LVM-Thin pool on the second disk, added as storage.
     const thin = `${PREFIX}thin`
     await page.goto(`/node/${NODE}/disks?view=lvmthin`)
     await panel(page).getByRole('button', { name: '创建 Thin 池' }).click()
     dialog = page.getByRole('dialog', { name: '创建 LVM-Thin 池' })
-    await pickDisk(page, dialog, '/dev/sdc')
+    await pickDisk(page, dialog, DISK_B)
     await dialog.getByLabel('名称').fill(thin)
     await dialog.getByRole('button', { name: '创建', exact: true }).click()
     const pools = panel(page).getByRole('list', { name: 'LVM-Thin 池' })
@@ -214,12 +272,12 @@ test.describe('node disks (lab)', { tag: '@lab' }, () => {
     await expect(pools).not.toContainText(thin, { timeout: 60_000 })
     await expect(pve.get(`/storage/${thin}`)).rejects.toThrow()
 
-    // Directory (xfs) on sdb, added as storage.
+    // Directory (xfs) on the first disk, added as storage.
     const dir = `${PREFIX}dir`
     await page.goto(`/node/${NODE}/disks?view=directory`)
     await panel(page).getByRole('button', { name: '创建目录' }).click()
     dialog = page.getByRole('dialog', { name: '创建目录存储' })
-    await pickDisk(page, dialog, '/dev/sdb')
+    await pickDisk(page, dialog, DISK_A)
     await dialog.getByLabel('名称').fill(dir)
     await expect(dialog).toContainText(`/mnt/pve/${dir}`)
     await dialog.getByRole('combobox', { name: '文件系统' }).click()

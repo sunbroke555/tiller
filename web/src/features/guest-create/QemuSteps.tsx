@@ -153,7 +153,7 @@ export function QemuGeneralStep({ form, set, onVmidValidity }: QemuStepProps & {
       <TemplateShortcut type="qemu" />
       <FormRow>
         <FormField label="节点" name="node" required>
-          <NodeSelect value={form.node} onValueChange={(node) => set({ node: node ?? '' })} />
+          <NodeSelect value={form.node} onValueChange={(node) => set({ node: node ?? '' })} preferLocal />
         </FormField>
         <FormField label="VM ID" name="vmid" required>
           <VmidInput value={form.vmid} onChange={(vmid) => set({ vmid })} onValidityChange={onVmidValidity} />

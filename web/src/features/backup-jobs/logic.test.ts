@@ -240,6 +240,9 @@ describe('run now', () => {
     expect(runNowTargets({ node: 'a' }, nodes)).toEqual({ nodes: ['a'], errors: [] })
     expect(runNowTargets({ node: 'b' }, nodes).nodes).toEqual([])
     expect(runNowTargets({}, nodes)).toEqual({ nodes: ['a'], errors: ['b：节点离线'] })
+    // Listed by name, whatever order /cluster/resources returns.
+    const cluster = ['c3', 'c1', 'c2'].map((node) => ({ node, status: 'online' }))
+    expect(runNowTargets({}, cluster).nodes).toEqual(['c1', 'c2', 'c3'])
   })
 })
 

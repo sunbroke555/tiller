@@ -66,7 +66,7 @@ for (const theme of THEMES) {
     }
 
     await page.goto('/storage')
-    await expect(page.getByRole('main').getByRole('link', { name: '存储 local', exact: true })).toBeVisible()
+    await expect(page.getByRole('main').getByRole('link', { name: new RegExp(`^存储 local(（${node}）)?$`) })).toBeVisible()
     await shot(page, `${theme}-list`, mobile)
 
     await page.goto(`/storage/${node}/local`)
