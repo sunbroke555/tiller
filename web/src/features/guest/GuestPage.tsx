@@ -77,12 +77,17 @@ export function GuestPage() {
 function GuestPageBody({ ctx, tabParam }: { ctx: GuestActionContext; tabParam: string | undefined }) {
   const { guest, type, vmid, node } = ctx
   const tabProps: GuestTabProps = { node, type, vmid, guest }
-  const tabs = sortByOrder(guestTabs.filter((t) => t.types.includes(type) && (t.visible?.(tabProps) ?? true)))
   const perms = usePermissions()
+  const target = { kind: 'guest', vmid, pool: guest.pool } as const
+  const tabs = sortByOrder(
+    guestTabs.filter(
+      (t) => t.types.includes(type) && (t.visible?.(tabProps) ?? true) && (!t.permission || perms.can(t.permission, target)),
+    ),
+  )
   const actions = visibleActions(
     guestActions.filter((a) => !a.types || a.types.includes(type)),
     ctx,
-    (a) => allowedFor(perms, a, ctx, { kind: 'guest', vmid, pool: guest.pool }),
+    (a) => allowedFor(perms, a, ctx, target),
   )
   const { trigger, host } = useActionRunner(ctx)
 

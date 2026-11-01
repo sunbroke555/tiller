@@ -88,7 +88,8 @@ function StorageDetailBody({ ctx, tabParam }: { ctx: StorageActionContext; tabPa
         eyebrow={
           <span className="inline-flex items-center gap-1.5">
             <ResourceIcon type="storage" className="size-3.5" />
-            存储 ·
+            <span>存储</span>
+            <span aria-hidden>·</span>
             <Link to={nodePath(node)} className="underline-offset-2 hover:text-foreground hover:underline">
               {node}
             </Link>

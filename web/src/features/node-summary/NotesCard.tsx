@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Eye, NotebookPen, Pencil } from 'lucide-react'
 
 import { nodeKeys, updateNodeNotes, useNodeConfig } from '@/api/node-summary'
+import { usePermissions } from '@/api/permissions'
 import { FieldTextarea, FormDialog, FormField } from '@/components/form'
 import { GlassCard } from '@/components/GlassCard'
 import { Markdown } from '@/components/Markdown'
@@ -15,6 +16,7 @@ import { cn } from '@/lib/utils'
 /** Node notes (Markdown, /nodes/{node}/config description) with an editor. */
 export function NotesCard({ node, className }: { node: string; className?: string }) {
   const config = useNodeConfig(node)
+  const canEdit = usePermissions().can({ privs: 'Sys.Modify' }, { kind: 'node', node })
   const [editing, setEditing] = useState(false)
   const text = config.data?.description ?? ''
 
@@ -22,16 +24,18 @@ export function NotesCard({ node, className }: { node: string; className?: strin
     <GlassCard className={cn('flex min-w-0 flex-col gap-3', className)} role="region" aria-label="备注">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-medium">备注</h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="-my-1 -mr-2 pointer-coarse:h-11"
-          onClick={() => setEditing(true)}
-          disabled={config.isPending}
-          aria-label="编辑备注"
-        >
-          <Pencil /> 编辑
-        </Button>
+        {canEdit && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="-my-1 -mr-2 pointer-coarse:h-11"
+            onClick={() => setEditing(true)}
+            disabled={config.isPending}
+            aria-label="编辑备注"
+          >
+            <Pencil /> 编辑
+          </Button>
+        )}
       </div>
       {config.isPending ? (
         <div className="grid gap-2">
@@ -44,6 +48,8 @@ export function NotesCard({ node, className }: { node: string; className?: strin
         <div className="max-h-80 overflow-y-auto overscroll-contain">
           <Markdown source={text} />
         </div>
+      ) : !canEdit ? (
+        <p className="text-sm text-muted-foreground">还没有备注。</p>
       ) : (
         <button
           type="button"

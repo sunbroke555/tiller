@@ -9,7 +9,7 @@ export default function SyslogTab({ node }: NodeTabProps) {
     <GlassCard className="flex flex-col">
       <JournalView
         node={node}
-        className="h-[calc(100dvh-36rem)] min-h-[17rem] lg:h-[calc(100dvh-15rem)] lg:min-h-[26rem]"
+        className="h-[calc(100dvh-25rem)] min-h-[17rem] lg:h-[calc(100dvh-15rem)] lg:min-h-[26rem]"
       />
     </GlassCard>
   )

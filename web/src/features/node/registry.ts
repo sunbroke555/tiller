@@ -44,6 +44,7 @@ export const nodeTabs: NodeTabDef[] = [
     icon: SquareTerminal,
     order: 20,
     visible: online,
+    permission: { privs: 'Sys.Console' },
     component: lazy(() => import('@/features/console/NodeShellTab')),
   },
   {
@@ -60,6 +61,7 @@ export const nodeTabs: NodeTabDef[] = [
     icon: FileText,
     order: 40,
     visible: online,
+    permission: { privs: 'Sys.Syslog' },
     component: lazy(() => import('@/features/node-summary/SyslogTab')),
   },
   {

@@ -126,7 +126,12 @@ export default function CreateLxcPage() {
   return (
     <Wizard
       title="创建容器"
-      eyebrow={<Box className="size-3.5" aria-hidden />}
+      eyebrow={
+        <>
+          <Box className="size-3.5" aria-hidden />
+          <span>新容器{form.node ? ` · ${form.node}` : ''}</span>
+        </>
+      }
       steps={LXC_STEPS.map((s) => ({ ...s, summary: sums[s.id], invalid: wizard.invalid.has(s.id) }))}
       index={wizard.index}
       canJumpTo={wizard.canJumpTo}

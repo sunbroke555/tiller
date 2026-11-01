@@ -40,16 +40,18 @@ function NetworkBody({ api }: { api: LxcConfigApi }) {
       <PendingBanner api={api} tab="network" />
       <section aria-labelledby="lxc-nics-heading" className="min-w-0">
         <SectionHeader title={<span id="lxc-nics-heading">网卡</span>} className="mb-2.5 min-h-9">
-          <Button
-            variant="outline"
-            size="sm"
-            className="pointer-coarse:h-10"
-            disabled={full}
-            title={full ? `最多 ${LXC_MAX.net} 块网卡` : undefined}
-            onClick={() => edit.show(undefined)}
-          >
-            <Plus /> 添加网卡
-          </Button>
+          {!api.readOnly && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="pointer-coarse:h-10"
+              disabled={full}
+              title={full ? `最多 ${LXC_MAX.net} 块网卡` : undefined}
+              onClick={() => edit.show(undefined)}
+            >
+              <Plus /> 添加网卡
+            </Button>
+          )}
         </SectionHeader>
         {keys.length === 0 ? (
           <GlassCard>
@@ -58,9 +60,11 @@ function NetworkBody({ api }: { api: LxcConfigApi }) {
               title="没有网卡"
               description="容器目前没有网络连接。添加一块网卡并连接到网桥。"
               action={
-                <Button onClick={() => edit.show(undefined)}>
-                  <Plus /> 添加网卡
-                </Button>
+                api.readOnly ? undefined : (
+                  <Button onClick={() => edit.show(undefined)}>
+                    <Plus /> 添加网卡
+                  </Button>
+                )
               }
             />
           </GlassCard>
@@ -117,7 +121,8 @@ function NicCard({
   const deleting = !!pending?.delete
   const name = net.name || key
 
-  const actions: RowAction[] = deleting
+  const locked = deleting || api.readOnly
+  const actions: RowAction[] = locked
     ? []
     : [
         { id: 'edit', label: '编辑', icon: Pencil, onSelect: onEdit },
@@ -132,7 +137,7 @@ function NicCard({
         },
         { id: 'remove', label: '删除', icon: Trash2, destructive: true, separated: true, onSelect: () => onRemove(name) },
       ]
-  if (pending) {
+  if (pending && !api.readOnly) {
     actions.push({ id: 'revert', label: '撤销待生效的更改', icon: Undo2, separated: true, onSelect: () => void api.revert([key]).catch(() => undefined) })
   }
 
@@ -141,10 +146,10 @@ function NicCard({
       <div className="flex items-stretch">
         <button
           type="button"
-          onClick={deleting ? undefined : onEdit}
-          disabled={deleting}
+          onClick={locked ? undefined : onEdit}
+          disabled={locked}
           className="flex min-h-16 min-w-0 flex-1 items-center gap-3 px-(--card-p) pt-(--card-p) pb-2 text-left outline-none hover:bg-foreground/[0.02] focus-visible:bg-foreground/[0.05] disabled:cursor-default"
-          aria-label={`编辑网卡 ${name}`}
+          aria-label={api.readOnly ? `网卡 ${name}` : `编辑网卡 ${name}`}
         >
           <span
             aria-hidden
@@ -165,7 +170,7 @@ function NicCard({
             </span>
           </span>
         </button>
-        <RowMenu label={`网卡 ${name}`} actions={actions} />
+        {actions.length > 0 && <RowMenu label={`网卡 ${name}`} actions={actions} />}
       </div>
 
       <dl className="grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-2 px-(--card-p) pt-1 pb-(--card-p) text-sm">

@@ -44,7 +44,7 @@ const ALL = '__all__'
 export default function BackupTab({ node, type, vmid, guest }: GuestTabProps) {
   const name = guestName(guest)
   const data = useGuestBackups(node, type, vmid)
-  const canBackup = useVmCap('VM.Backup')
+  const canBackup = useVmCap('VM.Backup', vmid, guest.pool)
   const [filter, setFilter] = useState<string>(ALL)
   const [backupOpen, setBackupOpen] = useState(false)
 

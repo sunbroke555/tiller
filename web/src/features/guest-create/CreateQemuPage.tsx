@@ -182,7 +182,12 @@ export default function CreateQemuPage() {
   return (
     <Wizard
       title="创建虚拟机"
-      eyebrow={<Monitor className="size-3.5" aria-hidden />}
+      eyebrow={
+        <>
+          <Monitor className="size-3.5" aria-hidden />
+          <span>新虚拟机{form.node ? ` · ${form.node}` : ''}</span>
+        </>
+      }
       steps={QEMU_STEPS.map((s) => ({ ...s, summary: sums[s.id], invalid: wizard.invalid.has(s.id) }))}
       index={wizard.index}
       canJumpTo={wizard.canJumpTo}

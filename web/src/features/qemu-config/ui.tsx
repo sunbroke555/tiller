@@ -33,9 +33,9 @@ export function ConfigSection({
   return (
     <section className={cn('grid gap-2', className)}>
       {(title || action) && (
-        <div className="flex min-h-8 items-center justify-between gap-3 px-1">
+        <div className="flex min-h-8 items-center justify-between gap-3">
           {title && (
-            <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase paper:text-sm paper:normal-case paper:tracking-normal paper:text-foreground/80">
+            <h2 className="text-sm font-medium text-muted-foreground paper:text-base paper:text-foreground">
               {title}
             </h2>
           )}

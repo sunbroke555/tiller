@@ -70,8 +70,10 @@ export function NodePage() {
 function NodePageBody({ ctx, tabParam }: { ctx: NodeActionContext; tabParam: string | undefined }) {
   const { node, resource } = ctx
   const tabProps: NodeTabProps = { node, resource }
-  const tabs = sortByOrder(nodeTabs.filter((t) => t.visible?.(tabProps) ?? true))
   const perms = usePermissions()
+  const tabs = sortByOrder(
+    nodeTabs.filter((t) => (t.visible?.(tabProps) ?? true) && (!t.permission || perms.can(t.permission, { kind: 'node', node }))),
+  )
   const actions = visibleActions(nodeActions, ctx, (a) => allowedFor(perms, a, ctx, { kind: 'node', node }))
   const { trigger, host } = useActionRunner(ctx)
   const active = tabs.find((t) => t.id === tabParam) ?? (tabParam ? undefined : tabs[0])

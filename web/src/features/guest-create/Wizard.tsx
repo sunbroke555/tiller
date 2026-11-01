@@ -131,7 +131,7 @@ export function Wizard({ title, eyebrow, steps, index, canJumpTo, onJump, onBack
           <span className="inline-flex items-center gap-1.5">
             {eyebrow}
             <span className="tabular lg:hidden">
-              第 {index + 1} / {steps.length} 步
+              <span aria-hidden>· </span>第 {index + 1} / {steps.length} 步
             </span>
           </span>
         }

@@ -34,8 +34,8 @@ type Dialog = { kind: 'take' } | { kind: 'detail' | 'rollback' | 'delete'; snap:
 /** Guest "快照" tab: the snapshot timeline ending at the current state. */
 export default function SnapshotsTab({ node, type, vmid, guest }: GuestTabProps) {
   const snapshots = useSnapshots(node, type, vmid)
-  const canSnapshot = useVmCap('VM.Snapshot')
-  const canRollback = useVmCap('VM.Snapshot.Rollback')
+  const canSnapshot = useVmCap('VM.Snapshot', vmid, guest.pool)
+  const canRollback = useVmCap('VM.Snapshot.Rollback', vmid, guest.pool)
   const feature = useSnapshotFeature(node, type, vmid, canSnapshot)
   const [dialog, setDialog] = useState<Dialog>(null)
   // Keep the last dialog mounted while it animates out.
@@ -49,6 +49,7 @@ export default function SnapshotsTab({ node, type, vmid, guest }: GuestTabProps)
     name: guestName(guest),
     running: guest.status === 'running',
     lock: guest.lock,
+    pool: guest.pool,
   }
   const rows = useMemo(() => buildSnapshotRows(snapshots.data ?? []), [snapshots.data])
   const count = countSnapshots(snapshots.data)

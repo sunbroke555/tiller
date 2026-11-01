@@ -135,8 +135,19 @@ export function ActionBar<Ctx>({ actions, ctx, trigger, variant, maxPrimary, cla
     )
   }
 
+  // One or two buttons would stretch across the whole dock: keep them compact
+  // at the right edge (above the search button) instead.
+  const compact = shown.length + (menu ? 1 : 0) <= 2
   return (
-    <div role="toolbar" aria-label="操作" className={cn('surface-strong flex w-full items-center rounded-full p-1.5', className)}>
+    <div
+      role="toolbar"
+      aria-label="操作"
+      className={cn(
+        'surface-strong flex items-center rounded-full p-1.5',
+        compact ? 'ml-auto w-fit [&>button]:w-20 [&>button]:flex-none' : 'w-full',
+        className,
+      )}
+    >
       {shown.map((a) => {
         const reason = disabledReason(a, ctx)
         const Icon = a.icon

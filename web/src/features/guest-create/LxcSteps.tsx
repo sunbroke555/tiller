@@ -226,7 +226,7 @@ export function LxcTemplateStep({ form, set }: LxcStepProps) {
         </FormField>
       </FormRow>
       <p className="text-xs leading-relaxed text-muted-foreground">
-        列表包括系统模板（.tar.zst / .tar.xz）和从 OCI 仓库拉取的应用镜像。需要新模板时，到存储的“CT 模板”页下载或拉取。
+        列表包括系统模板（.tar.zst / .tar.xz）和从 OCI 仓库拉取的应用镜像。需要新模板时，到存储的“容器模板”页下载或拉取。
       </p>
     </div>
   )

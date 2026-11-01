@@ -9,6 +9,7 @@ import {
   useGuestRrd,
   useGuestStatus,
 } from '@/api/guest-core'
+import { usePermissions } from '@/api/permissions'
 import { useActionRunner } from '@/components/page/ActionBar'
 import { visibleActions } from '@/components/page/registry'
 import { guestActions } from '@/features/guest/registry'
@@ -32,6 +33,7 @@ import { ConfigSummary, TemplateHero } from './TemplateSummary'
  */
 export default function SummaryTab({ node, type, vmid, guest }: GuestTabProps) {
   const ctx = useGuestContext()
+  const perms = usePermissions()
   const template = guest.template === 1
   const { trigger, host } = useActionRunner(ctx)
   const [params, setParams] = useSearchParams()
@@ -60,11 +62,13 @@ export default function SummaryTab({ node, type, vmid, guest }: GuestTabProps) {
   const osInfo = useAgentOsInfo(node, vmid, { enabled: agentOk })
   const hostname = useAgentHostname(node, vmid, { enabled: agentOk })
 
+  // Notes and tags are config options (VM.Config.Options on the guest or its pool).
+  const canEditConfig = perms.can({ privs: 'VM.Config.Options' }, { kind: 'guest', vmid, pool: guest.pool })
   const clone = actions.find((a) => a.id === 'clone')
   const side = (
     <>
-      <TagsCard node={node} type={type} vmid={vmid} name={ctx.name} tags={guest.tags} config={config.data} />
-      <NotesCard node={node} type={type} vmid={vmid} name={ctx.name} config={config.data} loading={config.isPending} />
+      <TagsCard node={node} type={type} vmid={vmid} name={ctx.name} tags={guest.tags} config={config.data} canEdit={canEditConfig} />
+      <NotesCard node={node} type={type} vmid={vmid} name={ctx.name} config={config.data} loading={config.isPending} canEdit={canEditConfig} />
     </>
   )
 

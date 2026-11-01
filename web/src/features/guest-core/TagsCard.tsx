@@ -23,16 +23,18 @@ interface TagsCardProps {
   /** Tags from /cluster/resources (live). */
   tags: string | undefined
   config: GuestConfig | undefined
+  /** May change the tags (VM.Config.Options); read-only otherwise. */
+  canEdit?: boolean
 }
 
 /** Tags with datacenter colours and an editor sheet. */
-export function TagsCard({ node, type, vmid, name, tags, config }: TagsCardProps) {
+export function TagsCard({ node, type, vmid, name, tags, config, canEdit = true }: TagsCardProps) {
   const [open, setOpen] = useState(false)
   const style = useTagStyle()
   const list = orderTags(splitTags(config?.tags ?? tags), style)
   return (
     <GlassCard>
-      <CardTitle title="标签" icon={Tag} action={<CardAction label="编辑" icon={Pencil} onClick={() => setOpen(true)} />} />
+      <CardTitle title="标签" icon={Tag} action={canEdit ? <CardAction label="编辑" icon={Pencil} onClick={() => setOpen(true)} /> : null} />
       {list.length ? (
         <div className="flex flex-wrap gap-1.5">
           {list.map((t) => (
@@ -40,7 +42,7 @@ export function TagsCard({ node, type, vmid, name, tags, config }: TagsCardProps
           ))}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">没有标签。标签可以用来分组、筛选和批量操作。</p>
+        <p className="text-sm text-muted-foreground">{canEdit ? '没有标签。标签可以用来分组、筛选和批量操作。' : '没有标签。'}</p>
       )}
       <TagsDialog open={open} onOpenChange={setOpen} node={node} type={type} vmid={vmid} name={name} config={config} fallback={tags} />
     </GlassCard>

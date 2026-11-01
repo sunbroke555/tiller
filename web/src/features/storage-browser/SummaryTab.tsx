@@ -66,7 +66,7 @@ export default function SummaryTab({ node, storage, resource }: StorageTabProps)
   return (
     <div className="grid gap-(--section-gap)">
       <div className="grid gap-(--row-gap) lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-        <GlassCard className="grid content-start gap-4">
+        <GlassCard className="flex flex-col gap-4">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-xs text-muted-foreground">已用空间</div>
@@ -90,7 +90,7 @@ export default function SummaryTab({ node, storage, resource }: StorageTabProps)
             </div>
           </div>
           <UsageBar value={usage} showPercent={false} />
-          <dl className="grid grid-cols-3 gap-2 text-sm">
+          <dl className="mt-auto grid grid-cols-3 gap-2 text-sm">
             <Figure label="已用" value={formatBytes(used)} />
             <Figure label="可用" value={formatBytes(avail)} />
             <Figure label="总量" value={formatBytes(total)} />

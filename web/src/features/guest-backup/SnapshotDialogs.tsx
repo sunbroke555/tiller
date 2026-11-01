@@ -38,6 +38,8 @@ export interface SnapshotGuest {
   running: boolean
   /** Lock of the guest (backup, snapshot, rollback…), blocks snapshot operations. */
   lock?: string | undefined
+  /** Resource pool, for permission checks. */
+  pool?: string | undefined
 }
 
 const kind = (type: GuestType) => (type === 'qemu' ? '虚拟机' : '容器')
@@ -233,8 +235,8 @@ export function SnapshotDetailDialog({
   onDelete: (s: Snapshot) => void
 }) {
   const qc = useQueryClient()
-  const canEdit = useVmCap('VM.Snapshot')
-  const canRollback = useVmCap('VM.Snapshot.Rollback')
+  const canEdit = useVmCap('VM.Snapshot', guest.vmid, guest.pool)
+  const canRollback = useVmCap('VM.Snapshot.Rollback', guest.vmid, guest.pool)
   const [description, setDescription] = useState('')
   const [saving, setSaving] = useState(false)
   const [showConfig, setShowConfig] = useState(false)

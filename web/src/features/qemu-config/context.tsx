@@ -5,6 +5,7 @@ import { createContext, use, useCallback, useMemo, useState, type ReactNode } fr
 
 import type { Params } from '@/api/client'
 import { revertQemuPending, writeQemuConfig } from '@/api/qemu-config'
+import { usePermissions } from '@/api/permissions'
 import { queryKeys } from '@/api/queries'
 import { useSession } from '@/api/useSession'
 import { runTask } from '@/components/tasks/tracker'
@@ -24,7 +25,11 @@ export interface QemuConfigContextValue {
   arch: Arch
   running: boolean
   isRoot: boolean
-  /** Permission check against the coarse caps of the login (true when unknown). */
+  /**
+   * Permission check: on this VM (vms), this node (nodes), or anywhere under
+   * /mapping or /storage. Uses the user's permission map, the ticket caps
+   * until it has loaded (true when unknown; PVE checks anyway).
+   */
   can: (priv: string, scope?: 'vms' | 'nodes' | 'mapping' | 'storage') => boolean
 }
 
@@ -48,8 +53,8 @@ export function useQemuConfigValue(
   state: PendingState,
 ): QemuConfigContextValue {
   const session = useSession()
+  const perms = usePermissions()
   return useMemo(() => {
-    const caps = session?.cap
     return {
       node,
       vmid,
@@ -61,11 +66,17 @@ export function useQemuConfigValue(
       running: guest.status === 'running',
       isRoot: session?.username === 'root@pam',
       can: (priv, scope = 'vms') => {
-        if (!caps) return true
-        return !!caps[scope]?.[priv]
+        switch (scope) {
+          case 'vms':
+            return perms.can({ privs: priv }, { kind: 'guest', vmid, pool: guest.pool })
+          case 'nodes':
+            return perms.can({ privs: priv }, { kind: 'node', node })
+          default:
+            return perms.can({ privs: priv, path: `/${scope}`, anywhere: true })
+        }
       },
     }
-  }, [node, vmid, guest, state, session])
+  }, [node, vmid, guest, state, session, perms])
 }
 
 export function guestInvalidation(node: string, vmid: number) {

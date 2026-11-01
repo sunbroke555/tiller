@@ -20,6 +20,8 @@ export interface TabDef<P> {
   component: ComponentType<P>
   /** Hide the tab in some contexts (e.g. no backup tab for templates). */
   visible?: (props: P) => boolean
+  /** Hide the tab without these privileges on the page's object (e.g. Sys.Console for a shell). */
+  permission?: PermissionCheck
 }
 
 export function sortByOrder<T extends { order: number }>(items: readonly T[]): T[] {

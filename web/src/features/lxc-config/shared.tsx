@@ -3,11 +3,12 @@
 // and a "more" menu, inline switches, the pending banner and a segmented
 // control.
 
-import { useMemo, useState, type ReactNode } from 'react'
-import { AlertTriangle, ChevronRight, Clock, EllipsisVertical, Loader2, Pencil, RefreshCw, Undo2, type LucideIcon } from 'lucide-react'
+import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
+import { AlertTriangle, ChevronRight, Clock, Ellipsis, Loader2, Lock, Pencil, RefreshCw, Undo2, type LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { revertLxcPending, updateLxcConfig, useLxcPending } from '@/api/lxc-config'
+import { usePermissions } from '@/api/permissions'
 import { queryKeys } from '@/api/queries'
 import { useSession } from '@/api/useSession'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -44,6 +45,8 @@ export interface LxcConfigApi {
   name: string
   running: boolean
   isRoot: boolean
+  /** No VM.Config.* privilege on this container: rows show values only. */
+  readOnly: boolean
   config: LxcPendingConfig | undefined
   /** Effective config (pending applied); {} while loading. */
   cfg: Record<string, string>
@@ -65,6 +68,8 @@ export interface LxcConfigApi {
 export function useLxcConfig({ node, vmid, guest }: GuestTabProps): LxcConfigApi {
   const query = useLxcPending(node, vmid)
   const session = useSession()
+  const perms = usePermissions()
+  const readOnly = !perms.can({ privs: CONFIG_PRIVS, any: true }, { kind: 'guest', vmid, pool: guest.pool })
   const config = useMemo(() => (query.data ? parsePending(query.data) : undefined), [query.data])
   const cfg = config?.effective ?? EMPTY
   const name = guestName(guest)
@@ -86,6 +91,7 @@ export function useLxcConfig({ node, vmid, guest }: GuestTabProps): LxcConfigApi
     name,
     running: guest.status === 'running',
     isRoot: session?.username === 'root@pam',
+    readOnly,
     config,
     cfg,
     isPending: query.isPending,
@@ -106,6 +112,16 @@ export function useLxcConfig({ node, vmid, guest }: GuestTabProps): LxcConfigApi
 }
 
 const EMPTY: Record<string, string> = {}
+
+/** Any of these lets the user change some container setting (PVE checks per key). */
+const CONFIG_PRIVS = ['VM.Config.Options', 'VM.Config.CPU', 'VM.Config.Memory', 'VM.Config.Disk', 'VM.Config.Network'] as const
+
+/** True inside a tab the user may only look at: edit affordances disappear. */
+const ReadOnlyContext = createContext(false)
+
+export function useReadOnly(): boolean {
+  return useContext(ReadOnlyContext)
+}
 
 // --------------------------------------------------------------- states
 
@@ -149,7 +165,19 @@ export function TabBody({ api, children }: { api: LxcConfigApi; children: ReactN
       </GlassCard>
     )
   }
-  return <div className="grid gap-(--section-gap)">{children}</div>
+  return (
+    <ReadOnlyContext.Provider value={api.readOnly}>
+      <div className="grid gap-(--section-gap)">
+        {api.readOnly && (
+          <p role="note" className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Lock className="size-4 shrink-0" aria-hidden />
+            只读：你没有修改这个容器配置的权限。
+          </p>
+        )}
+        {children}
+      </div>
+    </ReadOnlyContext.Provider>
+  )
 }
 
 // ------------------------------------------------------------- sections
@@ -195,6 +223,7 @@ export function SectionAction({
   disabled?: boolean
   title?: string
 }) {
+  if (useReadOnly()) return null
   return (
     <Button variant="outline" size="sm" onClick={onClick} disabled={disabled} title={title} className="pointer-coarse:h-10">
       <Icon /> {children}
@@ -259,6 +288,11 @@ export function ConfigRow({
   muted,
   className,
 }: ConfigRowProps) {
+  if (useReadOnly()) {
+    onEdit = undefined
+    actions = []
+    onRevert = undefined
+  }
   const menu: RowAction[] = [
     ...(onEdit && (actions.length > 0 || (pending && onRevert)) ? [{ id: 'edit', label: editLabel, icon: Pencil, onSelect: onEdit }] : []),
     ...actions,
@@ -275,17 +309,17 @@ export function ConfigRow({
           'paper:bg-secondary paper:text-foreground/70 paper:ring-border',
         )}
       >
-        <Icon className="size-4" />
+        <Icon className="size-[18px]" />
       </span>
-      <span className="grid min-w-0 flex-1 gap-0.5 sm:grid-cols-[minmax(8rem,12rem)_1fr] sm:items-baseline sm:gap-x-4">
-        <span className="truncate text-xs text-muted-foreground sm:text-sm">{label}</span>
+      <span className="grid min-w-0 flex-1 gap-0.5">
+        <span className="truncate font-medium">{label}</span>
         <span className="grid min-w-0 gap-0.5">
           <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
             <span
               className={cn(
-                'min-w-0 truncate font-medium',
-                muted && 'font-normal text-muted-foreground',
-                pending?.delete && 'text-foreground/70 line-through decoration-foreground/30',
+                'min-w-0 truncate text-[13px] leading-snug text-muted-foreground',
+                muted && 'text-faint',
+                pending?.delete && 'line-through decoration-foreground/30',
               )}
             >
               {value}
@@ -339,7 +373,7 @@ export function RowMenu({ label, actions }: { label: string; actions: RowAction[
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" aria-label={`更多操作：${label}`} className="size-11 text-muted-foreground">
-            <EllipsisVertical />
+            <Ellipsis />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-52">
@@ -399,6 +433,11 @@ export function SwitchRow({
   disabled?: boolean
 }) {
   const [busy, setBusy] = useState(false)
+  const readOnly = useReadOnly()
+  if (readOnly) {
+    disabled = true
+    onRevert = undefined
+  }
   const toggle = async (next: boolean) => {
     setBusy(true)
     try {
@@ -416,11 +455,11 @@ export function SwitchRow({
           aria-hidden
           className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand ring-1 ring-brand/15 ring-inset paper:bg-secondary paper:text-foreground/70 paper:ring-border"
         >
-          <Icon className="size-4" />
+          <Icon className="size-[18px]" />
         </span>
         <span className="grid min-w-0 flex-1 gap-0.5">
-          <span className="text-sm font-medium">{label}</span>
-          {description && <span className="text-xs leading-relaxed text-muted-foreground">{description}</span>}
+          <span className="font-medium">{label}</span>
+          {description && <span className="text-[13px] leading-snug text-muted-foreground">{description}</span>}
           {pending && (
             <span className="flex items-center gap-1.5 text-xs text-warning">
               <Clock className="size-3.5 shrink-0" aria-hidden />
@@ -455,9 +494,11 @@ export function PendingBanner({ api, tab }: { api: LxcConfigApi; tab: ConfigTab 
         <p className="min-w-0 flex-1 font-medium">
           {changes.length} 项更改将在容器{api.running ? '重启' : '下次启动'}后生效
         </p>
-        <Button variant="outline" size="sm" className="pointer-coarse:h-10" onClick={() => setConfirm(true)}>
-          <Undo2 /> 全部撤销
-        </Button>
+        {!api.readOnly && (
+          <Button variant="outline" size="sm" className="pointer-coarse:h-10" onClick={() => setConfirm(true)}>
+            <Undo2 /> 全部撤销
+          </Button>
+        )}
       </div>
       <ul className="mt-2 grid gap-1 pl-7 text-xs text-muted-foreground">
         {changes.map((c) => (

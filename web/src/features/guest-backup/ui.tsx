@@ -4,17 +4,16 @@ import type { ReactNode } from 'react'
 import { CircleAlert, Info, TriangleAlert } from 'lucide-react'
 import { RadioGroup as RadioGroupPrimitive } from 'radix-ui'
 
-import { useSession } from '@/api/useSession'
+import { usePermissions } from '@/api/permissions'
 import { cn } from '@/lib/utils'
 
 /**
- * Privilege hint from the login ticket (cap.vms is the union over all VMs).
- * Missing caps (older sessions) count as allowed: the server decides anyway.
+ * Whether the user has `priv` on this guest (its /vms path or its pool), from
+ * the permission map; the login ticket's coarse caps until that has loaded.
+ * Unknown counts as allowed: the server decides anyway.
  */
-export function useVmCap(priv: string): boolean {
-  const cap = useSession()?.cap
-  if (!cap?.vms) return true
-  return cap.vms[priv] === 1
+export function useVmCap(priv: string, vmid: number, pool?: string): boolean {
+  return usePermissions().can({ privs: priv }, { kind: 'guest', vmid, pool })
 }
 
 /** Tinted inline notice (info / warning / error) inside cards and dialogs. */

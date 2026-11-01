@@ -20,10 +20,12 @@ interface NotesCardProps {
   name: string
   config: GuestConfig | undefined
   loading: boolean
+  /** May change the notes (VM.Config.Options); read-only otherwise. */
+  canEdit?: boolean
 }
 
 /** Notes (config `description`, Markdown) with an editor sheet. */
-export function NotesCard({ node, type, vmid, name, config, loading }: NotesCardProps) {
+export function NotesCard({ node, type, vmid, name, config, loading, canEdit = true }: NotesCardProps) {
   const [open, setOpen] = useState(false)
   const notes = config?.description?.trim() ?? ''
   return (
@@ -31,7 +33,7 @@ export function NotesCard({ node, type, vmid, name, config, loading }: NotesCard
       <CardTitle
         title="备注"
         icon={NotebookPen}
-        action={notes ? <CardAction label="编辑" icon={Pencil} onClick={() => setOpen(true)} /> : null}
+        action={notes && canEdit ? <CardAction label="编辑" icon={Pencil} onClick={() => setOpen(true)} /> : null}
       />
       {loading && !config ? (
         <div className="grid gap-2">
@@ -44,10 +46,14 @@ export function NotesCard({ node, type, vmid, name, config, loading }: NotesCard
         </div>
       ) : (
         <div className="flex flex-col items-start gap-3">
-          <p className="text-sm text-muted-foreground">还没有备注。可以记下用途、负责人、登录方式等，支持 Markdown。</p>
-          <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)} className="pointer-coarse:h-11">
-            <Plus /> 添加备注
-          </Button>
+          <p className="text-sm text-muted-foreground">
+            {canEdit ? '还没有备注。可以记下用途、负责人、登录方式等，支持 Markdown。' : '还没有备注。'}
+          </p>
+          {canEdit && (
+            <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)} className="pointer-coarse:h-11">
+              <Plus /> 添加备注
+            </Button>
+          )}
         </div>
       )}
       <NotesDialog

@@ -54,6 +54,7 @@ export const guestTabs: GuestTabDef[] = [
     order: 20,
     types: BOTH,
     visible: notTemplate,
+    permission: { privs: 'VM.Console' },
     component: lazy(() => import('@/features/console/GuestConsoleTab')),
   },
   // QEMU configuration
@@ -130,6 +131,7 @@ export const guestTabs: GuestTabDef[] = [
     order: 70,
     types: QEMU,
     visible: notTemplate,
+    permission: { privs: 'VM.Monitor' },
     component: lazy(() => import('@/features/qemu-config/MonitorTab')),
   },
   {
