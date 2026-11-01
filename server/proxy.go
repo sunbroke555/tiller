@@ -107,7 +107,8 @@ const proxiedCSP = "default-src 'none'; frame-ancestors 'none'; sandbox"
 
 // NewProxy returns a handler that forwards /api2/json/* to the PVE API
 // unchanged, including websocket upgrades (vncwebsocket, termproxy). Host,
-// Origin and Referer are rewritten so PVE sees requests addressed to itself;
+// Origin and Referer are rewritten so PVE sees requests addressed to itself
+// (sameOrigin has checked the browser's Origin before);
 // X-Forwarded-For carries the client address for pveproxy's access log
 // (PROXY_REAL_IP_HEADER=X-Forwarded-For with PROXY_REAL_IP_ALLOW_FROM set to
 // pve-web's address). trusted lists reverse proxies in front of pve-web.

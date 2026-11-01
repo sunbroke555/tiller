@@ -40,7 +40,7 @@ pve-web/
 
 - Go 服务托管 SPA（history fallback 到 index.html），把 `/api2/json/` 原样反代到 PVE，支持 websocket 升级（vncwebsocket、termproxy）；PVE 的其它格式（/api2/html 等）不转发。
 - 配置：环境变量 `PVE_URL`（如 `https://192.168.0.6:8006`）、`LISTEN`（默认 `:8080`）、`PVE_TLS_FINGERPRINT`（可选，SHA-256 证书指纹，固定信任）或 `PVE_INSECURE_TLS=1`（实验环境用）。
-- 反代时改写 `Host`/`Origin` 以符合 PVE 的校验；不持久化任何凭据，服务端无状态。
+- 反代时改写 `Host`/`Origin` 以符合 PVE 的校验；改写之前先检查来源：websocket 升级和非 GET 请求带的 `Origin` 必须和请求自己的 Host 一致（`Sec-Fetch-Site: cross-site` 一律拒绝），否则 403（pveproxy 自己不查 websocket 的 Origin）。不持久化任何凭据，服务端无状态。
 
 ## 认证
 
