@@ -299,7 +299,7 @@ function ToggleRow({ row }: { row: OptionRow }) {
         <Button
           variant="ghost"
           size="sm"
-          className="shrink-0 text-muted-foreground"
+          className="shrink-0 text-muted-foreground pointer-coarse:h-11"
           onClick={() => void revert(row.keys ?? [row.key], `撤销 ${row.title}`).catch((e: unknown) => toast.error(errorMessage(e)))}
         >
           撤销

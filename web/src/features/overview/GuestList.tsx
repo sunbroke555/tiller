@@ -54,7 +54,7 @@ function GuestRow({
   const template = g.template === 1
   const rowClass = cn(
     'group flex min-h-14 compact:min-h-12 items-center gap-3 px-(--card-p) py-(--row-py) transition-colors outline-none',
-    'hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.05] active:bg-foreground/[0.05] paper:hover:bg-secondary/50',
+    'hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset active:bg-foreground/[0.05] paper:hover:bg-secondary/50',
   )
   const body = (
     <>

@@ -249,7 +249,7 @@ export default function ServicesTab({ node }: NodeTabProps) {
                       }
                     }}
                     aria-label={`${s.name}，${st.label}`}
-                    className="group flex min-h-14 cursor-pointer items-center gap-3 px-(--card-p) py-(--row-py) transition-colors outline-none hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.04] paper:hover:bg-secondary/50"
+                    className="group flex min-h-14 cursor-pointer items-center gap-3 px-(--card-p) py-(--row-py) transition-colors outline-none hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.04] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset paper:hover:bg-secondary/50"
                   >
                     <StateDot tone={st.tone} />
                     <div className="min-w-0 flex-1">

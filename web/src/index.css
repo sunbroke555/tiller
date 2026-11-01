@@ -42,6 +42,8 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
+  /* Borders and tracks that alone show a control's state (unchecked checkbox, radio, switch off): 3:1 on cards. */
+  --color-control: var(--control);
   --color-ring: var(--ring);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -116,7 +118,8 @@
   --accent: rgb(255 255 255 / 0.07);
   --accent-foreground: #f5f5f7;
   --border: rgb(255 255 255 / 0.08);
-  --input: rgb(255 255 255 / 0.1);
+  --input: rgb(255 255 255 / 0.22);
+  --control: rgb(255 255 255 / 0.38);
 
   --primary: var(--brand);
   --primary-foreground: var(--brand-contrast);
@@ -204,7 +207,8 @@
   --accent: rgb(17 24 39 / 0.06);
   --accent-foreground: #0b0c10;
   --border: rgb(17 24 39 / 0.09);
-  --input: rgb(17 24 39 / 0.12);
+  --input: rgb(17 24 39 / 0.3);
+  --control: rgb(17 24 39 / 0.52);
 
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
@@ -276,7 +280,8 @@
   --accent: #ece9df;
   --accent-foreground: #141413;
   --border: #e6e2d6;
-  --input: #d8d3c4;
+  --input: #b9b29f;
+  --control: #8f8874;
 
   --brand: #d97757; /* Clay */
   --brand-2: #c6613f;

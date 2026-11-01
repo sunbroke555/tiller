@@ -73,7 +73,7 @@ export function AppSettings() {
           description={installDescription}
           control={
             state === 'available' && (
-              <Button size="sm" variant="outline" onClick={() => void install()}>
+              <Button size="sm" variant="outline" className="pointer-coarse:h-11" onClick={() => void install()}>
                 安装
               </Button>
             )
@@ -95,7 +95,7 @@ export function AppSettings() {
           title="键盘快捷键"
           description="在任意页面按 ? 查看，G 加字母快速跳转。"
           control={
-            <Button size="sm" variant="outline" onClick={() => openShortcutsHelp()}>
+            <Button size="sm" variant="outline" className="pointer-coarse:h-11" onClick={() => openShortcutsHelp()}>
               查看
             </Button>
           }
@@ -105,7 +105,7 @@ export function AppSettings() {
           title="清除本地设置"
           description="恢复默认外观、资源树分组和记住的用户名，不会退出登录。"
           control={
-            <Button size="sm" variant="outline" onClick={() => setConfirm(true)}>
+            <Button size="sm" variant="outline" className="pointer-coarse:h-11" onClick={() => setConfirm(true)}>
               清除
             </Button>
           }

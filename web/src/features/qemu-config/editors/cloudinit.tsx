@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { Eye, EyeOff, FileUp } from 'lucide-react'
 
 import { useCloudinitDump, type CloudinitDumpType } from '@/api/qemu-config'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { FieldInput, FieldTextarea, FormDialog, FormField, FormRow, SelectField } from '@/components/form'
 import { ResponsiveDialog } from '@/components/ResponsiveDialog'
 import { Button } from '@/components/ui/button'
@@ -43,60 +44,62 @@ export function CiPasswordDialog(props: DialogRenderProps) {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [visible, setVisible] = useState(false)
+  const [confirmClear, setConfirmClear] = useState(false)
   const mismatch = confirm !== '' && password !== confirm
   const hasPassword = !!cfg.cipassword
   return (
-    <FormDialog
-      {...props}
-      size="sm"
-      title="密码"
-      description="密码以哈希形式保存，设置后不会再显示。更推荐使用 SSH 公钥登录。"
-      submitDisabled={!password || password !== confirm}
-      onSubmit={() => save({ cipassword: password }, { title: '设置 Cloud-Init 密码' })}
-      footerExtra={
-        hasPassword ? (
-          <Button type="button" variant="ghost" className="text-destructive" onClick={() => void save({ delete: 'cipassword' }, { title: '清除 Cloud-Init 密码' }).then(() => props.onOpenChange(false))}>
-            清除密码
-          </Button>
-        ) : undefined
-      }
-    >
-      <FormField label="新密码" name="cipassword">
-        <div className="relative">
-          <FieldInput
-            type={visible ? 'text' : 'password'}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="new-password"
-            className="pr-11"
-            autoFocus
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="absolute inset-y-0 right-0 my-auto text-muted-foreground"
-            aria-label={visible ? '隐藏密码' : '显示密码'}
-            onClick={() => setVisible((v) => !v)}
-          >
-            {visible ? <EyeOff /> : <Eye />}
-          </Button>
-        </div>
-      </FormField>
-      <FormField label="确认密码" error={mismatch ? '两次输入的密码不一致' : undefined}>
-        <FieldInput type={visible ? 'text' : 'password'} value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
-      </FormField>
-      {hasPassword && (
-        <Button
-          type="button"
-          variant="outline"
-          className="text-destructive sm:hidden"
-          onClick={() => void save({ delete: 'cipassword' }, { title: '清除 Cloud-Init 密码' }).then(() => props.onOpenChange(false))}
-        >
-          清除已设置的密码
-        </Button>
-      )}
-    </FormDialog>
+    <>
+      <FormDialog
+        {...props}
+        size="sm"
+        title="密码"
+        description="密码以哈希形式保存，设置后不会再显示。更推荐使用 SSH 公钥登录。"
+        submitDisabled={!password || password !== confirm}
+        onSubmit={() => save({ cipassword: password }, { title: '设置 Cloud-Init 密码' })}
+        footerExtra={
+          hasPassword ? (
+            <Button type="button" variant="ghost" className="text-destructive" onClick={() => setConfirmClear(true)}>
+              清除密码
+            </Button>
+          ) : undefined
+        }
+      >
+        <FormField label="新密码" name="cipassword">
+          <div className="relative">
+            <FieldInput
+              type={visible ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              className="pr-11"
+              autoFocus
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute inset-y-0 right-0 my-auto text-muted-foreground"
+              aria-label={visible ? '隐藏密码' : '显示密码'}
+              onClick={() => setVisible((v) => !v)}
+            >
+              {visible ? <EyeOff /> : <Eye />}
+            </Button>
+          </div>
+        </FormField>
+        <FormField label="确认密码" error={mismatch ? '两次输入的密码不一致' : undefined}>
+          <FieldInput type={visible ? 'text' : 'password'} value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
+        </FormField>
+      </FormDialog>
+      <ConfirmDialog
+        open={confirmClear}
+        onOpenChange={setConfirmClear}
+        title="清除 Cloud-Init 密码？"
+        description="客户机下次启动时生效；系统里已经设置的密码不会被删除。"
+        confirmLabel="清除"
+        destructive
+        onConfirm={() => save({ delete: 'cipassword' }, { title: '清除 Cloud-Init 密码' }).then(() => props.onOpenChange(false))}
+      />
+    </>
   )
 }
 

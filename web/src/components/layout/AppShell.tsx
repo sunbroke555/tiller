@@ -23,7 +23,7 @@ export function AppShell() {
         <AmbientBackground />
         <div className="relative z-10 min-h-dvh lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
           <Sidebar className="hidden lg:flex" />
-          <main className="min-w-0 px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[calc(var(--dock-h,4.5rem)+max(0.75rem,env(safe-area-inset-bottom))+1.75rem)] sm:px-6 lg:px-10 lg:pt-8 lg:pb-[calc(var(--task-footer-h,0px)+3rem)]">
+          <main className="min-w-0 pt-[max(1.25rem,env(safe-area-inset-top))] pr-[max(1rem,env(safe-area-inset-right))] pb-[calc(var(--dock-h,4.5rem)+max(0.75rem,env(safe-area-inset-bottom))+1.75rem)] pl-[max(1rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] lg:px-10 lg:pt-8 lg:pb-[calc(var(--task-footer-h,0px)+3rem)]">
             <div className="mx-auto w-full max-w-6xl">
               <Outlet />
             </div>

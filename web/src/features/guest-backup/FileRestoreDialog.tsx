@@ -213,7 +213,7 @@ function Entries({
               type="button"
               onClick={() => onToggle(e)}
               className={cn(
-                'flex min-h-11 w-full items-center gap-2 pr-5 text-left text-sm transition-colors outline-none hover:bg-foreground/[0.04] focus-visible:bg-foreground/[0.06] lg:pr-6 paper:hover:bg-secondary/60',
+                'flex min-h-11 w-full items-center gap-2 pr-5 text-left text-sm transition-colors outline-none hover:bg-foreground/[0.04] focus-visible:bg-foreground/[0.06] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset lg:pr-6 paper:hover:bg-secondary/60',
                 isSel && 'bg-brand/10 hover:bg-brand/12 paper:bg-secondary',
               )}
               style={{ paddingLeft: `calc(1.25rem + ${depth} * 1.125rem)` }}
@@ -231,7 +231,7 @@ function Entries({
                 ) : child.state === 'error' ? (
                   <div className="flex items-center gap-2 py-2 pr-5 text-xs text-destructive" style={{ paddingLeft: `calc(2.75rem + ${depth} * 1.125rem)` }}>
                     <span className="min-w-0 flex-1 break-words">{child.message}</span>
-                    <Button size="sm" variant="ghost" onClick={() => onRetry(e.filepath)}>
+                    <Button size="sm" variant="ghost" onClick={() => onRetry(e.filepath)} className="pointer-coarse:h-11">
                       重试
                     </Button>
                   </div>

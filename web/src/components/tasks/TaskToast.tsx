@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 
+import type { TaskState } from '@/api/tasks'
 import { cn } from '@/lib/utils'
 import { formatDuration } from '@/lib/format'
 
@@ -19,40 +20,87 @@ function useNow(active: boolean) {
   return now
 }
 
+const DONE_LABEL: Record<Exclude<TaskState, 'running'>, string> = {
+  ok: '已完成',
+  warning: '已完成，有警告',
+  error: '失败',
+}
+
+/**
+ * Screen reader messages for tasks that started or ended since `prev`
+ * (upid → state), oldest first. Log lines and the timer are not announced.
+ */
+export function taskAnnouncements(prev: ReadonlyMap<string, TaskState>, tasks: readonly TrackedTask[]): string[] {
+  const out: string[] = []
+  for (const t of [...tasks].reverse()) {
+    const before = prev.get(t.upid)
+    if (before === t.state) continue
+    if (t.state === 'running') {
+      if (before === undefined) out.push(`${t.title}：开始`)
+    } else {
+      out.push(`${t.title}：${DONE_LABEL[t.state]}`)
+    }
+  }
+  return out
+}
+
+/** Polite live region that only speaks when a task starts or ends. */
+function TaskAnnouncer({ tasks }: { tasks: readonly TrackedTask[] }) {
+  const seen = useRef<Map<string, TaskState> | null>(null)
+  const [message, setMessage] = useState('')
+  useEffect(() => {
+    // Tasks already there on mount are not news.
+    const next = taskAnnouncements(seen.current ?? new Map(tasks.map((t) => [t.upid, t.state])), tasks)
+    seen.current = new Map(tasks.map((t) => [t.upid, t.state]))
+    if (next.length) setMessage(next.join('；'))
+  }, [tasks])
+  return (
+    <p role="status" className="sr-only">
+      {message}
+    </p>
+  )
+}
+
 /**
  * Stack of tasks started from this UI: spinner, title, last log line and a
  * progress bar while running; result and exit status when done. Tap opens
  * the live log. Rendered by AppShell inside the bottom dock (above the
- * mobile nav, bottom-right on desktop).
+ * mobile nav, bottom-right on desktop). The stack itself is not a live
+ * region (its timer ticks every second); TaskAnnouncer speaks start and end.
  */
 export function TaskToast({ className }: { className?: string }) {
-  const tasks = useTrackedTasks().filter((t) => !t.dismissed)
+  const all = useTrackedTasks()
+  const tasks = all.filter((t) => !t.dismissed)
   const now = useNow(tasks.some((t) => t.state === 'running'))
-  if (tasks.length === 0) return null
   const visible = tasks.slice(0, MAX_VISIBLE)
   const hidden = tasks.length - visible.length
   const finished = tasks.filter((t) => t.state !== 'running').length
 
   return (
-    <section aria-label="任务进度" aria-live="polite" className={cn('grid gap-2', className)}>
-      {visible.map((task) => (
-        <TaskRow key={task.upid} task={task} now={now} />
-      ))}
-      {(hidden > 0 || finished > 1) && (
-        <div className="flex items-center justify-end gap-2 text-xs">
-          {hidden > 0 && <span className="text-muted-foreground">还有 {hidden} 个任务</span>}
-          {finished > 1 && (
-            <button
-              type="button"
-              onClick={clearFinishedTasks}
-              className="surface-strong h-8 rounded-full px-3 text-muted-foreground transition-colors hover:text-foreground pointer-coarse:h-9"
-            >
-              清除已完成
-            </button>
+    <>
+      <TaskAnnouncer tasks={all} />
+      {tasks.length > 0 && (
+        <section aria-label="任务进度" className={cn('grid gap-2', className)}>
+          {visible.map((task) => (
+            <TaskRow key={task.upid} task={task} now={now} />
+          ))}
+          {(hidden > 0 || finished > 1) && (
+            <div className="flex items-center justify-end gap-2 text-xs">
+              {hidden > 0 && <span className="text-muted-foreground">还有 {hidden} 个任务</span>}
+              {finished > 1 && (
+                <button
+                  type="button"
+                  onClick={clearFinishedTasks}
+                  className="surface-strong h-8 rounded-full px-3 text-muted-foreground transition-colors hover:text-foreground pointer-coarse:h-9"
+                >
+                  清除已完成
+                </button>
+              )}
+            </div>
           )}
-        </div>
+        </section>
       )}
-    </section>
+    </>
   )
 }
 

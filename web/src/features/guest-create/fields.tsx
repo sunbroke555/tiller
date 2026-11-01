@@ -115,7 +115,7 @@ export function ChoiceCards<V extends string>({
               className={cn(
                 'mt-0.5 inline-flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors',
                 size === 'sm' && 'mt-0 max-sm:hidden',
-                checked ? 'border-brand bg-brand text-(--brand-contrast) paper:border-primary paper:bg-primary paper:text-primary-foreground' : 'border-input',
+                checked ? 'border-brand bg-brand text-(--brand-contrast) paper:border-primary paper:bg-primary paper:text-primary-foreground' : 'border-control',
               )}
             >
               {checked && <Check className="size-3" strokeWidth={3} />}
@@ -198,13 +198,13 @@ export function TagInput({ value, onChange }: { value: string[]; onChange: (tags
         )}
       >
         {value.map((t) => (
-          <Badge key={t} variant="secondary" className="h-7 gap-1 pr-1 font-normal">
+          <Badge key={t} variant="secondary" className="h-7 gap-1 overflow-visible pr-1 font-normal">
             {t}
             <button
               type="button"
               aria-label={`移除标签 ${t}`}
               onClick={() => onChange(value.filter((x) => x !== t))}
-              className="inline-flex size-5 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="relative inline-flex size-5 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground pointer-coarse:after:absolute pointer-coarse:after:-inset-3"
             >
               <X className="size-3" />
             </button>

@@ -78,7 +78,7 @@ export function TaskList({ tasks, now, names, showNode = false, omitSubject = fa
             openTaskLog({ node: task.node, upid: task.upid, title, ...(task.endtime ? { endtime: task.endtime } : {}) })
           const rowBase = cn(
             'group relative w-full text-left transition-colors outline-none',
-            'hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.05] active:bg-foreground/[0.05] paper:hover:bg-secondary/50',
+            'hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset active:bg-foreground/[0.05] paper:hover:bg-secondary/50',
             state === 'error' && 'bg-destructive/[0.035]',
             state === 'warning' && 'bg-warning/[0.04]',
           )

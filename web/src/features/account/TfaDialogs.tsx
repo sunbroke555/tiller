@@ -95,7 +95,7 @@ export function AddTotpDialog({ userid, open, onOpenChange, onDone }: Common) {
             </code>
             <div className="flex flex-wrap gap-2">
               <CopyButton text={secret} label="复制密钥" />
-              <Button type="button" variant="ghost" size="sm" onClick={() => setSecret(randomTotpSecret())}>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setSecret(randomTotpSecret())} className="pointer-coarse:h-11">
                 换一个密钥
               </Button>
             </div>
