@@ -2,8 +2,8 @@ import { expect, test, type PveApi } from '../fixtures'
 
 // Area tasks-logs: /tasks, task log sheet (follow, stop), guest/node task
 // history tabs, /cluster/log and the running-task indicators.
-// Guests are created in this area's VMID range 3000–3099 and destroyed after
-// each test.
+// Guests are created (@lab, desktop) in this area's VMID range 3000–3099 and
+// destroyed after each test. The phone check mocks a running task.
 
 const VMID_MIN = 3000
 const VMID_MAX = 3099
@@ -22,7 +22,7 @@ async function lastTask(pve: PveApi, vmid: number, type: string): Promise<string
 }
 
 test.describe('tasks-logs', () => {
-  test('任务页列出任务，按状态和类型筛选，打开日志', async ({ page, pve, cleanup }) => {
+  test('任务页列出任务，按状态和类型筛选，打开日志', { tag: '@lab' }, async ({ page, pve, cleanup }) => {
     const vmid = await freeVmid(pve)
     const name = `e2e-tasks-list-${vmid}`
     cleanup.guest(vmid)
@@ -80,7 +80,7 @@ test.describe('tasks-logs', () => {
     await expect(page).not.toHaveURL(/vmid=/)
   })
 
-  test('运行中的任务：指示器、实时日志与停止', async ({ page, pve, cleanup, mobile }) => {
+  test('运行中的任务：指示器、实时日志与停止', { tag: '@lab' }, async ({ page, pve, cleanup }) => {
     const vmid = await freeVmid(pve)
     const name = `e2e-tasks-stop-${vmid}`
     cleanup.guest(vmid)
@@ -94,13 +94,7 @@ test.describe('tasks-logs', () => {
     })
 
     await page.goto('/tasks?status=running')
-    if (mobile) {
-      await expect(page.getByRole('navigation', { name: '主导航' }).getByRole('status', { name: /个任务运行中/ })).toBeVisible({
-        timeout: 20_000,
-      })
-    } else {
-      await expect(page.getByRole('region', { name: '任务状态栏' })).toContainText('个运行中', { timeout: 20_000 })
-    }
+    await expect(page.getByRole('region', { name: '任务状态栏' })).toContainText('个运行中', { timeout: 20_000 })
     const item = page.locator(`li[data-upid="${upid}"]`)
     const row = item.getByRole('button')
     await expect(row).toBeVisible({ timeout: 20_000 })
@@ -131,7 +125,7 @@ test.describe('tasks-logs', () => {
     await expect(item).toContainText('received interrupt')
   })
 
-  test('客户机与节点的任务历史标签', async ({ page, pve, cleanup }) => {
+  test('客户机与节点的任务历史标签', { tag: '@lab' }, async ({ page, pve, cleanup }) => {
     const vmid = await freeVmid(pve)
     cleanup.guest(vmid)
     await pve.createTestVm({ vmid, name: `e2e-tasks-tab-${vmid}` })
@@ -164,7 +158,7 @@ test.describe('tasks-logs', () => {
     }
   })
 
-  test('集群日志：实时列表、筛选和任务链接', async ({ page, pve, cleanup }) => {
+  test('集群日志：实时列表、筛选和任务链接', { tag: '@lab' }, async ({ page, pve, cleanup }) => {
     const vmid = await freeVmid(pve)
     cleanup.guest(vmid)
     await pve.createTestVm({ vmid, name: `e2e-tasks-log-${vmid}` })
@@ -178,13 +172,27 @@ test.describe('tasks-logs', () => {
     await expect(list.getByRole('listitem').first()).toBeVisible({ timeout: 20_000 })
     await expect(list).toContainText('successful auth')
 
-    // "starting task UPID:…qmcreate:<vmid>…" links to the task.
-    await page.getByRole('searchbox', { name: '搜索日志' }).fill(upid)
-    const link = list.getByRole('button', { name: `创建 VM ${vmid}` }).first()
+    // "starting task UPID:…" links to the task. The cluster log drops lines
+    // when several tasks start in the same second (other spec files run in
+    // parallel), so use ours if it made it in, else the newest logged task.
+    const logged = async () =>
+      (await pve.get<{ msg: string }[]>('/cluster/log', { max: 200 }))
+        .map((e) => /^starting task (UPID:\S+)/.exec(e.msg)?.[1])
+        .filter((u): u is string => !!u)
+    let target = upid
+    await expect
+      .poll(async () => (await logged()).includes(upid), { timeout: 10_000 })
+      .toBe(true)
+      .catch(async () => {
+        target = (await logged())[0] ?? upid
+      })
+    await page.getByRole('searchbox', { name: '搜索日志' }).fill(target)
+    const link = target === upid ? list.getByRole('button', { name: `创建 VM ${vmid}` }).first() : list.getByRole('button').first()
     await expect(link).toBeVisible({ timeout: 20_000 })
     await link.click()
-    const log = page.getByRole('dialog', { name: new RegExp(`创建 VM ${vmid}`) })
-    await expect(log.getByTestId('task-log')).toContainText('TASK OK', { timeout: 15_000 })
+    const log = page.getByRole('dialog')
+    await expect(log.getByTestId('task-log')).not.toBeEmpty({ timeout: 15_000 })
+    if (target === upid) await expect(log.getByTestId('task-log')).toContainText('TASK OK')
     await log.getByRole('button', { name: '关闭' }).last().click()
 
     await page.getByRole('searchbox', { name: '搜索日志' }).fill('')
@@ -203,8 +211,7 @@ test.describe('tasks-logs', () => {
     await expect(page.getByText('每 5 秒自动更新')).toBeVisible()
   })
 
-  test('桌面任务状态栏展开最近任务与集群日志', async ({ page, mobile }) => {
-    test.skip(mobile, '状态栏只在桌面布局')
+  test('桌面任务状态栏展开最近任务与集群日志', { tag: '@desktop' }, async ({ page }) => {
     await page.goto('/')
     const bar = page.getByRole('region', { name: '任务状态栏' })
     await expect(bar).toBeVisible()
@@ -217,5 +224,27 @@ test.describe('tasks-logs', () => {
     await expect(panel).toBeHidden()
     await bar.getByRole('link', { name: '全部任务' }).click()
     await expect(page).toHaveURL(/\/tasks$/)
+  })
+
+  test('手机：底部导航显示运行中的任务数，筛选面板可打开', { tag: '@mobile' }, async ({ page, pve }) => {
+    // One running task, mocked into /cluster/tasks (nothing runs on the lab).
+    const start = Math.floor(Date.now() / 1000)
+    const upid = `UPID:${pve.node}:0000E2E0:00000001:${start.toString(16).toUpperCase().padStart(8, '0')}:qmstart:100:root@pam:`
+    await page.route('**/api2/json/cluster/tasks', async (route) => {
+      const res = await route.fetch()
+      const json = (await res.json()) as { data: Record<string, unknown>[] }
+      json.data.unshift({ upid, node: pve.node, pid: 57568, pstart: 1, starttime: start, type: 'qmstart', id: '100', user: 'root@pam' })
+      await route.fulfill({ response: res, json })
+    })
+    await page.goto('/tasks')
+    await expect(page.getByRole('navigation', { name: '主导航' }).getByRole('status', { name: '1 个任务运行中' })).toBeVisible({
+      timeout: 20_000,
+    })
+    await page.getByRole('button', { name: /^筛选/ }).click()
+    const sheet = page.getByRole('dialog', { name: '筛选任务' })
+    await expect(sheet.getByRole('combobox', { name: '任务类型' })).toBeVisible()
+    await expect(sheet.getByLabel('VMID')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(sheet).toBeHidden()
   })
 })

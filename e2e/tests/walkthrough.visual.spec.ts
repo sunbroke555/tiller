@@ -5,9 +5,9 @@ import type { Page } from '@playwright/test'
 import { env, expect, splitUser, test } from '../fixtures'
 
 // Full visual walkthrough: every main screen in every theme at phone
-// (390x844) and desktop (1440x900) size. Skipped unless WALK=1; images go to
+// (390x844) and desktop (1440x900) size. Only at the end of a phase, on request (E2E_SCREENSHOTS=1); images go to
 // test-results/walk/<m|d>-<theme>-<screen>.png (fetch with rt --back).
-//   rt --back e2e/test-results -- bash -lc '… WALK=1 make e2e PORT=8120 SPEC=tests/walkthrough.visual.spec.ts'
+//   rt --back e2e/test-results -- bash -lc '… make e2e-visual PORT=8120 SPEC=tests/walkthrough.visual.spec.ts'
 // WALK_ONLY=<regexp> limits the screens, WALK_THEMES=dark,paper the themes.
 // Read-only: it never changes the lab (wizards stop before 完成).
 
@@ -149,7 +149,6 @@ async function next(page: Page, step: string) {
   await expect(page.getByRole('heading', { level: 2, name: step, exact: true })).toBeVisible()
 }
 
-test.skip(!process.env.WALK, '只在 WALK=1 时截图')
 test.use({ actionTimeout: 10_000, navigationTimeout: 30_000 })
 
 for (const theme of THEMES) {
@@ -160,7 +159,7 @@ for (const theme of THEMES) {
       localStorage.setItem('pve-web:install-dismissed', String(Date.now()))
     }, theme)
     // The background grain (opacity ≤ 6 %) is invisible to the eye but makes
-    // every PNG incompressible; hide it so the docs/screenshots set stays small.
+    // every PNG incompressible; hide it so the screenshots stay small.
     await page.addInitScript(() => {
       document.addEventListener('DOMContentLoaded', () => {
         const style = document.createElement('style')

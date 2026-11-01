@@ -2,13 +2,11 @@ import type { Page } from '@playwright/test'
 
 import { expect, test, type PveApi } from '../fixtures'
 
-// Area guest-create: the VM and CT creation wizards. Guests are created in
-// the VMID range 3700–3799 only, named e2e-guest-create-*, kept tiny and
-// destroyed after each test.
-//
-// Visual QA screenshots (all themes, phone 390×844 and desktop 1440×900):
-//   E2E_SCREENSHOTS=1 … make e2e PORT=8108 SPEC=tests/guest-create.spec.ts E2E_ARGS="-g 截图"
-// they land in e2e/test-results/guest-create-shots/.
+// Area guest-create: the VM and CT creation wizards. Guests are created
+// (@lab, desktop) in the VMID range 3700–3799 only, named e2e-guest-create-*,
+// kept tiny and destroyed after each test. On phones the wizard is walked to
+// 确认 without creating anything.
+// Screenshots of the wizards: guest-create.visual.spec.ts.
 
 const RANGE = { min: 3700, max: 3799 }
 
@@ -53,8 +51,8 @@ async function setSize(page: Page, label: string, value: string, unit: 'MiB' | '
 }
 
 test.describe('创建向导', () => {
-  test('创建虚拟机：完整走一遍向导', async ({ page, pve, cleanup }) => {
-    test.setTimeout(180_000)
+  test('创建虚拟机：完整走一遍向导', { tag: '@lab' }, async ({ page, pve, cleanup }) => {
+    test.setTimeout(150_000)
     const vmid = await freeVmid(pve)
     const name = `e2e-guest-create-vm-${vmid}`
     cleanup.guest(vmid)
@@ -113,8 +111,8 @@ test.describe('创建向导', () => {
     expect(String(cfg.net0)).toMatch(/^virtio=[0-9A-F:]{17},bridge=vmbr0,firewall=1$/)
   })
 
-  test('创建容器：完整走一遍向导', async ({ page, pve, cleanup }) => {
-    test.setTimeout(180_000)
+  test('创建容器：完整走一遍向导', { tag: '@lab' }, async ({ page, pve, cleanup }) => {
+    test.setTimeout(150_000)
     const vmid = await freeVmid(pve)
     const hostname = `e2e-guest-create-ct-${vmid}`
     cleanup.guest(vmid)
@@ -169,6 +167,30 @@ test.describe('创建向导', () => {
     expect(String(cfg.net0)).toMatch(/name=eth0,bridge=vmbr0,firewall=1,.*ip=10\.250\.0\.5\/24/)
   })
 
+  test('手机：向导走到确认页（不创建）', { tag: '@mobile' }, async ({ page }) => {
+    await page.goto('/create/qemu')
+    await expect(page.getByRole('heading', { level: 1, name: '创建虚拟机' })).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'VM ID', exact: true })).not.toHaveValue('')
+    await expect(page.getByText('可用', { exact: true })).toBeVisible()
+    await page.getByLabel('名称', { exact: true }).fill('e2e-guest-create-phone')
+    await next(page, '操作系统')
+    await page.getByRole('radio', { name: /不使用介质/ }).click()
+    await next(page, '系统')
+    await next(page, '磁盘')
+    // The step is invalid until the storages have loaded.
+    await expect(page.getByRole('combobox', { name: '存储' })).toContainText('local-lvm')
+    await setSize(page, '大小', '1', 'GiB') // the default 32 GiB does not fit the lab
+    await next(page, 'CPU')
+    await next(page, '内存')
+    await next(page, '网络')
+    await next(page, '确认')
+    await expect(page.getByRole('region', { name: '常规', exact: true })).toContainText('e2e-guest-create-phone')
+    await expect(page.getByRole('button', { name: '创建虚拟机' })).toBeEnabled()
+    // Back to an earlier step from the summary.
+    await page.getByRole('button', { name: '修改内存' }).click()
+    await expect(page.getByRole('heading', { level: 2, name: '内存', exact: true })).toBeVisible()
+  })
+
   test('VM ID 已占用时不能继续', async ({ page }) => {
     await page.goto('/create/qemu')
     const input = page.getByRole('textbox', { name: 'VM ID', exact: true })
@@ -200,83 +222,4 @@ test.describe('创建向导', () => {
     await page.getByRole('option', { name: '创建虚拟机' }).first().click()
     await expect(page).toHaveURL(/\/create\/qemu$/)
   })
-})
-
-// ------------------------------------------------------------ screenshots
-
-const THEMES = ['dark', 'light', 'paper'] as const
-
-test.describe('截图', () => {
-  test.skip(!process.env.E2E_SCREENSHOTS, '设置 E2E_SCREENSHOTS=1 生成视觉检查截图')
-
-  for (const theme of THEMES) {
-    test(`截图 ${theme}`, async ({ page, mobile }, info) => {
-      test.setTimeout(120_000)
-      await page.addInitScript((mode) => {
-        localStorage.setItem('pve-web:appearance', JSON.stringify({ mode, accent: 'indigo', glass: true, density: 'comfortable' }))
-      }, theme)
-      if (mobile) await page.setViewportSize({ width: 390, height: 844 })
-      const dir = `${info.project.outputDir}/guest-create-shots`
-      const shot = async (name: string) => {
-        await page.waitForTimeout(400)
-        await page.screenshot({ path: `${dir}/${info.project.name}-${theme}-${name}.png`, fullPage: false })
-      }
-
-      await page.goto('/create/qemu')
-      await expect(page.getByRole('textbox', { name: 'VM ID', exact: true })).not.toHaveValue('')
-      await expect(page.getByText('可用', { exact: true })).toBeVisible()
-      await shot('qemu-1-general')
-      await next(page, '操作系统')
-      await shot('qemu-2-os')
-      await page.getByRole('radio', { name: /Windows/ }).click()
-      await page.getByRole('switch', { name: /VirtIO 驱动/ }).click()
-      await shot('qemu-2-os-windows')
-      await page.getByRole('radio', { name: /Linux/ }).click()
-      await page.getByRole('radio', { name: /不使用介质/ }).click()
-      await next(page, '系统')
-      await page.getByRole('combobox', { name: 'BIOS' }).click()
-      await page.getByRole('option', { name: /OVMF/ }).click()
-      await shot('qemu-3-system')
-      await page.getByRole('combobox', { name: 'BIOS' }).click()
-      await page.getByRole('option', { name: /默认/ }).click()
-      await next(page, '磁盘')
-      await page.getByRole('button', { name: '添加磁盘' }).click()
-      await shot('qemu-4-disks')
-      await next(page, 'CPU')
-      await page.getByRole('button', { name: '高级选项' }).click()
-      await shot('qemu-5-cpu')
-      await next(page, '内存')
-      await shot('qemu-6-memory')
-      await next(page, '网络')
-      await shot('qemu-7-network')
-      await next(page, '确认')
-      await shot('qemu-8-confirm')
-
-      await page.goto('/create/lxc')
-      await expect(page.getByText('可用', { exact: true })).toBeVisible()
-      await shot('lxc-1-general')
-      await page.getByLabel('密码', { exact: true }).fill('secret12')
-      await page.getByLabel('确认密码', { exact: true }).fill('secret12')
-      await next(page, '模板')
-      await page.getByRole('combobox', { name: '模板' }).click()
-      await page.getByRole('option', { name: /alpine/ }).first().click()
-      await shot('lxc-2-template')
-      await next(page, '磁盘')
-      await page.getByRole('button', { name: '添加挂载点' }).click()
-      await shot('lxc-3-disks')
-      await next(page, 'CPU')
-      await next(page, '内存')
-      await next(page, '网络')
-      await page.getByRole('radio', { name: '静态' }).first().click()
-      await shot('lxc-6-network')
-      await page.getByRole('radio', { name: 'DHCP' }).first().click()
-      await next(page, 'DNS')
-      await next(page, '确认')
-      await shot('lxc-8-confirm')
-
-      await page.goto('/')
-      await page.getByRole('button', { name: '新建' }).click()
-      await shot('overview-menu')
-    })
-  }
 })

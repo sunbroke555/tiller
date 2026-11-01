@@ -4,14 +4,12 @@ import { expect, test } from '../fixtures'
 
 // Visual QA screenshots of the storage browser in every theme, phone
 // (390×844) and desktop (1440×900). Off by default; run with
-//   E2E_SCREENSHOTS=1 … make e2e PORT=8110 SPEC=tests/storage-browser.visual.spec.ts
+//   … make e2e-visual PORT=8110 SPEC=tests/storage-browser.visual.spec.ts
 // and fetch e2e/test-results/sb-shots with rt --back.
 
 const THEMES = ['dark', 'light', 'paper'] as const
 const VMID = { mobile: 3840, desktop: 3841 }
 const NAME = 'e2e-storage-browser-shots'
-
-test.skip(!process.env.E2E_SCREENSHOTS, '只在 E2E_SCREENSHOTS=1 时截图')
 
 async function shot(page: Page, name: string, mobile: boolean) {
   await page.waitForTimeout(450) // animations, sheets

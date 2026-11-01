@@ -2,9 +2,10 @@ import type { Locator, Page } from '@playwright/test'
 
 import { expect, test, type PveApi } from '../fixtures'
 
-// Container configuration tabs (area lxc-config) against the lab. Every test
-// creates its own tiny Alpine CT in the VMID range 3500–3599 and destroys it
-// afterwards.
+// Container configuration tabs (area lxc-config) against the lab. Every @lab
+// test (desktop) creates its own tiny Alpine CT in the VMID range 3500–3599
+// and destroys it afterwards. On phones the editors open as sheets on the
+// sample CT 200 and are cancelled.
 
 const VMID_MIN = 3500
 const VMID_MAX = 3599
@@ -61,23 +62,22 @@ async function submit(page: Page, name = '保存') {
   await expect(d).toBeHidden({ timeout: 20_000 })
 }
 
-/** A config row (the button that opens its editor). */
-function row(page: Page, label: string | RegExp): Locator {
-  return page.getByRole('button', { name: typeof label === 'string' ? new RegExp(`^${label}`) : label })
+/** A config row (the button that opens its editor), within a page or tab panel. */
+function row(scope: Page | Locator, label: string | RegExp): Locator {
+  return scope.getByRole('button', { name: typeof label === 'string' ? new RegExp(`^${label}`) : label })
 }
 
 async function menu(page: Page, label: string, item: string) {
-  // The menu of the previous action may still be closing (exit animation while
-  // the save re-renders the row); a click on the trigger meanwhile toggles it
-  // instead of opening a fresh one.
+  // Let the previous menu finish its exit animation first, so the click opens
+  // a fresh one. (Reopening during the animation used to close the new menu
+  // right away: Radix handed focus back to the trigger late. Fixed in the
+  // app, see lib/focus.ts.)
   await expect(page.getByRole('menu')).toHaveCount(0)
   await page.getByRole('button', { name: `更多操作：${label}`, exact: true }).click()
   await page.getByRole('menuitem', { name: new RegExp(`^${item}`) }).click()
 }
 
-test.describe('lxc-config', () => {
-  test.describe.configure({ timeout: 240_000 })
-
+test.describe('lxc-config', { tag: '@lab' }, () => {
   test.beforeAll(async ({ pve }) => {
     // Leftovers of crashed runs.
     for (const g of await pve.guests()) {
@@ -128,6 +128,7 @@ test.describe('lxc-config', () => {
   })
 
   test('磁盘：添加挂载点、扩容、分离、重新挂载、删除', async ({ page, pve, cleanup }) => {
+    test.setTimeout(180_000) // resize task, then the config lock
     const vmid = await createCt(pve, 'e2e-lxc-disk')
     cleanup.guest(vmid)
     const cfg = configOf(pve, vmid)
@@ -190,8 +191,8 @@ test.describe('lxc-config', () => {
     await expect.poll(async () => Object.keys(await cfg()).filter((k) => /^(mp|unused)\d/.test(k))).toEqual([])
   })
 
-  test('磁盘：转移所有者', async ({ page, pve, cleanup, mobile }) => {
-    test.skip(mobile, '桌面布局覆盖即可（耗时）')
+  test('磁盘：转移所有者', async ({ page, pve, cleanup }) => {
+    test.setTimeout(150_000) // two containers
     const a = await createCt(pve, 'e2e-lxc-own-a', { mp0: 'local-lvm:0.1,mp=/data' })
     cleanup.guest(a)
     const b = await createCt(pve, 'e2e-lxc-own-b')
@@ -363,6 +364,7 @@ test.describe('lxc-config', () => {
   })
 
   test('运行中：待生效的更改可以撤销', async ({ page, pve, cleanup }) => {
+    test.setTimeout(150_000) // starts the container
     const vmid = await createCt(pve, 'e2e-lxc-pend')
     cleanup.guest(vmid)
     await pve.run('POST', `/nodes/${pve.node}/lxc/${vmid}/status/start`)
@@ -395,5 +397,30 @@ test.describe('lxc-config', () => {
     await submit(page)
     await expect(res.getByText('80 MiB')).toBeVisible()
     await expect(res.getByRole('status')).toHaveCount(0)
+  })
+})
+
+test.describe('container config on phones', { tag: '@mobile' }, () => {
+  test('editors open as sheets and row menus list their actions (CT 200, cancelled)', async ({ page, pve }) => {
+    test.skip(!(await pve.guests()).some((g) => g.vmid === 200 && g.type === 'lxc'), '实验机里没有 CT 200')
+    await page.goto(`/guest/${pve.node}/lxc/200/resources`)
+    const res = page.getByRole('tabpanel', { name: '资源' })
+    await row(res, '内存').click()
+    await expect(dialog(page)).toContainText('内存与交换分区')
+    await expect(dialog(page).getByRole('textbox', { name: '内存', exact: true })).toBeVisible()
+    await dialog(page).getByRole('button', { name: '取消' }).click()
+    await expect(dialog(page)).toBeHidden()
+
+    await page.goto(`/guest/${pve.node}/lxc/200/network`)
+    const net = page.getByRole('tabpanel', { name: '网络' })
+    await net.getByRole('button', { name: '编辑网卡 eth0' }).click()
+    await expect(dialog(page).getByRole('radiogroup', { name: 'IPv4 配置方式' })).toBeVisible()
+    await dialog(page).getByRole('button', { name: '取消' }).click()
+    await expect(dialog(page)).toBeHidden()
+
+    await page.getByRole('button', { name: '更多操作：网卡 eth0', exact: true }).click()
+    for (const item of ['编辑', '(断开|连接)链路', '删除']) await expect(page.getByRole('menuitem', { name: new RegExp(`^${item}`) })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('menu')).toHaveCount(0)
   })
 })

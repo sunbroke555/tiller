@@ -4,10 +4,10 @@ import { expect, test, type PveApi } from '../fixtures'
 // delete) and the guest backup tab (backup now, protection, notes, config,
 // restore over the guest and as a new guest, delete).
 //
-// Writes only touch guests in the area's VMID range 3600–3699, named
-// "e2e-guest-backup-…": mobile uses 3610+, desktop 3630+ so a crashed run of
-// one layout never collides with the other. Backups of those VMIDs on
-// `local` are removed in teardown (destroying a guest keeps its backups).
+// Writes (@lab, desktop) only touch guests in the area's VMID range
+// 3600–3699, named "e2e-guest-backup-…", from 3630 up. Backups of those VMIDs
+// on `local` are removed in teardown (destroying a guest keeps its backups).
+// The read-only checks run in both layouts on the shared samples.
 
 const STORAGE = 'local'
 
@@ -18,9 +18,7 @@ interface BackupEntry {
   vmid?: number
 }
 
-function base(mobile: boolean) {
-  return mobile ? 3610 : 3630
-}
+const BASE = 3630
 
 async function backupsOf(pve: PveApi, vmid: number): Promise<BackupEntry[]> {
   return pve.get<BackupEntry[]>(`/nodes/${pve.node}/storage/${STORAGE}/content`, { content: 'backup', vmid })
@@ -50,10 +48,10 @@ async function freshVm(pve: PveApi, vmid: number, name: string) {
 }
 
 test.describe('guest snapshots', () => {
-  test('take, describe, roll back and delete a snapshot', async ({ page, pve, cleanup, mobile }) => {
-    test.setTimeout(240_000)
-    const vmid = base(mobile)
-    await freshVm(pve, vmid, `e2e-guest-backup-snap-${mobile ? 'm' : 'd'}`)
+  test('take, describe, roll back and delete a snapshot', { tag: '@lab' }, async ({ page, pve, cleanup }) => {
+    test.setTimeout(180_000)
+    const vmid = BASE
+    await freshVm(pve, vmid, 'e2e-guest-backup-snap')
     cleanup.guest(vmid)
     const guestApi = `/nodes/${pve.node}/qemu/${vmid}`
 
@@ -150,11 +148,11 @@ test.describe('guest snapshots', () => {
 })
 
 test.describe('guest backups', () => {
-  test('backup now, protect, notes, config, restore and delete', async ({ page, pve, cleanup, mobile }) => {
+  test('backup now, protect, notes, config, restore and delete', { tag: '@lab' }, async ({ page, pve, cleanup }) => {
     test.setTimeout(300_000)
-    const vmid = base(mobile) + 1
-    const newVmid = base(mobile) + 2
-    const name = `e2e-guest-backup-bk-${mobile ? 'm' : 'd'}`
+    const vmid = BASE + 1
+    const newVmid = BASE + 2
+    const name = 'e2e-guest-backup-bk'
     await freshVm(pve, vmid, name)
     cleanup.guest(vmid)
     cleanup.add(() => removeBackups(pve, vmid))
@@ -286,12 +284,12 @@ test.describe('guest backups', () => {
   })
 })
 
-test.describe('container snapshots and backups', () => {
-  test('CT: snapshot without RAM, backup and restore as a new container', async ({ page, pve, cleanup, mobile }) => {
-    test.setTimeout(300_000)
-    const vmid = base(mobile) + 5
-    const newVmid = base(mobile) + 6
-    const hostname = `e2e-guest-backup-ct-${mobile ? 'm' : 'd'}`
+test.describe('container snapshots and backups', { tag: '@lab' }, () => {
+  test('CT: snapshot without RAM, backup and restore as a new container', async ({ page, pve, cleanup }) => {
+    test.setTimeout(240_000)
+    const vmid = BASE + 5
+    const newVmid = BASE + 6
+    const hostname = 'e2e-guest-backup-ct'
     for (const id of [vmid, newVmid]) {
       const g = (await pve.guests()).find((x) => x.vmid === id)
       if (g && !g.name?.startsWith('e2e-')) throw new Error(`VMID ${id} 被非测试客户机占用`)
@@ -362,5 +360,19 @@ test.describe('container snapshots and backups', () => {
     const cfg = await pve.get<{ unprivileged?: number; rootfs: string }>(`/nodes/${pve.node}/lxc/${newVmid}/config`)
     expect(cfg.unprivileged).toBe(1)
     expect(cfg.rootfs).toMatch(/^local-lvm:/)
+  })
+})
+
+test.describe('backup dialogs on phones', { tag: '@mobile' }, () => {
+  test('backup now opens as a sheet (cancelled, CT 200)', async ({ page, pve }) => {
+    test.skip(!(await pve.guests()).some((g) => g.vmid === 200), '实验机里没有 CT 200')
+    await page.goto(`/guest/${pve.node}/lxc/200/backup`)
+    const panel = page.getByRole('tabpanel', { name: '备份' })
+    await panel.getByRole('button', { name: '立即备份' }).first().click()
+    const dialog = page.getByRole('dialog', { name: '立即备份' })
+    await expect(dialog.getByRole('combobox', { name: '存储' })).toBeVisible()
+    await expect(dialog.getByRole('radio', { name: /快照/ })).toBeVisible()
+    await dialog.getByRole('button', { name: '取消' }).click()
+    await expect(dialog).toBeHidden()
   })
 })

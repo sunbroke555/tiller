@@ -1,12 +1,13 @@
 import { expect, test } from '../fixtures'
 
 // Page shells and registries (guest / node / storage pages, area routes,
-// command palette). Read-only against the lab.
+// command palette). Read-only against the lab, on the sample guests (VM 100,
+// running VM 101, CT 200): other areas' e2e guests come and go meanwhile.
 
 test.describe('page shells', () => {
   test('guest page renders registry tabs and switches them by URL', async ({ page, pve }) => {
-    const vm = (await pve.guests()).find((g) => g.type === 'qemu' && g.template !== 1)
-    test.skip(!vm, '实验机里没有虚拟机')
+    const vm = (await pve.guests()).find((g) => g.vmid === 100 && g.type === 'qemu')
+    test.skip(!vm, '实验机里没有 VM 100')
     const base = `/guest/${vm!.node}/qemu/${vm!.vmid}`
     await page.goto(base)
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(vm!.name ?? `VM ${vm!.vmid}`)
@@ -31,8 +32,8 @@ test.describe('page shells', () => {
   })
 
   test('container page has LXC tabs', async ({ page, pve }) => {
-    const ct = (await pve.guests()).find((g) => g.type === 'lxc' && g.template !== 1)
-    test.skip(!ct, '实验机里没有容器')
+    const ct = (await pve.guests()).find((g) => g.vmid === 200 && g.type === 'lxc')
+    test.skip(!ct, '实验机里没有 CT 200')
     await page.goto(`/guest/${ct!.node}/lxc/${ct!.vmid}/dns`)
     await expect(page.getByRole('tabpanel', { name: 'DNS' })).toContainText('主机名')
     const tabs = page.getByRole('navigation', { name: '页面标签' })
@@ -41,15 +42,15 @@ test.describe('page shells', () => {
   })
 
   test('a guest link with the wrong node follows the guest', async ({ page, pve }) => {
-    const g = (await pve.guests())[0]
-    test.skip(!g, '实验机里没有客户机')
+    const g = (await pve.guests()).find((x) => x.vmid === 100)
+    test.skip(!g, '实验机里没有 VM 100')
     await page.goto(`/guest/not-a-node/${g!.type}/${g!.vmid}/tasks`)
     await expect(page).toHaveURL(new RegExp(`/guest/${g!.node}/${g!.type}/${g!.vmid}/tasks$`))
   })
 
   test('running guest offers the console action', async ({ page, pve, mobile }) => {
-    const vm = (await pve.guests()).find((g) => g.status === 'running' && g.template !== 1)
-    test.skip(!vm, '没有运行中的客户机')
+    const vm = (await pve.guests()).find((g) => g.vmid === 101 && g.status === 'running')
+    test.skip(!vm, 'VM 101 未运行')
     await page.goto(`/guest/${vm!.node}/${vm!.type}/${vm!.vmid}`)
     const bar = mobile ? page.getByRole('toolbar', { name: '操作' }) : page.locator('header')
     await bar.getByRole('button', { name: '控制台' }).click()

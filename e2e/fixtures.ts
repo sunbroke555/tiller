@@ -17,6 +17,11 @@
 //   proxies the lab node (PVE_LAB_NODE), never production.
 // - Name everything a test creates "e2e-…" so `pve.sweep()` can clean up
 //   leftovers of crashed runs.
+// - Tags (see playwright.config.ts): tests that change the lab are tagged
+//   `@lab` and run in the desktop project only. The phone project checks
+//   layout and interaction and must not write: there `pve` refuses writes and
+//   non-GET calls from the page fail the test (logins and console tickets
+//   excepted). Mock state with page.route() instead.
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -77,6 +82,8 @@ function form(params?: Params): string {
 /** Direct PVE API access through the app server, for test setup/teardown. */
 export class PveApi {
   private verifiedLab = false
+  /** Set for the phone project: setup that writes belongs in an @lab test. */
+  readOnly = false
 
   constructor(
     readonly ctx: APIRequestContext,
@@ -108,6 +115,9 @@ export class PveApi {
   }
 
   async call<T>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', apiPath: string, params?: Params): Promise<T> {
+    if (method !== 'GET' && this.readOnly) {
+      throw new Error(`手机布局的测试不写实验机：${method} ${apiPath}（写操作放到 @lab 测试里）`)
+    }
     if (method !== 'GET') await this.assertLab()
     const url = `/api2/json${apiPath}`
     const body = form(params)
@@ -177,7 +187,9 @@ export class PveApi {
     return Number(await this.get<string>('/cluster/nextid'))
   }
 
-  async guests(): Promise<{ vmid: number; node: string; type: 'qemu' | 'lxc'; name?: string; status: string; template?: number }[]> {
+  async guests(): Promise<
+    { vmid: number; node: string; type: 'qemu' | 'lxc'; name?: string; status: string; template?: number; pool?: string; tags?: string }[]
+  > {
     return this.get('/cluster/resources', { type: 'vm' })
   }
 
@@ -274,7 +286,10 @@ export async function uiLogin(browser: Browser, user = env.user, password = env.
     }
     await page.getByRole('button', { name: '登录' }).click()
     await expect(page).not.toHaveURL(/\/login/, { timeout: 20_000 })
-    await context.storageState({ path: file })
+    // Workers log in in parallel: write, then rename, so nobody reads half a file.
+    const tmp = `${file}.${process.pid}.tmp`
+    await context.storageState({ path: tmp })
+    fs.renameSync(tmp, file)
   } finally {
     await context.close()
   }
@@ -294,6 +309,8 @@ interface TestFixtures {
   cleanup: Cleanup
   /** The current project is the phone layout (iPhone viewport, touch). */
   mobile: boolean
+  /** Phone project: fails the test when the page sent a write to the lab. */
+  readOnlyGuard: void
 }
 
 interface WorkerFixtures {
@@ -306,8 +323,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   storageState: async ({ authFile }, use) => use(authFile),
 
   pve: [
-    async ({}, use) => {
+    async ({}, use, workerInfo) => {
       const api = await PveApi.login()
+      api.readOnly = workerInfo.project.name === 'mobile' && !process.env.E2E_SCREENSHOTS
       await use(api)
       await api.dispose()
     },
@@ -332,4 +350,25 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 
   mobile: async ({}, use, testInfo) => use(testInfo.project.name === 'mobile'),
+
+  readOnlyGuard: [
+    async ({ page, mobile }, use) => {
+      if (!mobile || process.env.E2E_SCREENSHOTS) return use()
+      const writes: string[] = []
+      // Registered first, so a test's own page.route() mocks take precedence.
+      await page.route('**/api2/**', (route) => {
+        const req = route.request()
+        const path = new URL(req.url()).pathname
+        if (req.method() === 'GET' || READ_ONLY_POSTS.test(path)) return route.fallback()
+        writes.push(`${req.method()} ${path}`)
+        return route.fulfill({ status: 403, json: { data: null, message: 'e2e：手机布局的测试不写实验机' } })
+      })
+      await use()
+      expect(writes, '手机布局的测试向实验机发了写请求（写操作放到 @lab 测试里，或用 page.route() 模拟）').toEqual([])
+    },
+    { auto: true },
+  ],
 })
+
+/** POSTs that change nothing: logging in and console tickets. */
+const READ_ONLY_POSTS = /\/api2\/json\/(access\/ticket|nodes\/[^/]+\/((qemu|lxc)\/\d+\/)?(vncproxy|termproxy|spiceproxy))$/

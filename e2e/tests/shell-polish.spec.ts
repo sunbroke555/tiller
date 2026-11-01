@@ -7,7 +7,8 @@ import { env, expect, splitUser, test, type PveApi } from '../fixtures'
 // Area shell-polish: datacenter summary, pools, tags, resource tree,
 // permission-aware actions, account (password + TOTP), consent banner,
 // keyboard shortcuts, offline banner and session edge cases.
-// Fixtures live in VMID 3900–3999, pool / user names start with "e2e-".
+// Fixtures (@lab, desktop) live in VMID 3900–3999, pool / user names start
+// with "e2e-". The phone checks use the lab's own pool and tags read-only.
 
 const VMID = 3901
 const POOL = 'e2e-shell-polish'
@@ -36,7 +37,7 @@ async function removeFixtures(pve: PveApi) {
   }
 }
 
-test.describe('datacenter, pools and tags', () => {
+test.describe('datacenter, pools and tags', { tag: '@lab' }, () => {
   test.beforeAll(async ({ pve }) => {
     await ensureFixtureVm(pve)
   })
@@ -54,8 +55,11 @@ test.describe('datacenter, pools and tags', () => {
     await expect(page.getByText('没有有效订阅')).toBeVisible()
     await expect(page.getByRole('meter', { name: 'CPU' })).toBeVisible()
 
-    // Guest counters link to the filtered list.
-    const running = (await pve.guests()).filter((g) => g.type === 'qemu' && g.status === 'running' && g.template !== 1)
+    // Guest counters link to the filtered list. Other areas start and stop
+    // their e2e guests in parallel: check the lab's own ones.
+    const running = (await pve.guests()).filter(
+      (g) => g.type === 'qemu' && g.status === 'running' && g.template !== 1 && !g.name?.startsWith('e2e-'),
+    )
     await page.locator('[aria-labelledby="dc-guests"]').getByRole('link', { name: /^运行中/ }).first().click()
     await expect(page).toHaveURL(/\/\?type=qemu&filter=running$/)
     const list = page.locator('section[aria-labelledby="guests-heading"]')
@@ -112,8 +116,7 @@ test.describe('datacenter, pools and tags', () => {
     await expect(page).not.toHaveURL(/tag=/)
   })
 
-  test('resource tree groups by pool and tag and filters', async ({ page, mobile }) => {
-    test.skip(mobile, '资源树只在桌面布局显示')
+  test('resource tree groups by pool and tag and filters', async ({ page }) => {
     await page.goto('/')
     const tree = page.getByRole('tree', { name: '资源树' })
     await expect(tree.getByRole('link', { name: /e2e-shell-polish/ })).toBeVisible()
@@ -209,9 +212,9 @@ async function loginForm(page: Page, user: string, password: string) {
   await page.getByRole('button', { name: '登录', exact: true }).click()
 }
 
-test('account: change password, add TOTP, log in with it', async ({ browser, pve, cleanup, mobile }) => {
-  test.setTimeout(180_000)
-  const user = `e2e-sp-${mobile ? 'm' : 'd'}@pve`
+test('account: change password, add TOTP, log in with it', { tag: '@lab' }, async ({ browser, pve, cleanup }) => {
+  test.setTimeout(150_000) // waits for a fresh TOTP time step
+  const user = 'e2e-sp-d@pve'
   const pw1 = `Start-${crypto.randomBytes(6).toString('hex')}`
   const pw2 = `Next-${crypto.randomBytes(6).toString('hex')}`
   try {
@@ -335,5 +338,29 @@ test('offline banner, keyboard shortcuts and logout', async ({ page, context, mo
     await page.keyboard.press('g')
     await page.keyboard.press('p')
     await expect(page).toHaveURL(/\/pool$/)
+  }
+})
+
+test('phone: datacenter, pools and tag chips (lab samples)', { tag: '@mobile' }, async ({ page, pve }) => {
+  const guests = await pve.guests()
+  await page.goto('/datacenter')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('数据中心')
+  await expect(page.getByText('单节点，未组建集群')).toBeVisible()
+  await expect(page.getByRole('meter', { name: 'CPU' })).toBeVisible()
+
+  const pooled = guests.find((g) => g.pool === 'lab-pool')
+  if (pooled) {
+    await page.goto('/pool')
+    await page.getByRole('main').getByRole('link', { name: /lab-pool/ }).click()
+    await expect(page).toHaveURL(/\/pool\/lab-pool$/)
+    await expect(page.getByRole('main').getByRole('link', { name: new RegExp(pooled.name!) })).toBeVisible()
+  }
+
+  const tagged = guests.find((g) => g.tags?.split(';').includes('demo'))
+  if (tagged) {
+    await page.goto('/')
+    await page.getByRole('group', { name: '按标签筛选' }).getByRole('button', { name: /^demo/ }).click()
+    await expect(page).toHaveURL(/[?&]tag=demo/)
+    await expect(page.locator('section[aria-labelledby="guests-heading"]').getByRole('link', { name: new RegExp(tagged.name!) })).toBeVisible()
   }
 })

@@ -5,9 +5,10 @@ import { expect, test, type PveApi } from '../fixtures'
 // Area node-summary: node summary (status, charts, package versions, system
 // report, repository status), notes, services, system log and node power.
 //
-// Lab writes are limited to: node notes (restored afterwards), stopping and
-// starting the harmless `ksmtuned` service, restarting `cron`. Reboot and
-// shutdown are intercepted in the browser and never reach the lab.
+// Lab writes (@lab, desktop) are limited to: node notes (restored
+// afterwards), stopping and starting the harmless `ksmtuned` service,
+// restarting `cron`. Reboot and shutdown are intercepted in the browser and
+// never reach the lab.
 
 const summaryPanel = (page: Page) => page.getByRole('tabpanel', { name: '概要' })
 
@@ -63,7 +64,7 @@ test.describe('node summary', () => {
     await summaryPanel(page).getByRole('radio', { name: '平均' }).click()
   })
 
-  test('package versions and system report', async ({ page, pve }) => {
+  test('package versions', async ({ page, pve }) => {
     await page.goto(`/node/${pve.node}`)
     await summaryPanel(page).getByRole('button', { name: '软件包版本' }).click()
     const dialog = page.getByRole('dialog', { name: '软件包版本' })
@@ -76,7 +77,11 @@ test.describe('node summary', () => {
     expect(await packages.getByRole('listitem').count()).toBeLessThan(total)
     await dialog.getByRole('button', { name: '关闭' }).first().click()
     await expect(dialog).toBeHidden()
+  })
 
+  test('system report', { tag: '@lab' }, async ({ page, pve }) => {
+    // Read-only, but pvereport takes a while: desktop only.
+    await page.goto(`/node/${pve.node}`)
     await summaryPanel(page).getByRole('button', { name: '系统报告' }).click()
     const report = page.getByRole('dialog', { name: '系统报告' })
     await expect(report.getByLabel('系统报告内容')).toContainText('==== general system info ====', { timeout: 60_000 })
@@ -86,7 +91,7 @@ test.describe('node summary', () => {
     expect((await download).suggestedFilename()).toMatch(new RegExp(`^${pve.node}-report-\\d{8}-\\d{4}\\.txt$`))
   })
 
-  test('notes: edit, preview, render markdown', async ({ page, pve, cleanup }) => {
+  test('notes: edit, preview, render markdown', { tag: '@lab' }, async ({ page, pve, cleanup }) => {
     const before = await pve.get<{ description?: string }>(`/nodes/${pve.node}/config`)
     cleanup.add(() =>
       before.description
@@ -147,7 +152,7 @@ test.describe('node summary', () => {
     expect(posted).toEqual(['command=reboot'])
   })
 
-  test('services: list, stop / start, restart, service log', async ({ page, pve, cleanup }) => {
+  test('services: list, stop / start, restart, service log', { tag: '@lab' }, async ({ page, pve, cleanup }) => {
     cleanup.add(() => ensureServiceRunning(pve, 'ksmtuned'))
     await ensureServiceRunning(pve, 'ksmtuned')
     await page.goto(`/node/${pve.node}/services`)
@@ -199,7 +204,7 @@ test.describe('node summary', () => {
     await pve.waitTask(upid)
   })
 
-  test('system log: live tail, follow, older entries, time range', async ({ page, pve }) => {
+  test('system log: live tail, follow, older entries, time range', { tag: '@lab' }, async ({ page, pve }) => {
     await page.goto(`/node/${pve.node}/syslog`)
     const panel = page.getByRole('tabpanel', { name: '系统日志' })
     const log = panel.getByTestId('journal')
@@ -289,41 +294,24 @@ test.describe('node summary', () => {
   })
 })
 
-// Screenshots for visual QA (not a test of behaviour): NS_SHOTS=1.
-test.describe('node summary screenshots', () => {
-  test.skip(!process.env.NS_SHOTS, 'NS_SHOTS=1 to capture screenshots')
-  for (const theme of ['dark', 'light', 'paper'] as const) {
-    test(`screens in ${theme}`, async ({ page, pve }, info) => {
-      test.setTimeout(120_000)
-      await page.addInitScript((mode) => {
-        localStorage.setItem('pve-web:appearance', JSON.stringify({ mode, accent: 'indigo', glass: true, density: 'comfortable' }))
-      }, theme)
-      const dir = `test-results/ns-shots/${info.project.name}-${theme}`
-      await page.goto(`/node/${pve.node}`)
-      await expect(page.getByRole('figure', { name: 'CPU 使用率' }).locator('.recharts-area').first()).toBeVisible()
-      await page.waitForTimeout(800)
-      await page.screenshot({ path: `${dir}-summary.png`, fullPage: true })
-      await page.getByRole('button', { name: '软件包版本' }).click()
-      await expect(page.getByRole('list', { name: '软件包' })).toContainText('pve-manager')
-      await page.waitForTimeout(500)
-      await page.screenshot({ path: `${dir}-packages.png` })
-      await page.keyboard.press('Escape')
-      await page.goto(`/node/${pve.node}/services`)
-      await expect(page.getByRole('list', { name: '服务' })).toContainText('pveproxy')
-      await page.screenshot({ path: `${dir}-services.png`, fullPage: true })
-      await page.getByRole('button', { name: /^pveproxy，/ }).click()
-      await expect(page.getByTestId('journal')).not.toContainText('正在读取', { timeout: 20_000 })
-      await page.waitForTimeout(600)
-      await page.screenshot({ path: `${dir}-service-sheet.png` })
-      await page.keyboard.press('Escape')
-      await page.goto(`/node/${pve.node}/syslog`)
-      await expect(page.getByTestId('journal')).toContainText(pve.node, { timeout: 20_000 })
-      await page.waitForTimeout(500)
-      await page.screenshot({ path: `${dir}-syslog.png` })
-      await page.goto(`/node/${pve.node}`)
-      await page.getByRole('region', { name: '备注' }).getByRole('button', { name: '编辑备注' }).click()
-      await page.waitForTimeout(500)
-      await page.screenshot({ path: `${dir}-notes.png` })
-    })
-  }
+test.describe('node pages on phones', { tag: '@mobile' }, () => {
+  test('services list opens a service sheet; notes editor opens', async ({ page, pve }) => {
+    await page.goto(`/node/${pve.node}/services`)
+    const panel = page.getByRole('tabpanel', { name: '服务' })
+    const list = panel.getByRole('list', { name: '服务' })
+    await panel.getByLabel('搜索服务').fill('pveproxy')
+    await list.getByRole('button', { name: /^pveproxy，/ }).click()
+    const sheet = page.getByRole('dialog', { name: 'pveproxy' })
+    await expect(sheet.getByRole('button', { name: '重新加载 pveproxy' })).toBeVisible()
+    await expect(sheet.getByTestId('journal')).toBeVisible()
+    await sheet.press('Escape')
+    await expect(sheet).toBeHidden()
+
+    await page.goto(`/node/${pve.node}`)
+    await summaryPanel(page).getByRole('region', { name: '备注' }).getByRole('button', { name: '编辑备注' }).click()
+    const notes = page.getByRole('dialog', { name: '编辑备注' })
+    await expect(notes.getByLabel('备注')).toBeVisible()
+    await notes.getByRole('button', { name: '取消' }).click()
+    await expect(notes).toBeHidden()
+  })
 })

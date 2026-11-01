@@ -69,13 +69,30 @@ make clean
 `make dev` 需要设置 `PVE_URL` 等变量，例如 `PVE_URL=https://<实验机>:8006 PVE_INSECURE_TLS=1 make dev`，然后访问 `http://<主机>:5173`。
 写操作只对实验机（VMID 9900）做，连接信息在测试服务器 `~/.config/pve-web/lab.env`。
 
-端到端测试在 `e2e/`（Playwright，headless 跑在测试服务器上，对接实验机）。`make e2e` 会按需构建、在 `PORT` 上启动 pve-web、跑测试、最后无论成败都停掉服务器：
+端到端测试在 `e2e/`（Playwright，headless 跑在测试服务器上，对接实验机）。每个 make 目标都会按需构建、在 `PORT` 上启动 pve-web、跑测试，最后无论成败都停掉服务器。按改动大小选测试层级：
+
+| 什么时候 | 跑什么 | 大约用时 |
+|---|---|---|
+| 每次改动 | `rt -- make test`（go vet/test、vitest、tsc） | 1 分钟 |
+| 改某个功能区 | `make e2e-area AREA=<area id>`：这个区的 spec，只跑桌面布局 | 1–4 分钟 |
+| 想快速确认整体能用 | `make e2e-smoke`：登录、概览、客户机概要、控制台、存储列表、任务，两种布局 | 半分钟 |
+| 一个阶段合并之后 | `make e2e`：全部 spec，桌面 + 手机，跑一次 | 约 8–9 分钟 |
+| 阶段结束、有人要求时 | `make e2e-visual`：截图 spec（`*.visual.spec.ts`，三套主题） | 较久 |
 
 ```sh
-rt -- bash -lc 'set -a; . ~/.config/pve-web/lab.env; set +a; make e2e PORT=8101'                              # 全部
-rt -- bash -lc 'set -a; . ~/.config/pve-web/lab.env; set +a; make e2e PORT=8101 SPEC=tests/tasks.spec.ts'     # 单个 spec
-rt --back e2e/playwright-report -- bash -lc '… make e2e PORT=8101 E2E_ARGS="--project=desktop"'               # 取回报告
+LAB='set -a; . ~/.config/pve-web/lab.env; set +a'
+rt -- bash -lc "$LAB; make e2e-area AREA=lxc-config PORT=8106"                       # 一个区（area id 见 docs/feature-map.md）
+rt -- bash -lc "$LAB; make e2e-smoke PORT=8101"                                      # 冒烟
+rt -- bash -lc "$LAB; make e2e PORT=8101"                                            # 全部
+rt -- bash -lc "$LAB; make e2e PORT=8101 SPEC=tests/tasks-logs.spec.ts E2E_ARGS='-g 集群日志'"   # 单个 spec / 单个测试
+rt --back e2e/playwright-report --back e2e/test-results -- bash -lc "$LAB; make e2e-area AREA=console PORT=8103"  # 取回报告和失败时的 trace
+rt --back e2e/test-results -- bash -lc "$LAB; make e2e-visual PORT=8120 SPEC=tests/walkthrough.visual.spec.ts"  # 视觉巡检截图
 ```
+
+- **两个项目**：`desktop` 跑全部测试；`mobile`（iPhone 尺寸）只检查布局和交互（底部导航、操作坞、底部弹层、表单打开），不写实验机。带 `@lab` 标签的测试会改实验机（客户机、配置、存储、用户、服务）或很慢，只在桌面跑；`@desktop` / `@mobile` 是只属于一种布局的界面；`@smoke` 是冒烟子集。手机测试需要状态时用 `page.route()` 模拟；它发出的写请求会让测试失败。
+- **并行**：2 个 worker（`E2E_WORKERS` 可改），spec 文件之间并行，同一文件内按顺序。各区用自己的 VMID 段（3000–3999），只操作自己创建的 `e2e-*` 对象，共享的示例客户机（100、101、200、9000）只读。
+- **超时**：单个测试 90 秒，单个操作（点击等）20 秒，卡住会很快失败；已知慢的测试自己用 `test.setTimeout()` 放宽。
+- **截图不进仓库**：视觉 spec 只在 `E2E_SCREENSHOTS=1`（`make e2e-visual`）时运行，图片写到 `e2e/test-results/`，用 `rt --back` 取回本机查看；`docs/screenshots/` 已在 `.gitignore` 里。
 
 固件（已登录的 `page`、实验机 API 助手 `pve`、`cleanup`）见 `e2e/fixtures.ts`。各功能区的分工、共享契约和端口分配见 [docs/CONTRIBUTING-AREAS.md](docs/CONTRIBUTING-AREAS.md)。
 
@@ -96,6 +113,7 @@ web/src/components/ui/  shadcn/ui 组件（可以改）
 web/src/features/  按功能区组织的页面；guest/、node/、storage/ 是带注册表的页面外壳，command/ 是命令面板注册表
 e2e/               Playwright 配置、fixtures.ts 与测试
 scripts/e2e-server.sh  为 e2e 启停连接实验机的 pve-web
+scripts/e2e-area.sh    area id → e2e spec 文件（make e2e-area 用）
 ```
 
 ## 实现说明（给后续开发）

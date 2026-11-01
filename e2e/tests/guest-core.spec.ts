@@ -3,15 +3,13 @@ import type { Locator, Page } from '@playwright/test'
 import { expect, test, type PveApi } from '../fixtures'
 
 // Guest summary, power and lifecycle (areas guest-summary-power and
-// guest-lifecycle). Writes only to guests this spec creates, VMIDs 3300–3399:
-// 3300+ on the phone layout, 3340+ on desktop. The shared samples (100, 101,
-// 200, 9000) are only read.
+// guest-lifecycle). Writes (@lab, desktop) only to guests this spec creates,
+// VMIDs 3300–3399. The shared samples (100, 101, 200, 9000) are only read; the
+// phone checks open the action dock, sheets and dialogs on them and cancel.
 //
-//   rt -- bash -lc 'set -a; . ~/.config/pve-web/lab.env; set +a; make e2e PORT=8104 SPEC=tests/guest-core.spec.ts'
+//   rt -- bash -lc 'set -a; . ~/.config/pve-web/lab.env; set +a; make e2e-area AREA=guest-summary-power PORT=8104'
 
-test.describe.configure({ timeout: 150_000 })
-
-const base = (mobile: boolean) => (mobile ? 3300 : 3340)
+const BASE = 3300
 
 /** Create a tiny diskless VM in our range (destroying a leftover first). */
 async function vm(pve: PveApi, cleanup: { guest(vmid: number): void }, vmid: number, name: string, params = {}) {
@@ -43,8 +41,8 @@ const card = (page: Page, title: string) =>
   page.locator('[data-slot=glass-card]', { has: page.getByRole('heading', { name: title, exact: true }) })
 
 test.describe('guest summary', () => {
-  test('shows status, charts, notes and tags, and edits notes and tags', async ({ page, pve, cleanup, mobile }) => {
-    const id = base(mobile)
+  test('shows status, charts, notes and tags, and edits notes and tags', { tag: '@lab' }, async ({ page, pve, cleanup }) => {
+    const id = BASE
     await vm(pve, cleanup, id, 'e2e-gc-summary', { tags: 'e2e', description: '# 用途\n测试 **备注**' })
     await page.goto(`/guest/${pve.node}/qemu/${id}`)
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('e2e-gc-summary')
@@ -104,9 +102,9 @@ test.describe('guest summary', () => {
   })
 })
 
-test.describe('power', () => {
+test.describe('power', { tag: '@lab' }, () => {
   test('start, pause and resume, then force stop from the sheet', async ({ page, pve, cleanup, mobile }) => {
-    const id = base(mobile) + 1
+    const id = BASE + 1
     await vm(pve, cleanup, id, 'e2e-gc-power')
     await page.goto(`/guest/${pve.node}/qemu/${id}`)
 
@@ -133,12 +131,11 @@ test.describe('power', () => {
     await expect(primary(page, mobile, '启动')).toBeVisible({ timeout: 30_000 })
   })
 
-  test('palette starts a guest', async ({ page, pve, cleanup, mobile }) => {
-    const id = base(mobile) + 2
+  test('palette starts a guest', async ({ page, pve, cleanup }) => {
+    const id = BASE + 2
     await vm(pve, cleanup, id, 'e2e-gc-palette')
     await page.goto('/')
-    if (mobile) await page.getByRole('button', { name: '搜索' }).click()
-    else await page.keyboard.press('Control+K')
+    await page.keyboard.press('Control+K')
     await page.getByPlaceholder('搜索资源、页面或操作…').fill('启动 e2e-gc-palette')
     await page.getByRole('option', { name: /启动 e2e-gc-palette/ }).click()
     await running(pve, id)
@@ -146,9 +143,10 @@ test.describe('power', () => {
 })
 
 test.describe('lifecycle', () => {
-  test('clone, convert to template, protect and delete', async ({ page, pve, cleanup, mobile }) => {
-    const src = base(mobile) + 3
-    const copy = base(mobile) + 4
+  test('clone, convert to template, protect and delete', { tag: '@lab' }, async ({ page, pve, cleanup, mobile }) => {
+    test.setTimeout(150_000)
+    const src = BASE + 3
+    const copy = BASE + 4
     await pve.destroyGuest(copy)
     cleanup.guest(copy)
     await vm(pve, cleanup, src, 'e2e-gc-source')
@@ -190,19 +188,19 @@ test.describe('lifecycle', () => {
     await expect.poll(async () => (await pve.guests()).some((g) => g.vmid === copy), { timeout: 30_000 }).toBe(false)
   })
 
-  test('migrate explains that there is no other node', async ({ page, pve, cleanup, mobile }) => {
-    const id = base(mobile) + 5
-    await vm(pve, cleanup, id, 'e2e-gc-migrate')
-    await page.goto(`/guest/${pve.node}/qemu/${id}`)
+  test('migrate explains that there is no other node (read-only, VM 100)', async ({ page, pve, mobile }) => {
+    test.skip(!(await pve.guests()).some((g) => g.vmid === 100), '没有 VM 100')
+    await page.goto(`/guest/${pve.node}/qemu/100`)
     await menu(page, mobile, '迁移')
     const dialog = page.getByRole('dialog')
     await expect(dialog).toContainText('没有可以迁移到的节点')
     await expect(dialog.getByRole('button', { name: '迁移', exact: true })).toBeDisabled()
     await dialog.getByRole('button', { name: '取消' }).click()
+    await expect(dialog).toBeHidden()
   })
 
-  test('HA: add as ignored, then remove', async ({ page, pve, cleanup, mobile }) => {
-    const id = base(mobile) + 6
+  test('HA: add as ignored, then remove', { tag: '@lab' }, async ({ page, pve, cleanup, mobile }) => {
+    const id = BASE + 6
     const sid = `vm:${id}`
     await vm(pve, cleanup, id, 'e2e-gc-ha')
     cleanup.add(async () => {
@@ -228,10 +226,11 @@ test.describe('lifecycle', () => {
   })
 })
 
-test.describe('bulk actions', () => {
-  test('overview multi-select starts and shuts down guests', async ({ page, pve, cleanup, mobile }) => {
-    const a = base(mobile) + 7
-    const b = base(mobile) + 8
+test.describe('bulk actions', { tag: '@lab' }, () => {
+  test('overview multi-select starts and shuts down guests', async ({ page, pve, cleanup }) => {
+    test.setTimeout(150_000)
+    const a = BASE + 7
+    const b = BASE + 8
     await vm(pve, cleanup, a, 'e2e-gc-bulk-a')
     await vm(pve, cleanup, b, 'e2e-gc-bulk-b')
     await page.goto('/')
@@ -261,7 +260,7 @@ test.describe('bulk actions', () => {
   })
 
   test('node bulk start runs only the checked guest', async ({ page, pve, cleanup, mobile }) => {
-    const id = base(mobile) + 9
+    const id = BASE + 9
     await vm(pve, cleanup, id, 'e2e-gc-nodebulk')
     await page.goto(`/node/${pve.node}`)
     await menu(page, mobile, '批量启动')
@@ -280,5 +279,50 @@ test.describe('bulk actions', () => {
     await running(pve, id)
     // The shared samples were not touched.
     expect((await pve.guests()).find((g) => g.vmid === 100)?.status).toBe('stopped')
+  })
+})
+
+// Phones: the action dock, its sheets and the bulk bar, on the shared samples
+// (every dialog is cancelled).
+test.describe('phone action dock', { tag: '@mobile' }, () => {
+  test('a running guest offers power actions in the dock and sheets', async ({ page, pve }) => {
+    const vm = (await pve.guests()).find((g) => g.vmid === 101 && g.status === 'running')
+    test.skip(!vm, 'VM 101 未运行')
+    await page.goto(`/guest/${pve.node}/qemu/101`)
+    const dock = page.getByRole('toolbar', { name: '操作' })
+    await expect(dock.getByRole('button', { name: '控制台', exact: true })).toBeVisible()
+    await expect(dock.getByRole('button', { name: '重启', exact: true })).toBeVisible()
+
+    await dock.getByRole('button', { name: '关机', exact: true }).click()
+    const sheet = page.getByRole('dialog')
+    await expect(sheet.getByRole('radio', { name: /^正常关机/ })).toBeChecked()
+    await expect(sheet.getByRole('radio', { name: /^强制停止/ })).toBeVisible()
+    await sheet.getByRole('radio', { name: /^强制停止/ }).click()
+    await expect(sheet.getByRole('button', { name: '强制停止', exact: true })).toBeVisible()
+    await sheet.getByRole('button', { name: '取消' }).click()
+    await expect(sheet).toBeHidden()
+
+    await dock.getByRole('button', { name: '更多' }).click()
+    await expect(page.getByRole('menuitem', { name: '暂停', exact: true })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: '迁移', exact: true })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('menu')).toHaveCount(0)
+  })
+
+  test('overview multi-select shows the bulk bar and its dialog', async ({ page, pve }) => {
+    const samples = (await pve.guests()).filter((g) => g.vmid === 100 || g.vmid === 101)
+    test.skip(samples.length < 2, '实验机缺少示例客户机 100 / 101')
+    await page.goto('/')
+    await page.getByRole('button', { name: '多选' }).click()
+    for (const g of samples) await page.getByRole('checkbox', { name: `${g.name}（${g.vmid}）` }).click()
+    const bar = page.getByRole('toolbar', { name: '批量操作' }).filter({ visible: true })
+    await expect(bar).toContainText('2')
+    await bar.getByRole('button', { name: '启动' }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toContainText(/已选 \d+ \/ 2/)
+    await dialog.getByRole('button', { name: '取消' }).click()
+    await expect(dialog).toBeHidden()
+    await bar.getByRole('button', { name: '取消' }).click()
+    await expect(bar).toBeHidden()
   })
 })

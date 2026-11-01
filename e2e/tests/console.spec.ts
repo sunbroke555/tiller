@@ -6,7 +6,9 @@ import type { Page } from '@playwright/test'
 // Consoles against the lab through the Go proxy: node shell (termproxy +
 // xterm.js), VM noVNC (vncproxy), VM serial terminal, CT console, SPICE .vv
 // download and sendkey. Fixtures live in VMIDs 3200–3299 (area console) and
-// are named e2e-console-*; they are destroyed after the run.
+// are named e2e-console-*; they are destroyed after the run (desktop, @lab).
+// The phone checks (key bar, pinch zoom, /shell) use the node shell and the
+// running sample VM 101 without sending it any keys.
 
 const VMID_RANGE = [3200, 3299] as const
 
@@ -40,7 +42,7 @@ async function runInTerminal(page: Page, command: string, expected: string) {
   await expect(term.locator('.xterm-rows')).toContainText(expected, { timeout: 20_000 })
 }
 
-test.describe.serial('console', () => {
+test.describe.serial('console', { tag: '@lab' }, () => {
   let vm = 0
   let ct = 0
 
@@ -73,51 +75,32 @@ test.describe.serial('console', () => {
     for (const id of [vm, ct]) if (id) await pve.destroyGuest(id)
   })
 
-  test('node shell runs commands through termproxy', async ({ page, pve, mobile }) => {
+  test('node shell runs commands through termproxy', async ({ page, pve }) => {
     await page.goto(`/console/${pve.node}/shell`)
     await expect(page.getByRole('heading', { level: 1, name: pve.node })).toBeVisible()
     await expectConnected(page)
     await runInTerminal(page, 'echo pve-web-$((6*7))', 'pve-web-42')
 
-    const keys = page.getByRole('toolbar', { name: '辅助按键' })
-    if (mobile) {
-      // Phones get the key bar: interrupt a command with ^C.
-      await expect(keys).toBeVisible()
-      await page.keyboard.type('sleep 300')
-      await page.keyboard.press('Enter')
-      await keys.getByRole('button', { name: 'Ctrl+C' }).click()
-      await runInTerminal(page, 'echo after-$((40+1))', 'after-41')
-      // Sticky Ctrl from the key bar applies to the next typed key.
-      await page.keyboard.type('sleep 300')
-      await page.keyboard.press('Enter')
-      await keys.getByRole('button', { name: 'Ctrl', exact: true }).click()
-      await expect(keys.getByRole('button', { name: 'Ctrl', exact: true })).toHaveAttribute('aria-pressed', 'true')
-      await page.keyboard.type('c')
-      await expect(keys.getByRole('button', { name: 'Ctrl', exact: true })).toHaveAttribute('aria-pressed', 'false')
-      await runInTerminal(page, 'echo sticky-$((50+5))', 'sticky-55')
-    } else {
-      await expect(keys).toHaveCount(0)
-      // Plain HTTP cannot read the clipboard: 粘贴 asks for the text instead.
-      await page.getByRole('button', { name: '粘贴', exact: true }).click()
-      const dialog = page.getByRole('dialog', { name: '粘贴到控制台' })
-      await dialog.getByRole('textbox').fill('echo pasted-$((1+1))')
-      await dialog.getByRole('button', { name: '发送', exact: true }).click()
-      await expect(dialog).toBeHidden()
-      // Bash uses bracketed paste: the pasted line waits for Enter. Focus is
-      // back in the terminal.
-      await expect(page.getByTestId('xterm-console').locator('textarea')).toBeFocused()
-      await page.keyboard.press('Enter')
-      await expect(page.getByTestId('xterm-console').locator('.xterm-rows')).toContainText('pasted-2')
-    }
+    await expect(page.getByRole('toolbar', { name: '辅助按键' })).toHaveCount(0)
+    // Plain HTTP cannot read the clipboard: 粘贴 asks for the text instead.
+    await page.getByRole('button', { name: '粘贴', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: '粘贴到控制台' })
+    await dialog.getByRole('textbox').fill('echo pasted-$((1+1))')
+    await dialog.getByRole('button', { name: '发送', exact: true }).click()
+    await expect(dialog).toBeHidden()
+    // Bash uses bracketed paste: the pasted line waits for Enter. Focus is
+    // back in the terminal.
+    await expect(page.getByTestId('xterm-console').locator('textarea')).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(page.getByTestId('xterm-console').locator('.xterm-rows')).toContainText('pasted-2')
 
     await page.getByRole('link', { name: '返回' }).click()
     await expect(page).toHaveURL(new RegExp(`/node/${pve.node}$`))
   })
 
-  test('VM opens in noVNC and takes Ctrl+Alt+Del', async ({ page, pve, mobile }) => {
+  test('VM opens in noVNC and takes Ctrl+Alt+Del', async ({ page, pve }) => {
     await page.goto(`/guest/${pve.node}/qemu/${vm}`)
-    const bar = mobile ? page.getByRole('toolbar', { name: '操作' }) : page.locator('header')
-    await bar.getByRole('button', { name: '控制台' }).click()
+    await page.locator('header').getByRole('button', { name: '控制台' }).click()
     await expect(page).toHaveURL(new RegExp(`/console/${pve.node}/qemu/${vm}$`))
     await expectConnected(page)
     const vnc = page.getByTestId('vnc-console')
@@ -128,26 +111,7 @@ test.describe.serial('console', () => {
     // Viewer switch shows 图形 (noVNC) and 串口 (serial0).
     const viewers = page.getByRole('radiogroup', { name: '控制台类型' })
     await expect(viewers.getByRole('radio', { name: '图形' })).toHaveAttribute('aria-checked', 'true')
-
-    if (mobile) {
-      // Pinch (noVNC gesture events) zooms the view locally instead of the guest.
-      await vnc.locator('canvas').evaluate((el) => {
-        const fire = (type: string, mag: number) =>
-          el.dispatchEvent(
-            new CustomEvent(type, { detail: { type: 'pinch', clientX: 100, clientY: 200, magnitudeX: mag, magnitudeY: 0 } }),
-          )
-        fire('gesturestart', 100)
-        fire('gesturemove', 200)
-        fire('gestureend', 200)
-      })
-      const reset = vnc.getByRole('button', { name: '恢复适应窗口' })
-      await expect(reset).toHaveText(/200%/)
-      await reset.click()
-      await expect(reset).toBeHidden()
-      await page.getByRole('toolbar', { name: '辅助按键' }).getByRole('button', { name: 'Ctrl+Alt+Del' }).click()
-    } else {
-      await page.getByRole('button', { name: 'Ctrl+Alt+Del' }).click()
-    }
+    await page.getByRole('button', { name: 'Ctrl+Alt+Del' }).click()
     await expectConnected(page)
   })
 
@@ -178,10 +142,9 @@ test.describe.serial('console', () => {
     expect(text).toMatch(/^password=/m)
   })
 
-  test('sendkey from the guest action menu', async ({ page, pve, mobile }) => {
+  test('sendkey from the guest action menu', async ({ page, pve }) => {
     await page.goto(`/guest/${pve.node}/qemu/${vm}`)
-    if (mobile) await page.getByRole('toolbar', { name: '操作' }).getByRole('button', { name: '更多' }).click()
-    else await page.getByRole('button', { name: '更多操作' }).click()
+    await page.getByRole('button', { name: '更多操作' }).click()
     await page.getByRole('menuitem', { name: '发送按键…' }).click()
     const dialog = page.getByRole('dialog', { name: '发送按键' })
     await dialog.getByRole('radio', { name: /Ctrl\+Alt\+F2/ }).click()
@@ -209,7 +172,7 @@ test.describe.serial('console', () => {
     await expectConnected(page)
   })
 
-  test('node Shell tab and /shell page', async ({ page, pve, mobile }) => {
+  test('node Shell tab and /shell page', async ({ page, pve }) => {
     await page.goto(`/node/${pve.node}/shell`)
     await expect(page.getByRole('tabpanel', { name: 'Shell' }).getByTestId('xterm-console')).toBeVisible()
     await expectConnected(page)
@@ -219,15 +182,65 @@ test.describe.serial('console', () => {
     const vmLink = page.locator(`main a[href="/console/${pve.node}/qemu/${vm}"]`)
     await expect(vmLink).toBeVisible()
     await expect(vmLink).toContainText('e2e-console-vm')
-    if (mobile) {
-      await page.getByRole('link', { name: '打开 Shell' }).first().click()
-      await expect(page).toHaveURL(new RegExp(`/console/${pve.node}/shell$`))
-      await expectConnected(page)
-    } else {
-      await expectConnected(page)
-      await vmLink.click()
-      await expect(page).toHaveURL(new RegExp(`/console/${pve.node}/qemu/${vm}$`))
-      await expectConnected(page)
-    }
+    await expectConnected(page)
+    await vmLink.click()
+    await expect(page).toHaveURL(new RegExp(`/console/${pve.node}/qemu/${vm}$`))
+    await expectConnected(page)
+  })
+})
+
+test.describe('console on phones', { tag: '@mobile' }, () => {
+  test('node shell key bar: Ctrl+C and sticky Ctrl', async ({ page, pve }) => {
+    await page.goto(`/console/${pve.node}/shell`)
+    await expectConnected(page)
+    await runInTerminal(page, 'echo pve-web-$((6*7))', 'pve-web-42')
+    const keys = page.getByRole('toolbar', { name: '辅助按键' })
+    await expect(keys).toBeVisible()
+    await page.keyboard.type('sleep 300')
+    await page.keyboard.press('Enter')
+    await keys.getByRole('button', { name: 'Ctrl+C' }).click()
+    await runInTerminal(page, 'echo after-$((40+1))', 'after-41')
+    // Sticky Ctrl from the key bar applies to the next typed key.
+    await page.keyboard.type('sleep 300')
+    await page.keyboard.press('Enter')
+    const ctrl = keys.getByRole('button', { name: 'Ctrl', exact: true })
+    await ctrl.click()
+    await expect(ctrl).toHaveAttribute('aria-pressed', 'true')
+    await page.keyboard.type('c')
+    await expect(ctrl).toHaveAttribute('aria-pressed', 'false')
+    await runInTerminal(page, 'echo sticky-$((50+5))', 'sticky-55')
+  })
+
+  test('noVNC: console from the action dock, pinch zoom, key bar', async ({ page, pve }) => {
+    const vm = (await pve.guests()).find((g) => g.vmid === 101 && g.status === 'running')
+    test.skip(!vm, 'VM 101 未运行')
+    await page.goto(`/guest/${pve.node}/qemu/101`)
+    await page.getByRole('toolbar', { name: '操作' }).getByRole('button', { name: '控制台' }).click()
+    await expect(page).toHaveURL(new RegExp(`/console/${pve.node}/qemu/101$`))
+    await expectConnected(page)
+    const vnc = page.getByTestId('vnc-console')
+    await expect(vnc.locator('canvas')).toBeVisible()
+    // Pinch (noVNC gesture events) zooms the view locally instead of the guest.
+    await vnc.locator('canvas').evaluate((el) => {
+      const fire = (type: string, mag: number) =>
+        el.dispatchEvent(new CustomEvent(type, { detail: { type: 'pinch', clientX: 100, clientY: 200, magnitudeX: mag, magnitudeY: 0 } }))
+      fire('gesturestart', 100)
+      fire('gesturemove', 200)
+      fire('gestureend', 200)
+    })
+    const reset = vnc.getByRole('button', { name: '恢复适应窗口' })
+    await expect(reset).toHaveText(/200%/)
+    await reset.click()
+    await expect(reset).toBeHidden()
+    // The key bar offers Ctrl+Alt+Del (not sent: VM 101 is a shared sample).
+    await expect(page.getByRole('toolbar', { name: '辅助按键' }).getByRole('button', { name: 'Ctrl+Alt+Del' })).toBeVisible()
+  })
+
+  test('/shell opens the node shell', async ({ page, pve }) => {
+    await page.goto('/shell')
+    await expect(page.getByRole('heading', { level: 1, name: 'Shell' })).toBeVisible()
+    await page.getByRole('link', { name: '打开 Shell' }).first().click()
+    await expect(page).toHaveURL(new RegExp(`/console/${pve.node}/shell$`))
+    await expectConnected(page)
   })
 })

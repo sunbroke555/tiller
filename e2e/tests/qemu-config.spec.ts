@@ -3,8 +3,9 @@ import type { Locator, Page } from '@playwright/test'
 import { expect, test, type PveApi } from '../fixtures'
 
 // Area qemu-config: VM hardware, options, Cloud-Init and monitor, against the
-// lab. Every test creates its own tiny VM in the area's VMID range 3400–3498
-// (named e2e-qemu-config-*) and destroys it afterwards.
+// lab. Every @lab test (desktop) creates its own tiny VM in the area's VMID
+// range 3400–3498 (named e2e-qemu-config-*) and destroys it afterwards. On
+// phones the editors open as sheets on the sample VM 100 and are cancelled.
 
 // A throwaway public key (its private half was never kept); PVE validates the format.
 const SSH_KEY = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGc+hDza8aezohk7xUgNvvaHGEP0l/RUseHx4T63ItX0 e2e@lab'
@@ -46,7 +47,7 @@ async function rowMenu(page: Page, title: string) {
   await page.getByRole('button', { name: `${title} 的更多操作` }).click()
 }
 
-test.describe('qemu-config', () => {
+test.describe('qemu-config', { tag: '@lab' }, () => {
   test('hardware: memory, network device and disk lifecycle', async ({ page, pve, cleanup }) => {
     const vmid = await freeVmid(pve)
     await pve.createTestVm({ vmid, name: `e2e-qemu-config-hw-${vmid}`, params: { ostype: 'l26', scsihw: 'virtio-scsi-single' } })
@@ -274,5 +275,30 @@ test.describe('qemu-config', () => {
     await expect(d).toContainText('user: e2euser')
     await d.getByRole('radio', { name: '网络配置' }).click()
     await expect(d).toContainText('10.20.30.40')
+  })
+})
+
+test.describe('VM config on phones', { tag: '@mobile' }, () => {
+  test('hardware editors open as sheets (VM 100, cancelled)', async ({ page, pve }) => {
+    test.skip(!(await pve.guests()).some((g) => g.vmid === 100 && g.type === 'qemu'), '实验机里没有 VM 100')
+    await page.goto(`/guest/${pve.node}/qemu/100/hardware`)
+    const panel = page.getByRole('tabpanel', { name: '硬件' })
+    await expect(panel.getByTestId('hw-memory')).toBeVisible()
+
+    await panel.getByRole('button', { name: '编辑内存' }).click()
+    let d = dialog(page, '内存')
+    await expect(d.getByRole('textbox', { name: '内存' })).toBeVisible()
+    await d.getByRole('button', { name: '取消' }).click()
+    await expect(d).toBeHidden()
+
+    await panel.getByRole('button', { name: '添加硬件' }).click()
+    await dialog(page, '添加硬件').getByRole('button', { name: /网络设备/ }).click()
+    d = dialog(page, '添加网络设备')
+    await expect(d.getByRole('textbox', { name: 'VLAN 标签' })).toBeVisible()
+    await d.getByRole('button', { name: '取消' }).click()
+    await expect(d).toBeHidden()
+
+    await page.goto(`/guest/${pve.node}/qemu/100/options`)
+    await expect(page.getByRole('tabpanel', { name: '选项' }).getByRole('switch', { name: '开机自启' })).toBeVisible()
   })
 })

@@ -137,31 +137,44 @@ if (params) await put(p`/nodes/${node}/qemu/${vmid}/config`, params)
 
 ## 8. 测试
 
-- 单元测试（vitest）放在区内：`features/<area>/*.test.ts(x)`。`rt -- make test` 必须保持通过（go vet/test、vitest、tsc）。
+测试分层（详见 README「开发」）：
+
+- **每次改动**：`rt -- make test`（go vet/test、vitest、tsc），必须保持通过。
+- **改某个区**：`make e2e-area AREA=<area id>`，只跑这个区的 spec、只跑桌面布局。
+- **阶段合并之后**：`make e2e` 跑一次全部（桌面 + 手机）。
+- **视觉巡检**：`make e2e-visual`，只在阶段结束、有人要求时跑；截图留在 `e2e/test-results/`，不提交进仓库。
+
+- 单元测试（vitest）放在区内：`features/<area>/*.test.ts(x)`。
 - e2e（Playwright）：spec 放在 `e2e/tests/<area>.spec.ts`，从 `../fixtures` 导入：
 
   ```ts
   import { expect, test } from '../fixtures'
 
-  test('关机', async ({ page, pve, cleanup, mobile }) => {
-    const vmid = await pve.createTestVm({ name: 'e2e-power' })   // 走 API，等任务结束并出现在资源列表
-    cleanup.guest(vmid)                                          // 测试结束（含失败）后销毁
-    await page.goto(`/guest/${pve.node}/qemu/${vmid}`)           // page 已登录
+  test('关机', { tag: '@lab' }, async ({ page, pve, cleanup }) => {
+    const vmid = await pve.createTestVm({ vmid: 3010, name: 'e2e-tasks-power' })  // 走 API，等任务结束并出现在资源列表
+    cleanup.guest(vmid)                                                         // 测试结束（含失败）后销毁
+    await page.goto(`/guest/${pve.node}/qemu/${vmid}`)                          // page 已登录
   })
   ```
+
+  - **标签决定在哪个项目里跑**：会改实验机的测试（电源、快照、备份/恢复、克隆、创建、配置写入、上传、用户、服务）或很慢的测试标 `@lab`，只在桌面跑一次；只属于桌面界面的标 `@desktop`（资源树、任务状态栏、快捷键），只属于手机的标 `@mobile`（底部导航、操作坞、控制台辅助按键）。其余测试两种布局都跑。整组可以写 `test.describe('…', { tag: '@lab' }, …)`。
+  - **手机项目只读**：只检查布局和交互（导航、底部弹层、表单能打开、菜单项），在共享示例客户机上打开对话框后取消。需要数据或状态时用 `page.route()` 模拟（例子：`tasks-logs.spec.ts` 的运行中任务、`node-summary.spec.ts` 的重启拦截）。手机测试里 `pve` 拒绝写操作，页面发出的非 GET 请求（登录和控制台 ticket 除外）会让测试失败。
+  - **并行**：spec 文件在 2 个 worker 里并行，同一文件内按顺序跑。只用自己区的 VMID 段，不要用 `nextId()` 建客户机，也不要按「第一个运行中的客户机」这类条件挑别人的客户机（别的区正在并行创建和销毁）；要读的示例用固定的 100、101、200、9000。全局状态（节点/数据中心备注、服务、`tester@pve`）只在 `@lab` 测试里改，改完恢复。
+  - **超时**：默认单个测试 90 秒、单个操作 20 秒。已知慢的测试（备份恢复、扩容、启动客户机）自己写 `test.setTimeout(150_000)` 之类，不要放宽整个文件。
 
   - `page` 已登录（每个 worker 通过界面登录一次并复用 storageState）；要未登录页面：`test.use({ storageState: { cookies: [], origins: [] } })`。
   - `pve`：通过 app 服务器直连实验机的 API（`get/post/put/del`、`run`（自动等任务）、`waitTask`、`waitForGuest`、`nextId`、`guests`、`createTestVm`、`destroyGuest`、`sweep`）。写操作前会确认服务器连的是实验机节点 `pve-lab`，否则拒绝。
   - 测试创建的对象一律命名 `e2e-<area>-…`；`pve.sweep()` 清理崩溃残留。
   - `mobile` 为 true 表示手机布局（iPhone 15 尺寸，Chromium；测试服务器跑不了 WebKit）。手机上操作按钮在 `getByRole('toolbar', { name: '操作' })`，桌面在页面头部。
+  - 截图类的视觉检查写成 `e2e/tests/<area>.visual.spec.ts`：默认不运行，只在 `E2E_SCREENSHOTS=1`（`make e2e-visual`）时运行。
   - `/cluster/resources` 会比真实状态晚几秒，等状态变化用 `expect(...).toBeVisible({ timeout: 30_000 })` 或 `pve.waitForGuest(vmid, g => g.status === 'running')`。
-- 运行单个 spec（在本机仓库目录执行，命令在测试服务器上跑）：
+- 运行一个区的 e2e（在本机仓库目录执行，命令在测试服务器上跑）：
 
   ```sh
-  rt -- bash -lc 'set -a; . ~/.config/pve-web/lab.env; set +a; make e2e PORT=8101 SPEC=tests/tasks.spec.ts'
+  rt -- bash -lc 'set -a; . ~/.config/pve-web/lab.env; set +a; make e2e-area AREA=tasks-logs PORT=8101'
   ```
 
-  `make e2e` 会在需要时构建 `server/pve-web`，在 `PORT` 上启动并连接实验机，跑完（无论成败）都会停掉服务器。只跑一个布局：`E2E_ARGS="--project=desktop"`；取回报告：`rt --back e2e/playwright-report --back e2e/test-results -- …`。
+  `make e2e*` 会在需要时构建 `server/pve-web`，在 `PORT` 上启动并连接实验机，跑完（无论成败）都会停掉服务器。area id 对应的 spec 见 `scripts/e2e-area.sh`（例如 `guest-lifecycle` → `guest-core.spec.ts`）。单个 spec 或单个测试：`make e2e SPEC=tests/tasks-logs.spec.ts E2E_ARGS="--project=desktop -g 集群日志"`；顺带检查手机布局：`make e2e SPEC=tests/<area>.spec.ts`；取回报告和 trace：`rt --back e2e/playwright-report --back e2e/test-results -- …`。
 - 想手动看效果：`rt -- bash -lc 'set -a; . ~/.config/pve-web/lab.env; set +a; make e2e-server PORT=8101'`，然后在本机打开 `http://192.168.0.32:8101`；用完 `make e2e-stop PORT=8101`。
 - 并行跑 e2e 时每个区用自己的端口，避免冲突：
 
