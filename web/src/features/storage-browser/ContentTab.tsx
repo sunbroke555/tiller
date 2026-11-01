@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { RestoreDialog } from '@/features/guest-backup/RestoreDialog'
 import { STORAGE_CONTENT_LABEL, type StorageTabProps } from '@/features/storage/types'
 import { errorMessage } from '@/lib/errors'
 import { DASH, formatBytes, formatDateTime } from '@/lib/format'
@@ -42,7 +43,6 @@ import { CONTENT_ICON, CONTENT_ITEM } from './labels'
 import { NotesDialog } from './NotesDialog'
 import { downloadDenied, transferContents, uploadDenied } from './permissions'
 import { PruneDialog } from './PruneDialog'
-import { RestoreDialog } from './RestoreDialog'
 import { TemplateCatalogDialog } from './TemplateCatalogDialog'
 import { UploadDialog } from './UploadDialog'
 import { volumeActions, type VolumeAction, type VolumeDialogKind } from './volumeActions'
@@ -271,7 +271,22 @@ export default function ContentTab({ node, storage, resource, content }: Storage
       )}
       {d?.kind === 'config' && <BackupConfigDialog node={node} volume={d.volume} open={dialog === d} onOpenChange={close} />}
       {d?.kind === 'restore' && dType && (
-        <RestoreDialog node={node} volume={d.volume} type={dType} isPbs={isPbs} open={dialog === d} onOpenChange={close} />
+        <RestoreDialog
+          node={node}
+          backup={{
+            volid: d.volume.volid,
+            format: d.volume.format,
+            subtype: d.volume.subtype,
+            size: d.volume.size,
+            ctime: volumeTime(d.volume),
+            storage,
+            notes: d.volume.notes,
+          }}
+          type={dType}
+          isPBS={isPbs}
+          open={dialog === d}
+          onOpenChange={close}
+        />
       )}
       {d?.kind === 'prune' && (
         <PruneDialog

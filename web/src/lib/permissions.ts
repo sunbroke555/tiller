@@ -195,6 +195,9 @@ export const DEFAULT_GUEST_PERMISSIONS: Record<string, PermissionCheck> = {
   resume: POWER,
   console: { privs: 'VM.Console' },
   'open-console': { privs: 'VM.Console' },
+  sendkey: { privs: 'VM.Console' },
+  'sendkey-cad': { privs: 'VM.Console' },
+  spice: { privs: 'VM.Console' },
   snapshot: { privs: 'VM.Snapshot' },
   'take-snapshot': { privs: 'VM.Snapshot' },
   'create-snapshot': { privs: 'VM.Snapshot' },
@@ -209,6 +212,7 @@ export const DEFAULT_GUEST_PERMISSIONS: Record<string, PermissionCheck> = {
   delete: { privs: 'VM.Allocate' },
   destroy: { privs: 'VM.Allocate' },
   remove: { privs: 'VM.Allocate' },
+  ha: { privs: 'Sys.Console', path: '/' },
   protection: { privs: 'VM.Config.Options' },
   rename: { privs: 'VM.Config.Options' },
   tags: { privs: 'VM.Config.Options' },
@@ -217,6 +221,8 @@ export const DEFAULT_GUEST_PERMISSIONS: Record<string, PermissionCheck> = {
 
 export const DEFAULT_NODE_PERMISSIONS: Record<string, PermissionCheck> = {
   shell: { privs: 'Sys.Console' },
+  'spice-shell': { privs: 'Sys.Console' },
+  packages: { privs: 'Sys.Audit' },
   reboot: { privs: 'Sys.PowerMgmt' },
   shutdown: { privs: 'Sys.PowerMgmt' },
   wol: { privs: 'Sys.PowerMgmt' },
@@ -232,6 +238,8 @@ export const DEFAULT_NODE_PERMISSIONS: Record<string, PermissionCheck> = {
   'bulk-suspend': { privs: 'VM.PowerMgmt', path: '/vms', anywhere: true },
   migrateall: { privs: 'VM.Migrate', path: '/vms', anywhere: true },
   'bulk-migrate': { privs: 'VM.Migrate', path: '/vms', anywhere: true },
+  'create-qemu-on-node': { privs: 'VM.Allocate', path: ['/vms', '/pool'], anywhere: true },
+  'create-lxc-on-node': { privs: 'VM.Allocate', path: ['/vms', '/pool'], anywhere: true },
 }
 
 export const DEFAULT_STORAGE_PERMISSIONS: Record<string, PermissionCheck> = {
