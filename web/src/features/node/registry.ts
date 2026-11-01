@@ -74,7 +74,15 @@ export const nodeTabs: NodeTabDef[] = [
   // Phase 2
   { id: 'network', title: '网络', icon: Network, order: 60, component: comingSoonTab('网卡、网桥、Bond、VLAN 的增删改与应用。', 2) },
   { id: 'system', title: '系统', icon: Settings2, order: 70, component: comingSoonTab('DNS、Hosts、时区和节点选项。', 2) },
-  { id: 'certificates', title: '证书', icon: ShieldCheck, order: 80, component: comingSoonTab('节点证书、自定义证书上传和 ACME。', 2) },
+  {
+    id: 'certificates',
+    title: '证书',
+    icon: ShieldCheck,
+    order: 80,
+    visible: online,
+    permission: { privs: 'Sys.Audit' },
+    component: lazy(() => import('@/features/certificates-acme/CertificatesTab')),
+  },
   { id: 'disks', title: '磁盘', icon: HardDrive, order: 90, component: comingSoonTab('磁盘列表、SMART、LVM / ZFS / 目录存储创建。', 2) },
   { id: 'updates', title: '更新', icon: Download, order: 100, component: comingSoonTab('软件包更新、changelog 和软件源。', 2) },
   { id: 'firewall', title: '防火墙', icon: Shield, order: 110, component: comingSoonTab('节点防火墙规则、选项和日志。', 2) },
