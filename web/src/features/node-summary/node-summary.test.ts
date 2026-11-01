@@ -10,6 +10,7 @@ import {
   journalSupportsStructured,
   kernelLabel,
   managerVersion,
+  nodeGuestRows,
   notesUpdateParams,
   packageRows,
   parseJournal,
@@ -269,5 +270,28 @@ describe('journal helpers', () => {
     const prepended = mergeLines(mk(4), mk(3), 'prepend', 5)
     expect(prepended.lines).toHaveLength(5)
     expect(prepended.dropped).toBe(false)
+  })
+})
+
+describe('node guest index', () => {
+  it('turns /nodes/{node}/qemu?full=1 and /lxc into resource rows', () => {
+    const rows = nodeGuestRows(
+      'pve-lab',
+      [
+        { vmid: 101, name: 'b', status: 'running', qmpstatus: 'running', cpu: 0.1, cpus: 1, mem: 10, maxmem: 64 },
+        { vmid: 9000, name: 'tpl', status: 'stopped', qmpstatus: 'stopped', template: 1 },
+        { vmid: 100, name: 'a', status: 'running', qmpstatus: 'paused', tags: 'test;demo', lock: 'backup' },
+      ],
+      [{ vmid: '200', name: 'ct', status: 'running', maxmem: 128 }],
+    )
+    expect(rows.map((r) => [r.id, r.status, r.template ?? 0])).toEqual([
+      ['qemu/100', 'paused', 0],
+      ['qemu/101', 'running', 0],
+      ['lxc/200', 'running', 0],
+      ['qemu/9000', 'stopped', 1],
+    ])
+    expect(rows[0]).toMatchObject({ type: 'qemu', vmid: 100, node: 'pve-lab', tags: 'test;demo', lock: 'backup' })
+    expect(rows[1]).toMatchObject({ cpu: 0.1, maxcpu: 1, mem: 10, maxmem: 64 })
+    expect(rows[2]).toMatchObject({ type: 'lxc', vmid: 200, maxmem: 128 })
   })
 })

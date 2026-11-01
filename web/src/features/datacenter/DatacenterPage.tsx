@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import {
@@ -17,6 +17,7 @@ import {
   Network,
   Repeat,
   Shield,
+  SlidersHorizontal,
   ShieldCheck,
   Users,
   type LucideIcon,
@@ -32,12 +33,15 @@ import { PageHeader, SectionHeader } from '@/components/PageHeader'
 import { ErrorCard, ErrorState, LoadingRows } from '@/components/QueryState'
 import { StatusDot } from '@/components/StatusDot'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { UsageBar } from '@/components/UsageBar'
 import { formatBytes, formatPercent, formatUptime, formatUsage, ratio } from '@/lib/format'
 import { nodePath } from '@/lib/resources'
 import { cn } from '@/lib/utils'
 
+import { useCountedStorages } from './countedStorages'
+import { CountedStoragesDialog } from './CountedStoragesDialog'
 import {
   SUBSCRIPTION_LABEL,
   clusterUsage,
@@ -65,7 +69,9 @@ export function DatacenterPage() {
     [status.data, ceph.data],
   )
   const counts = useMemo(() => guestCounts(resources.data ?? []), [resources.data])
-  const usage = useMemo(() => clusterUsage(resources.data ?? []), [resources.data])
+  const [counted] = useCountedStorages()
+  const [pickStorages, setPickStorages] = useState(false)
+  const usage = useMemo(() => clusterUsage(resources.data ?? [], counted), [resources.data, counted])
   const subs = useMemo(() => subscriptionSummary(status.data ?? []), [status.data])
   const statusByNode = useMemo(() => {
     const m = new Map<string, ClusterStatusNode>()
@@ -98,7 +104,20 @@ export function DatacenterPage() {
           <HealthCard report={report} loading={status.isPending} />
           <GuestsCard counts={counts} loading={resources.isPending} />
           <GlassCard aria-labelledby="dc-usage">
-            <CardTitle id="dc-usage" icon={Cpu}>
+            <CardTitle
+              id="dc-usage"
+              icon={Cpu}
+              extra={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="-my-1.5 h-8 gap-1.5 px-2 text-xs text-muted-foreground pointer-coarse:h-11"
+                  onClick={() => setPickStorages(true)}
+                >
+                  <SlidersHorizontal aria-hidden /> 选择存储
+                </Button>
+              }
+            >
               资源用量
             </CardTitle>
             {loading ? (
@@ -116,13 +135,14 @@ export function DatacenterPage() {
                 />
                 <UsageBar label="内存" value={ratio(usage.mem.used, usage.mem.total)} detail={formatUsage(usage.mem.used, usage.mem.total)} />
                 <UsageBar
-                  label={`存储 · ${usage.storage.count} 个`}
+                  label={`存储 · ${usage.storage.count} 个${usage.storage.filtered ? '（已选）' : ''}`}
                   value={ratio(usage.storage.used, usage.storage.total)}
                   detail={formatUsage(usage.storage.used, usage.storage.total)}
                 />
               </div>
             )}
           </GlassCard>
+          <CountedStoragesDialog open={pickStorages} onOpenChange={setPickStorages} />
         </div>
 
         <section aria-labelledby="dc-nodes">
@@ -248,7 +268,7 @@ function HealthCard({ report, loading }: { report: ReturnType<typeof healthRepor
 const GUEST_ROWS: { key: keyof Omit<GuestCounts, 'total'>; label: string; filter: string; dot: string }[] = [
   { key: 'running', label: '运行中', filter: 'filter=running', dot: 'running' },
   { key: 'stopped', label: '已停止', filter: 'filter=stopped', dot: 'stopped' },
-  { key: 'templates', label: '模板', filter: '', dot: 'template' },
+  { key: 'templates', label: '模板', filter: 'filter=template', dot: 'template' },
 ]
 
 function GuestsCard({ counts, loading }: { counts: Record<GuestType, GuestCounts>; loading: boolean }) {
@@ -278,7 +298,7 @@ function GuestsCard({ counts, loading }: { counts: Record<GuestType, GuestCounts
                   {GUEST_ROWS.map((row) => (
                     <li key={row.key}>
                       <Link
-                        to={`/?${row.key === 'templates' ? 'type=template' : `type=${type}&${row.filter}`}`}
+                        to={`/?type=${type}&${row.filter}`}
                         className="-mx-1.5 flex h-8 items-center gap-2 rounded-lg px-1.5 text-xs text-muted-foreground transition-colors hover:bg-foreground/[0.04] hover:text-foreground pointer-coarse:h-10"
                       >
                         <StatusDot status={row.dot} pulse={false} size="sm" decorative />

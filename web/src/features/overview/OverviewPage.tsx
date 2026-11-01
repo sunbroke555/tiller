@@ -77,6 +77,7 @@ export function OverviewPage() {
       all: narrowed.length,
       running: filterGuests(narrowed, 'running').length,
       stopped: filterGuests(narrowed, 'stopped').length,
+      template: filterGuests(narrowed, 'template').length,
     }),
     [narrowed],
   )
@@ -176,7 +177,7 @@ export function OverviewPage() {
                   size="sm"
                   aria-label="状态"
                 >
-                  {FILTERS.map((f) => (
+                  {FILTERS.filter((f) => f.value !== 'template' || counts.template > 0 || query.status === 'template').map((f) => (
                     <ToggleGroupItem key={f.value} value={f.value} className="gap-1.5 px-3 text-xs">
                       {f.label}
                       <span className="text-muted-foreground tabular">{counts[f.value]}</span>
@@ -235,7 +236,9 @@ export function OverviewPage() {
                   title={
                     query.status === 'all'
                       ? '还没有虚拟机或容器'
-                      : `没有${query.status === 'running' ? '运行中' : '已停止'}的客户机`
+                      : query.status === 'template'
+                        ? '没有模板'
+                        : `没有${query.status === 'running' ? '运行中' : '已停止'}的客户机`
                   }
                   action={
                     query.status === 'all' && canCreate ? (

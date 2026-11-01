@@ -40,6 +40,7 @@ import {
   type ConsoleViewer,
 } from '@/api/console'
 import { queryKeys } from '@/api/queries'
+import { useClusterOptions } from '@/api/shell'
 import { AmbientBackground } from '@/components/AmbientBackground'
 import { GlassCard } from '@/components/GlassCard'
 import { runTask } from '@/components/tasks/tracker'
@@ -67,7 +68,7 @@ import { PasteDialog } from './PasteDialog'
 import { SendKeyDialog } from './SendKeyDialog'
 import { PHASE_LABEL, type ConsoleSessionHandle, type ConsoleState, type VncScaleMode } from './session'
 import { SpiceDialog } from './SpiceDialog'
-import { chooseViewer, consoleCapabilities, rememberViewer, rememberedViewer } from './viewers'
+import { chooseViewer, consoleCapabilities, opensSpiceByDefault, rememberViewer, rememberedViewer } from './viewers'
 
 // Each viewer is its own chunk: xterm.js or noVNC load only when used.
 const XtermSession = lazy(() => import('./XtermSession'))
@@ -135,7 +136,12 @@ export function ConsoleScreen({ target, variant, title, backTo, requestedViewer,
   const statusQ = useGuestConsoleStatus(target)
   const configQ = useGuestConsoleConfig(target)
   const statusForbidden = isPveApiError(statusQ.error) && statusQ.error.isForbidden
-  const ready = !isGuest || ((statusQ.isFetched || statusQ.isError) && (configQ.isFetched || configQ.isError))
+  // Datacenter default console type (wait for it so the first connect uses it).
+  const optionsQ = useClusterOptions()
+  const dcConsole = typeof optionsQ.data?.console === 'string' ? optionsQ.data.console : null
+  const optionsReady = optionsQ.isFetched || optionsQ.isError
+  const ready =
+    optionsReady && (!isGuest || ((statusQ.isFetched || statusQ.isError) && (configQ.isFetched || configQ.isError)))
   const guestStatus = statusQ.data
   const template = guestStatus?.template === 1
   const running = !isGuest || statusForbidden || guestStatus?.status === 'running'
@@ -146,7 +152,7 @@ export function ConsoleScreen({ target, variant, title, backTo, requestedViewer,
   const viewer: ConsoleViewer =
     pickedViewer && caps.viewers.includes(pickedViewer)
       ? pickedViewer
-      : chooseViewer(target, caps, configQ.data, requestedViewer, rememberedViewer(target.kind))
+      : chooseViewer(target, caps, configQ.data, requestedViewer, rememberedViewer(target.kind), dcConsole)
   const mode = viewer === 'novnc' ? 'vnc' : 'terminal'
   const pickViewer = (v: ConsoleViewer) => {
     setPickedViewer(v)
@@ -171,6 +177,18 @@ export function ConsoleScreen({ target, variant, title, backTo, requestedViewer,
   const rootRef = useRef<HTMLDivElement>(null)
 
   const canConnect = ready && running && !template
+
+  // Datacenter default "SPICE (remote-viewer)": the full-screen console offers
+  // the .vv download once, like the official console button; phones keep the
+  // web console (no remote-viewer there).
+  const spiceByDefault =
+    page && !coarse && canConnect && caps.spice && !pickedViewer && opensSpiceByDefault(caps, requestedViewer, rememberedViewer(target.kind), dcConsole)
+  const spiceOffered = useRef(false)
+  useEffect(() => {
+    if (!spiceByDefault || spiceOffered.current) return
+    spiceOffered.current = true
+    setDialog('spice')
+  }, [spiceByDefault])
   const sessionKey = `${targetKey(target)}:${viewer}:${attempt}`
   const reconnect = useCallback(() => {
     setState({ phase: 'connecting' })

@@ -24,6 +24,7 @@ import {
   netValue,
   parseUsb,
   pciFormFrom,
+  pciMdevSource,
   pciValue,
   rngValue,
   updateParams,
@@ -265,8 +266,7 @@ export function PciDialog({ confid, ...props }: DialogRenderProps & { confid?: s
   const maps = useMappings('pci', node, f.mode === 'mapped')
   const q35 = (cfg.machine ?? '').includes('q35')
   const selectedDevice = f.mode === 'raw' ? pci.data?.find((d) => d.id === f.host) : undefined
-  const mdevSource = f.mode === 'raw' ? (selectedDevice?.mdev ? f.host : undefined) : f.mapping
-  const mdevs = usePciMdev(node, f.mode === 'mapped' ? undefined : mdevSource)
+  const mdevs = usePciMdev(node, pciMdevSource(f, pci.data, maps.data))
   const noIommu = !!pci.data?.length && pci.data.every((d) => d.iommugroup === -1)
   const sharedGroup =
     !!selectedDevice &&
@@ -318,7 +318,11 @@ export function PciDialog({ confid, ...props }: DialogRenderProps & { confid?: s
             onValueChange={(mapping) => set({ mapping, mdev: undefined })}
             loading={maps.isPending}
             placeholder={maps.data?.length === 0 ? '没有 PCI 映射' : '选择映射'}
-            options={(maps.data ?? []).map((m) => ({ value: m.id, label: m.id, description: m.checks?.length ? '此节点不可用' : m.description }))}
+            options={(maps.data ?? []).map((m) => ({
+              value: m.id,
+              label: m.id,
+              description: m.checks?.length ? '此节点不可用' : [m.description, m.mdev ? 'mdev' : null].filter(Boolean).join(' · ') || undefined,
+            }))}
           />
         </FormField>
       ) : (

@@ -36,7 +36,9 @@ import {
   clampFontSize,
   clampZoom,
   consoleCapabilities,
+  datacenterViewer,
   defaultViewer,
+  opensSpiceByDefault,
   serialDisplay,
   serialPorts,
   vgaIsSpice,
@@ -216,6 +218,35 @@ describe('viewers', () => {
     expect(chooseViewer(ct, consoleCapabilities(ct), undefined, 'novnc', 'xterm')).toBe('novnc')
     expect(chooseViewer(ct, consoleCapabilities(ct), undefined, null, 'novnc')).toBe('novnc')
     expect(chooseViewer(ct, consoleCapabilities(ct), undefined, 'bogus', null)).toBe('xterm')
+  })
+
+  it('honours the datacenter default console type with the official fallbacks', () => {
+    const plainVm = consoleCapabilities(vm, { serial: 0, spice: 0 }, {})
+    const serialVm = consoleCapabilities(vm, { serial: 1, spice: 0 }, { serial0: 'socket' })
+    const spiceVm = consoleCapabilities(vm, { serial: 0, spice: 1 }, { vga: 'qxl' })
+    const ctCaps = consoleCapabilities(ct)
+    expect(datacenterViewer(undefined, plainVm)).toBeNull()
+    expect(datacenterViewer('html5', ctCaps)).toBe('novnc')
+    expect(datacenterViewer('xtermjs', serialVm)).toBe('xterm')
+    expect(datacenterViewer('xtermjs', plainVm)).toBe('novnc')
+    expect(datacenterViewer('xtermjs', spiceVm)).toBe('spice')
+    expect(datacenterViewer('vv', spiceVm)).toBe('spice')
+    expect(datacenterViewer('vv', serialVm)).toBe('xterm')
+    expect(datacenterViewer('vv', plainVm)).toBe('novnc')
+    expect(datacenterViewer('vv', ctCaps)).toBe('spice')
+
+    // Requested and remembered still win; then the datacenter default; then ours.
+    expect(chooseViewer(ct, ctCaps, undefined, null, null, 'html5')).toBe('novnc')
+    expect(chooseViewer(ct, ctCaps, undefined, null, 'xterm', 'html5')).toBe('xterm')
+    expect(chooseViewer(vm, serialVm, { serial0: 'socket' }, null, null, 'xtermjs')).toBe('xterm')
+    expect(chooseViewer(node, consoleCapabilities(node), undefined, 'novnc', null, 'xtermjs')).toBe('novnc')
+    // SPICE default: the embedded view keeps our default, the .vv download is offered.
+    expect(chooseViewer(vm, spiceVm, { vga: 'qxl' }, null, null, 'vv')).toBe('novnc')
+    expect(chooseViewer(ct, ctCaps, undefined, null, null, 'vv')).toBe('xterm')
+    expect(opensSpiceByDefault(spiceVm, null, null, 'vv')).toBe(true)
+    expect(opensSpiceByDefault(spiceVm, null, 'novnc', 'vv')).toBe(false)
+    expect(opensSpiceByDefault(plainVm, null, null, 'vv')).toBe(false)
+    expect(opensSpiceByDefault(ctCaps, null, null, 'html5')).toBe(false)
   })
 
   it('clamps font size and zoom', () => {

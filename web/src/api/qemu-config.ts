@@ -95,6 +95,8 @@ export interface ResourceMapping {
   /** Per-node check result; non-empty means the mapping is not usable on that node. */
   checks?: { severity: string; message: string }[]
   'live-migration-capable'?: 0 | 1
+  /** PCI mappings: the devices provide mediated devices (vGPU types). */
+  mdev?: 0 | 1 | boolean
 }
 
 /** GET /nodes/{node}/storage/{storage}/content */

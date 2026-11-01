@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Download, Keyboard, Languages, Trash2 } from 'lucide-react'
+import { Database, Download, Keyboard, Languages, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useClusterOptions } from '@/api/shell'
@@ -8,6 +8,8 @@ import { GlassCard } from '@/components/GlassCard'
 import { openShortcutsHelp } from '@/components/layout/KeyboardShortcuts'
 import { SectionHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
+import { COUNTED_STORAGES_KEY, useCountedStorages } from '@/features/datacenter/countedStorages'
+import { CountedStoragesDialog } from '@/features/datacenter/CountedStoragesDialog'
 import { isIosSafari, useInstallPrompt } from '@/hooks/usePwa'
 
 /** PVE language codes of the datacenter default (Datacenter → Options → Language). */
@@ -32,6 +34,7 @@ export const LOCAL_SETTING_KEYS = [
   'pve-web:last-login',
   'pve-web:last-tfa-method',
   'pve-web:install-dismissed',
+  COUNTED_STORAGES_KEY,
 ]
 
 function Row({ icon: Icon, title, description, control }: { icon: typeof Download; title: string; description: ReactNode; control?: ReactNode }) {
@@ -52,6 +55,8 @@ export function AppSettings() {
   const { state, install } = useInstallPrompt()
   const options = useClusterOptions()
   const [confirm, setConfirm] = useState(false)
+  const [pickStorages, setPickStorages] = useState(false)
+  const [counted] = useCountedStorages()
   const dcLang = typeof options.data?.language === 'string' ? options.data.language : undefined
 
   const installDescription =
@@ -101,9 +106,19 @@ export function AppSettings() {
           }
         />
         <Row
+          icon={Database}
+          title="数据中心存储统计"
+          description={counted.length ? '只统计你选中的存储。' : '统计所有可用存储，共享存储只算一次。'}
+          control={
+            <Button size="sm" variant="outline" onClick={() => setPickStorages(true)}>
+              选择存储
+            </Button>
+          }
+        />
+        <Row
           icon={Trash2}
           title="清除本地设置"
-          description="恢复默认外观、资源树分组和记住的用户名，不会退出登录。"
+          description="恢复默认外观、资源树分组、存储统计和记住的用户名，不会退出登录。"
           control={
             <Button size="sm" variant="outline" onClick={() => setConfirm(true)}>
               清除
@@ -111,6 +126,7 @@ export function AppSettings() {
           }
         />
       </GlassCard>
+      <CountedStoragesDialog open={pickStorages} onOpenChange={setPickStorages} />
       <ConfirmDialog
         open={confirm}
         onOpenChange={setConfirm}

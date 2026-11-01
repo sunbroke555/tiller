@@ -389,6 +389,22 @@ export function pciValue(old: string | undefined, f: PciForm): string {
   )
 }
 
+const truthy = (v: unknown) => v === 1 || v === true || v === '1'
+
+/**
+ * Where the "MDev 类型" list comes from (GET /nodes/{node}/hardware/pci/{id}/mdev):
+ * the raw device when it supports mediated devices, or the mapping id when
+ * the cluster mapping is marked mdev=1 (official PCIInputPanel.pciDevChange).
+ */
+export function pciMdevSource(
+  f: Pick<PciForm, 'mode' | 'host' | 'mapping'>,
+  devices: readonly { id: string; mdev?: unknown }[] | undefined,
+  mappings: readonly { id: string; mdev?: unknown }[] | undefined,
+): string | undefined {
+  if (f.mode === 'raw') return f.host && truthy(devices?.find((d) => d.id === f.host)?.mdev) ? f.host : undefined
+  return f.mapping && truthy(mappings?.find((m) => m.id === f.mapping)?.mdev) ? f.mapping : undefined
+}
+
 export function rngValue(source: string, maxBytes: number | undefined, period: number | undefined): string {
   // Empty limit = unlimited (0); the default 1024/1000 is left out.
   let max: number | undefined = maxBytes === undefined ? 0 : maxBytes

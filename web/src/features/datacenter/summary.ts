@@ -37,14 +37,17 @@ export function guestCounts(resources: readonly ClusterResource[]): Record<Guest
 export interface ClusterUsage {
   cpu: { used: number; total: number }
   mem: { used: number; total: number }
-  storage: { used: number; total: number; count: number }
+  /** `filtered`: only the storages picked in the settings count. */
+  storage: { used: number; total: number; count: number; filtered: boolean }
 }
 
 /**
  * CPU and memory of online nodes; storage of available storages with shared
  * storages (NFS, Ceph, …) counted once — they appear once per node.
+ * `counted` (resource ids, from the "which storages count" setting) limits
+ * the storage total; empty, or naming no existing storage, counts all.
  */
-export function clusterUsage(resources: readonly ClusterResource[]): ClusterUsage {
+export function clusterUsage(resources: readonly ClusterResource[], counted: readonly string[] = []): ClusterUsage {
   let cpuUsed = 0
   let cpuTotal = 0
   let memUsed = 0
@@ -56,18 +59,21 @@ export function clusterUsage(resources: readonly ClusterResource[]): ClusterUsag
     memUsed += r.mem ?? 0
     memTotal += r.maxmem ?? 0
   }
+  const pick = new Set(counted)
+  const filtered = pick.size > 0 && resources.some((r) => isStorage(r) && pick.has(r.id))
   const seen = new Set<string>()
   let used = 0
   let total = 0
   for (const r of resources) {
     if (!isStorage(r) || r.status !== 'available' || !r.maxdisk) continue
+    if (filtered && !pick.has(r.id)) continue
     const key = r.shared === 1 ? `shared:${r.storage}` : `${r.node}:${r.storage}`
     if (seen.has(key)) continue
     seen.add(key)
     used += r.disk ?? 0
     total += r.maxdisk
   }
-  return { cpu: { used: cpuUsed, total: cpuTotal }, mem: { used: memUsed, total: memTotal }, storage: { used, total, count: seen.size } }
+  return { cpu: { used: cpuUsed, total: cpuTotal }, mem: { used: memUsed, total: memTotal }, storage: { used, total, count: seen.size, filtered } }
 }
 
 export type SubscriptionLevel = 'none' | 'c' | 'b' | 's' | 'p'

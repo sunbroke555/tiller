@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { guestCoreActions } from './actions'
-import { canResume, canStart, canStop, groupOf, powerModes, powerRequest, powerState, powerTitle } from './power'
+import { canResume, canStart, canStop, debugStartParams, groupOf, powerModes, powerRequest, powerState, powerTitle } from './power'
 
 const g = (status: string, extra: { lock?: string; template?: 0 | 1 } = {}) => ({ status, ...extra })
 
@@ -120,6 +120,16 @@ describe('guestCoreActions', () => {
   it('running VM: two primary buttons, leaving room for the console', () => {
     expect(primary(ctx('running'))).toEqual(['shutdown', 'reboot'])
     expect(visible(ctx('running'))).toEqual(['shutdown', 'reboot', 'stop', 'pause', 'hibernate', 'reset'])
+  })
+
+  it('stopped CT can also start in debug mode (debug=1, behind a confirm)', () => {
+    const c = ctx('stopped', 'lxc')
+    expect(visible(c)).toEqual(['start', 'start-debug'])
+    expect(primary(c)).toEqual(['start'])
+    const a = guestCoreActions.find((x) => x.id === 'start-debug')!
+    expect(a.confirm?.(c).title).toBe('以调试模式启动 web？')
+    expect(debugStartParams()).toEqual({ debug: 1 })
+    expect(visible(ctx('running', 'lxc'))).not.toContain('start-debug')
   })
 
   it('running CT has no pause / hibernate / reset', () => {

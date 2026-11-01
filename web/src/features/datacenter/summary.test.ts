@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { ClusterResource, ClusterStatusEntry } from '@/api/types'
 
+import { isCounted, storageChoices, toggleChoice } from './countedStorages'
 import { clusterUsage, guestCounts, healthReport, subscriptionLevel, subscriptionSummary } from './summary'
 
 const resources: ClusterResource[] = [
@@ -29,8 +30,33 @@ describe('datacenter summary', () => {
     expect(clusterUsage(resources)).toEqual({
       cpu: { used: 2, total: 4 },
       mem: { used: 2, total: 8 },
-      storage: { used: 60, total: 1100, count: 2 },
+      storage: { used: 60, total: 1100, count: 2, filtered: false },
     })
+  })
+
+  it('counts only the picked storages, falling back to all for stale picks', () => {
+    expect(clusterUsage(resources, ['storage/a/local']).storage).toEqual({ used: 10, total: 100, count: 1, filtered: true })
+    expect(clusterUsage(resources, ['storage/a/nfs', 'storage/b/nfs']).storage).toEqual({ used: 50, total: 1000, count: 1, filtered: true })
+    expect(clusterUsage(resources, ['storage/x/gone']).storage).toMatchObject({ total: 1100, filtered: false })
+  })
+
+  it('lists storages to pick (shared once) and toggles them', () => {
+    const choices = storageChoices(resources)
+    expect(choices.map((c) => [c.key, c.ids.length, c.available])).toEqual([
+      ['storage/a/local', 1, true],
+      ['storage/b/local', 1, false],
+      ['shared:nfs', 2, true],
+    ])
+    const [aLocal, , nfs] = choices as [(typeof choices)[0], (typeof choices)[0], (typeof choices)[0]]
+    // From "all": unchecking one stores the others.
+    const noNfs = toggleChoice([], choices, nfs, false)
+    expect(noNfs.sort()).toEqual(['storage/a/local', 'storage/b/local'])
+    expect(isCounted(noNfs, nfs)).toBe(false)
+    expect(isCounted([], nfs)).toBe(true)
+    // Checking everything again goes back to "all" (empty list).
+    expect(toggleChoice(noNfs, choices, nfs, true)).toEqual([])
+    // The last checked storage cannot be unchecked.
+    expect(toggleChoice(['storage/a/local'], choices, aLocal, false)).toEqual(['storage/a/local'])
   })
 
   it('summarises subscriptions', () => {

@@ -8,13 +8,13 @@
 // between the normal and the forceful way.
 
 import { lazy } from 'react'
-import { CirclePause, Moon, Play, Power, RotateCcw, Square, Zap } from 'lucide-react'
+import { Bug, CirclePause, Moon, Play, Power, RotateCcw, Square, Zap } from 'lucide-react'
 
 import { powerCommand } from '@/api/guest-core'
 import { runTask } from '@/components/tasks/tracker'
-import { QEMU, type GuestActionContext, type GuestActionDef } from '@/features/guest/types'
+import { LXC, QEMU, type GuestActionContext, type GuestActionDef } from '@/features/guest/types'
 
-import { canReboot, canResume, canShutdown, canStart, canStop, powerState, powerTitle } from './power'
+import { canReboot, canResume, canShutdown, canStart, canStop, debugStartParams, powerState, powerTitle } from './power'
 
 const dialogs = {
   shutdown: lazy(() => import('./PowerDialog').then((m) => ({ default: m.ShutdownDialog }))),
@@ -42,6 +42,25 @@ export const guestCoreActions: GuestActionDef[] = [
     visible: (ctx) => canStart(state(ctx)),
     disabled: locked,
     run: ({ node, type, vmid, name }) => runTask(powerCommand(node, type, vmid, 'start'), { title: powerTitle('start', name) }),
+  },
+  {
+    // CT only (lxc status/start debug=1): very verbose lxc-start log in the
+    // task log, to find out why a container does not start.
+    id: 'start-debug',
+    label: '调试模式启动',
+    icon: Bug,
+    order: 102,
+    section: '电源',
+    types: LXC,
+    visible: (ctx) => canStart(state(ctx)),
+    disabled: locked,
+    confirm: ({ name }) => ({
+      title: `以调试模式启动 ${name}？`,
+      description: '启动时记录非常详细的调试日志（lxc-start 调试级别），可在任务日志里查看，用来排查容器无法启动的原因。',
+      confirmLabel: '启动',
+    }),
+    run: ({ node, type, vmid, name }) =>
+      runTask(powerCommand(node, type, vmid, 'start', debugStartParams()), { title: `调试模式启动 ${name}` }),
   },
   {
     id: 'resume',
