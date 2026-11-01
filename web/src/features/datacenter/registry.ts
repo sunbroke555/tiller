@@ -23,8 +23,6 @@ import {
   Users,
 } from 'lucide-react'
 
-import { comingSoonTab } from '@/components/page/ComingSoonTab'
-
 import type { TabDef } from '@/components/page/registry'
 
 /** Props of a datacenter section component (it reads sub-paths from the router itself). */
@@ -99,7 +97,17 @@ export const datacenterSections: DatacenterSectionDef[] = [
     permission: { privs: 'SDN.Audit', path: '/sdn', anywhere: true },
     component: lazy(() => import('@/features/sdn/SdnPage')),
   },
-  { id: 'ceph', title: 'Ceph', hint: '集群存储', icon: Database, order: 90, phase: 3, component: comingSoonTab('Ceph 安装、监视器、OSD、存储池和 CephFS。', 3) },
+  {
+    id: 'ceph',
+    title: 'Ceph',
+    hint: '分布式存储：OSD、存储池、CephFS',
+    icon: Database,
+    order: 90,
+    phase: 3,
+    ready: true,
+    permission: { privs: 'Sys.Audit' },
+    component: lazy(() => import('@/features/ceph/CephPage')),
+  },
   {
     id: 'cluster',
     title: '集群',
