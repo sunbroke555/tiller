@@ -16,6 +16,7 @@ import { useSyncExternalStore } from 'react'
 import type { QueryClient, QueryKey } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
+import { isClientError } from '@/api/client'
 import { queryKeys } from '@/api/queries'
 import {
   TASK_POLL_MS,
@@ -132,11 +133,15 @@ export function useTaskLogTarget(): LogTarget | null {
 
 /** Open the live log sheet for any task (also ones not started here). */
 export function openTaskLog(target: LogTarget): void {
+  const previous = snapshot.log?.upid
   emit({ ...snapshot, log: target })
+  if (previous && previous !== target.upid) dismissDeferred(previous)
 }
 
 export function closeTaskLog(): void {
+  const previous = snapshot.log?.upid
   if (snapshot.log) emit({ ...snapshot, log: null })
+  if (previous) dismissDeferred(previous)
 }
 
 /** Hide a task from the toast; a running task keeps being tracked. */
@@ -144,7 +149,10 @@ export function dismissTask(upid: string): void {
   const task = snapshot.tasks.find((t) => t.upid === upid)
   if (!task) return
   if (task.state === 'running') patchTask(upid, { dismissed: true })
-  else emit({ ...snapshot, tasks: snapshot.tasks.filter((t) => t.upid !== upid) })
+  else {
+    cancelDismiss(upid)
+    emit({ ...snapshot, tasks: snapshot.tasks.filter((t) => t.upid !== upid) })
+  }
 }
 
 /** Remove finished tasks from the toast. */
@@ -152,10 +160,13 @@ export function clearFinishedTasks(): void {
   emit({ ...snapshot, tasks: snapshot.tasks.filter((t) => t.state === 'running') })
 }
 
-/** Test helper. */
+/** Clears everything (logout; tests). */
 export function resetTaskTracker(): void {
   for (const stop of pollers.values()) stop()
   pollers.clear()
+  for (const timer of dismissTimers.values()) clearTimeout(timer)
+  dismissTimers.clear()
+  dismissOnLogClose.clear()
   emit({ tasks: [], log: null })
 }
 
@@ -169,6 +180,34 @@ export const AUTO_DISMISS_MS: Record<Exclude<TaskState, 'running'>, number | nul
 }
 
 const pollers = new Map<string, () => void>()
+/** Pending auto-dismiss timers of finished tasks. */
+const dismissTimers = new Map<string, ReturnType<typeof setTimeout>>()
+/** Finished tasks whose auto-dismiss came while their log was open: dismissed when it closes. */
+const dismissOnLogClose = new Set<string>()
+
+function scheduleDismiss(upid: string, ms: number) {
+  cancelDismiss(upid)
+  dismissTimers.set(
+    upid,
+    setTimeout(() => {
+      dismissTimers.delete(upid)
+      // Keep it while its log is open; closeTaskLog dismisses it then.
+      if (snapshot.log?.upid === upid) dismissOnLogClose.add(upid)
+      else dismissTask(upid)
+    }, ms),
+  )
+}
+
+function cancelDismiss(upid: string) {
+  const timer = dismissTimers.get(upid)
+  if (timer) clearTimeout(timer)
+  dismissTimers.delete(upid)
+  dismissOnLogClose.delete(upid)
+}
+
+function dismissDeferred(upid: string) {
+  if (dismissOnLogClose.has(upid)) dismissTask(upid)
+}
 
 function invalidate(keys: readonly QueryKey[] | undefined) {
   if (!queryClient) return
@@ -210,11 +249,7 @@ function pollTask(task: TrackedTask, opts: RunTaskOptions, resolve: (o: TaskOutc
     resolve(outcome)
     const ttl = AUTO_DISMISS_MS[state]
     if (ttl !== null) {
-      setTimeout(() => {
-        // Keep it while its log is open.
-        if (snapshot.log?.upid === upid) return
-        dismissTask(upid)
-      }, ttl)
+      scheduleDismiss(upid, ttl)
     } else {
       // Unhide failed tasks the user had hidden while running.
       patchTask(upid, { dismissed: false })
@@ -233,8 +268,9 @@ function pollTask(task: TrackedTask, opts: RunTaskOptions, resolve: (o: TaskOutc
         return
       }
     } catch (e) {
-      // Transient errors (network, node busy) are retried; give up after a while.
-      if (++failures >= 20) {
+      // Transient errors (network, node busy) are retried; give up after a
+      // while. Client errors (no permission, task log pruned) end it right away.
+      if (isClientError(e) || ++failures >= 20) {
         finish(`无法获取任务状态：${errorMessage(e)}`)
         return
       }

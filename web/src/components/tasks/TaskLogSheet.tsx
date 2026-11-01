@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 
 import { parseUpid, stopTask, taskState, useTaskLog, useTaskStatus } from '@/api/tasks'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { ErrorState } from '@/components/QueryState'
 import { ResponsiveDialog } from '@/components/ResponsiveDialog'
 import { Button } from '@/components/ui/button'
 import { errorMessage } from '@/lib/errors'
@@ -34,6 +35,9 @@ export function TaskLogSheet({ node, upid, open, onOpenChange, title, endtime }:
   const status = useTaskStatus(active ? node : null, active ? upid : null)
   const parsed = upid ? parseUpid(upid) : null
   const state = status.data ? taskState(status.data) : 'running'
+  // The status could not be read (403 without Sys.Audit, 404 after the log
+  // was pruned, node offline): say so instead of spinning as "running".
+  const statusFailed = !status.data && status.isError
   const log = useTaskLog(node, upid, { follow: state === 'running', enabled: active && !!status.data })
   const [stopping, setStopping] = useState(false)
   const [confirmStop, setConfirmStop] = useState(false)
@@ -96,13 +100,13 @@ export function TaskLogSheet({ node, upid, open, onOpenChange, title, endtime }:
       onOpenChange={onOpenChange}
       size="xl"
       title={heading}
-      headerExtra={<TaskStateBadge state={state} />}
+      headerExtra={statusFailed ? undefined : <TaskStateBadge state={state} />}
       description={
         <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
           <span>节点 {info?.node ?? node ?? DASH}</span>
           <span>{info?.user ?? DASH}</span>
           <span className="tabular">{started ? formatDateTime(started) : DASH}</span>
-          {state === 'running' && started ? (
+          {statusFailed ? null : state === 'running' && started ? (
             <span className="tabular">已运行 {formatDuration(Date.now() / 1000 - started)}</span>
           ) : started && endtime ? (
             <span className="tabular">耗时 {formatDuration(endtime - started)}</span>
@@ -153,7 +157,15 @@ export function TaskLogSheet({ node, upid, open, onOpenChange, title, endtime }:
           className="max-h-[min(60dvh,32rem)] min-h-32 overflow-auto border-y border-border/60 bg-foreground/[0.03] px-5 py-3 font-mono text-xs leading-relaxed lg:px-6 paper:bg-secondary/50"
           data-testid="task-log"
         >
-          {log.isLoading && log.lines.length === 0 ? (
+          {statusFailed ? (
+            <ErrorState
+              compact
+              title="无法读取任务状态"
+              error={status.error}
+              onRetry={() => void status.refetch()}
+              className="font-sans"
+            />
+          ) : log.isLoading && log.lines.length === 0 ? (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Loader2 className="size-3.5 animate-spin" /> 正在读取日志…
             </div>

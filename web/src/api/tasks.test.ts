@@ -3,7 +3,9 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  AUTO_DISMISS_MS,
   clearFinishedTasks,
+  closeTaskLog,
   dismissTask,
   openTaskLog,
   resetTaskTracker,
@@ -212,5 +214,49 @@ describe('task tracker', () => {
     expect(tasks.result.current[0]?.dismissed).toBe(true)
     act(() => openTaskLog({ node: 'pve-lab', upid: UPID }))
     expect(log.result.current).toEqual({ node: 'pve-lab', upid: UPID })
+  })
+
+  it('ends at once when the status cannot be read (4xx) instead of retrying', async () => {
+    fetchMock.mockImplementation(async (url: string) =>
+      url.includes('/status')
+        ? new Response(JSON.stringify({ data: null, message: 'Permission check failed' }), { status: 403 })
+        : json({ data: [], total: 0 }),
+    )
+    const handle = await runTask(Promise.resolve(UPID), { title: '启动' })
+    const outcome = await handle.done
+    expect(outcome.state).toBe('error')
+    expect(outcome.exitstatus).toContain('无法获取任务状态')
+    expect(fetchMock.mock.calls.filter(([u]) => String(u).includes('/status'))).toHaveLength(1)
+  })
+
+  it('auto-dismisses a finished task when its log closes after the TTL', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    fetchMock.mockImplementation(async (url: string) =>
+      url.includes('/status') ? json({ data: { status: 'stopped', exitstatus: 'OK' } }) : json({ data: [], total: 0 }),
+    )
+    const tasks = renderHook(() => useTrackedTasks())
+    const handle = await runTask(Promise.resolve(UPID), { title: '启动' })
+    act(() => openTaskLog({ node: 'pve-lab', upid: UPID }))
+    await act(() => vi.advanceTimersByTimeAsync(500))
+    expect((await handle.done).state).toBe('ok')
+    await act(() => vi.advanceTimersByTimeAsync(AUTO_DISMISS_MS.ok! + 100))
+    // Still there while the log is open…
+    expect(tasks.result.current).toHaveLength(1)
+    // …and gone once it closes.
+    act(() => closeTaskLog())
+    expect(tasks.result.current).toHaveLength(0)
+  })
+
+  it('cancels pending auto-dismiss timers on reset', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    fetchMock.mockImplementation(async (url: string) =>
+      url.includes('/status') ? json({ data: { status: 'stopped', exitstatus: 'OK' } }) : json({ data: [], total: 0 }),
+    )
+    const handle = await runTask(Promise.resolve(UPID), { title: '启动' })
+    await vi.advanceTimersByTimeAsync(500)
+    await handle.done
+    expect(vi.getTimerCount()).toBe(1)
+    resetTaskTracker()
+    expect(vi.getTimerCount()).toBe(0)
   })
 })

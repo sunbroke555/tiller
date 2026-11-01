@@ -62,6 +62,11 @@ export function isPveApiError(e: unknown): e is PveApiError {
   return e instanceof PveApiError
 }
 
+/** A 4xx answer (auth, permission, not found, validation): retrying will not fix it. */
+export function isClientError(e: unknown): e is PveApiError {
+  return isPveApiError(e) && e.status >= 400 && e.status < 500
+}
+
 /**
  * Tagged template that URI-encodes interpolated path segments:
  * p`/nodes/${node}/tasks/${upid}/status` keeps the ":" in UPIDs safe.

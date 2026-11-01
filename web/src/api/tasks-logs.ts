@@ -8,7 +8,8 @@
 //
 // Single-task status, log and stop live in ./tasks (shared contracts).
 
-import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
 import { get, p, requestEnvelope, type Params } from './client'
 import { POLL, queryKeys, useTasks } from './queries'
@@ -248,54 +249,118 @@ export interface TaskHistory {
 }
 
 /**
+ * Rows of the node history in display order: the polled first page, then
+ * `retained` (rows of earlier first pages that newer tasks pushed down;
+ * running ones are left out, their state would go stale), then the older
+ * pages loaded on demand. Duplicates keep the first (freshest) copy.
+ */
+export function mergeHistoryRows(head: readonly NodeTask[], retained: readonly NodeTask[], older: readonly NodeTask[]): NodeTask[] {
+  const seen = new Set<string>()
+  const out: NodeTask[] = []
+  const add = (t: NodeTask) => {
+    if (seen.has(t.upid)) return
+    seen.add(t.upid)
+    out.push(t)
+  }
+  head.forEach(add)
+  for (const t of retained) if (!isRunning(t)) add(t)
+  older.forEach(add)
+  return out
+}
+
+interface OlderTasks {
+  /** Node + filters these rows belong to. */
+  key: string
+  retained: NodeTask[]
+  pages: NodeTask[]
+  /** The last page came back short: nothing older is left. */
+  exhausted: boolean
+}
+
+const emptyOlder = (key: string): OlderTasks => ({ key, retained: [], pages: [], exhausted: false })
+
+interface LoadMoreState {
+  key: string
+  loading: boolean
+  error: Error | null
+}
+
+/**
+ * Node history. Only the first page is polled; "加载更多" appends older
+ * pages that are not refetched (refetching every loaded page would cost one
+ * request per page every few seconds). The next page starts at the number of
+ * rows shown, so rows that new tasks push down overlap (deduplicated) instead
+ * of leaving a gap.
+ */
+function useNodeTaskHistory(node: string | undefined, filters: TaskFilters, pageSize: number) {
+  const queryKey = tasksLogsKeys.history(node ?? '', filters)
+  const key = JSON.stringify(queryKey)
+  const head = useQuery({
+    queryKey: [...queryKey, 'head', pageSize],
+    queryFn: ({ signal }) => fetchNodeTasks(node!, filters, 0, pageSize, signal),
+    enabled: !!node,
+    refetchInterval: (q) => (q.state.data?.tasks.some(isRunning) ? FAST_POLL_MS : POLL.tasks),
+    placeholderData: keepPreviousData,
+  })
+  const [olderState, setOlder] = useState<OlderTasks>(() => emptyOlder(key))
+  const [moreState, setMore] = useState<LoadMoreState>({ key, loading: false, error: null })
+  // Another node or other filters: start over (state adjusted while rendering).
+  if (olderState.key !== key) setOlder(emptyOlder(key))
+  if (moreState.key !== key) setMore({ key, loading: false, error: null })
+  const older = olderState.key === key ? olderState : emptyOlder(key)
+  const more = moreState.key === key ? moreState : { key, loading: false, error: null }
+
+  const headTasks = head.data?.tasks ?? []
+  const tasks = mergeHistoryRows(headTasks, older.retained, older.pages)
+  const total = head.data?.total
+
+  const loadMore = async () => {
+    if (!node || more.loading) return
+    const offset = tasks.length
+    // Keep what the first page shows now: newer tasks may push these rows
+    // past the first page before the page below is merged in.
+    const retained = mergeHistoryRows(headTasks, older.retained, [])
+    setMore({ key, loading: true, error: null })
+    try {
+      const page = await fetchNodeTasks(node, filters, offset, pageSize)
+      setOlder((prev) =>
+        prev.key === key ? { key, retained, pages: [...prev.pages, ...page.tasks], exhausted: page.tasks.length < pageSize } : prev,
+      )
+      setMore((prev) => (prev.key === key ? { key, loading: false, error: null } : prev))
+    } catch (e) {
+      setMore((prev) => (prev.key === key ? { key, loading: false, error: e instanceof Error ? e : new Error(String(e)) } : prev))
+    }
+  }
+
+  return {
+    tasks,
+    total,
+    isPending: head.isPending,
+    isError: head.isError || !!more.error,
+    error: head.error ?? more.error,
+    isFetching: head.isFetching || more.loading,
+    hasMore: !older.exhausted && total !== undefined && tasks.length < total,
+    isFetchingMore: more.loading,
+    loadMore: () => void loadMore(),
+    refetch: () => void head.refetch(),
+  }
+}
+
+/**
  * Task history for the filters: node history with server-side filters and
  * paging when `filters.node` is set, otherwise the cluster's recent tasks
- * filtered here. Both refresh every 10 s, every 3 s while tasks run.
+ * filtered here. Both refresh every 10 s, every 3 s while tasks run (the node
+ * history only its first page).
  */
 export function useTaskHistory(filters: TaskFilters, { pageSize = TASK_PAGE_SIZE }: { pageSize?: number } = {}): TaskHistory {
   const node = filters.node
-  const history = useInfiniteQuery({
-    queryKey: tasksLogsKeys.history(node ?? '', filters),
-    queryFn: ({ pageParam, signal }) => fetchNodeTasks(node!, filters, pageParam, pageSize, signal),
-    initialPageParam: 0,
-    getNextPageParam: (last, pages) => {
-      const loaded = pages.reduce((n, pg) => n + pg.tasks.length, 0)
-      return last.tasks.length === pageSize && loaded < last.total ? loaded : undefined
-    },
-    enabled: !!node,
-    refetchInterval: (q) => (q.state.data?.pages.some((pg) => pg.tasks.some(isRunning)) ? FAST_POLL_MS : POLL.tasks),
-    placeholderData: keepPreviousData,
-  })
+  const history = useNodeTaskHistory(node, filters, pageSize)
   const cluster = useTasks({
     enabled: !node,
     refetchInterval: (q) => (q.state.data?.some(isRunning) ? FAST_POLL_MS : POLL.tasks),
   })
 
-  if (node) {
-    const seen = new Set<string>()
-    const tasks: ClusterTask[] = []
-    // Pages can overlap while new tasks arrive; keep the first copy.
-    for (const page of history.data?.pages ?? []) {
-      for (const t of page.tasks) {
-        if (seen.has(t.upid)) continue
-        seen.add(t.upid)
-        tasks.push(t)
-      }
-    }
-    return {
-      tasks,
-      total: history.data?.pages[0]?.total,
-      source: 'node',
-      isPending: history.isPending,
-      isError: history.isError,
-      error: history.error,
-      isFetching: history.isFetching,
-      hasMore: !!history.hasNextPage,
-      isFetchingMore: history.isFetchingNextPage,
-      loadMore: () => void history.fetchNextPage(),
-      refetch: () => void history.refetch(),
-    }
-  }
+  if (node) return { ...history, source: 'node' }
   const now = Date.now()
   return {
     tasks: (cluster.data ?? []).filter((t) => matchesTaskFilters(t, filters, now)),

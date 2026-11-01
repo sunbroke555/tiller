@@ -1,6 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
 
-import { isPveApiError } from '@/api/client'
+import { isClientError } from '@/api/client'
 
 export function createQueryClient(): QueryClient {
   return new QueryClient({
@@ -12,7 +12,7 @@ export function createQueryClient(): QueryClient {
         refetchOnWindowFocus: true,
         retry: (failureCount, error) => {
           // Client errors (auth, permission, validation) will not fix themselves.
-          if (isPveApiError(error) && error.status >= 400 && error.status < 500) return false
+          if (isClientError(error)) return false
           return failureCount < 2
         },
       },
