@@ -17,8 +17,14 @@ import { get, p, post, put } from './client'
 import { POLL, queryKeys } from './queries'
 import type { GuestType, PveBool } from './types'
 
+/**
+ * A command the node shell runs instead of a login shell (termproxy / vncshell
+ * / spiceshell `cmd`, root@pam only): "upgrade" runs `pveupgrade --shell`.
+ */
+export type NodeShellCmd = 'upgrade'
+
 /** What a console connects to. */
-export type ConsoleTarget = { kind: 'node'; node: string } | { kind: GuestType; node: string; vmid: number }
+export type ConsoleTarget = { kind: 'node'; node: string; cmd?: NodeShellCmd | undefined } | { kind: GuestType; node: string; vmid: number }
 
 export type ConsoleViewer = 'xterm' | 'novnc'
 
@@ -45,9 +51,15 @@ export function consoleApiBase(target: ConsoleTarget): string {
   return target.kind === 'node' ? p`/nodes/${target.node}` : p`/nodes/${target.node}/${target.kind}/${target.vmid}`
 }
 
-/** Stable short id for storage keys and test ids: "node:pve", "qemu:100". */
+/** Stable short id for storage keys and test ids: "node:pve", "node:pve:upgrade", "qemu:100". */
 export function targetKey(target: ConsoleTarget): string {
-  return target.kind === 'node' ? `node:${target.node}` : `${target.kind}:${target.vmid}`
+  if (target.kind === 'node') return target.cmd ? `node:${target.node}:${target.cmd}` : `node:${target.node}`
+  return `${target.kind}:${target.vmid}`
+}
+
+/** Params of the node shell calls for a command (none for a login shell). */
+function nodeCmdParams(target: ConsoleTarget): { cmd?: NodeShellCmd } {
+  return target.kind === 'node' && target.cmd ? { cmd: target.cmd } : {}
 }
 
 /** "节点 pve" / "VM 100" / "CT 100". */
@@ -57,7 +69,8 @@ export function targetLabel(target: ConsoleTarget): string {
 }
 
 export function startTermProxy(target: ConsoleTarget, opts: { serial?: string | undefined } = {}): Promise<TermProxyTicket> {
-  return post<TermProxyTicket>(`${consoleApiBase(target)}/termproxy`, target.kind === 'qemu' ? { serial: opts.serial } : undefined)
+  const params = target.kind === 'qemu' ? { serial: opts.serial } : target.kind === 'node' && target.cmd ? nodeCmdParams(target) : undefined
+  return post<TermProxyTicket>(`${consoleApiBase(target)}/termproxy`, params)
 }
 
 export function startVncProxy(
@@ -68,7 +81,7 @@ export function startVncProxy(
   // (vncterm) whose pixel size we choose.
   const size = target.kind === 'qemu' ? {} : { width: opts.width, height: opts.height }
   const path = target.kind === 'node' ? `${consoleApiBase(target)}/vncshell` : `${consoleApiBase(target)}/vncproxy`
-  return post<VncProxyTicket>(path, { websocket: 1, ...size })
+  return post<VncProxyTicket>(path, { websocket: 1, ...size, ...nodeCmdParams(target) })
 }
 
 /** The password noVNC sends: the dedicated one when PVE generated it, else the ticket. */
@@ -89,7 +102,7 @@ export function vncWebsocketUrl(
 
 export function fetchSpiceConfig(target: ConsoleTarget, proxy?: string): Promise<SpiceConfig> {
   const path = target.kind === 'node' ? `${consoleApiBase(target)}/spiceshell` : `${consoleApiBase(target)}/spiceproxy`
-  return post<SpiceConfig>(path, { proxy: proxy?.trim() || undefined })
+  return post<SpiceConfig>(path, { proxy: proxy?.trim() || undefined, ...nodeCmdParams(target) })
 }
 
 /** Render a .vv file (the official UI does the same). */

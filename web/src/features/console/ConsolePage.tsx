@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import { Navigate, useLocation, useParams, useSearchParams } from 'react-router'
 
-import type { ConsoleTarget } from '@/api/console'
+import type { ConsoleTarget, NodeShellCmd } from '@/api/console'
 import { targetKey } from '@/api/console'
 import { useClusterResources } from '@/api/queries'
 import { isGuest, type ClusterResource, type GuestResource, type GuestType } from '@/api/types'
@@ -12,7 +12,7 @@ import { ConsoleScreen } from './ConsoleScreen'
 /**
  * Full-screen console outside the app frame:
  *   /console/:node/:type/:vmid   VM (noVNC / serial xterm.js) or CT (xterm.js / noVNC)
- *   /console/:node/shell         node shell
+ *   /console/:node/shell         node shell (?cmd=upgrade: run pveupgrade, root@pam only)
  * ?viewer=xterm|novnc picks the viewer.
  */
 export default function ConsolePage() {
@@ -24,6 +24,7 @@ export default function ConsolePage() {
   const type: GuestType = params.type === 'lxc' ? 'lxc' : 'qemu'
   const validTarget = isShell || ((params.type === 'qemu' || params.type === 'lxc') && isVmidParam(params.vmid))
   const vmid = isVmidParam(params.vmid) ? Number(params.vmid) : NaN
+  const cmd: NodeShellCmd | undefined = isShell && search.get('cmd') === 'upgrade' ? 'upgrade' : undefined
 
   const { data: guest } = useClusterResources({
     enabled: !isShell && validTarget,
@@ -31,8 +32,8 @@ export default function ConsolePage() {
   })
 
   const target = useMemo<ConsoleTarget>(
-    () => (isShell ? { kind: 'node', node } : { kind: type, node, vmid }),
-    [isShell, node, type, vmid],
+    () => (isShell ? { kind: 'node', node, cmd } : { kind: type, node, vmid }),
+    [isShell, node, type, vmid, cmd],
   )
 
   // Unknown type or a VMID that is no number: never open a console (no
@@ -43,8 +44,8 @@ export default function ConsolePage() {
     return <Navigate replace to={consolePath(guest) + location.search} />
   }
 
-  const title = isShell ? node : guest ? guestName(guest) : `${type === 'lxc' ? 'CT' : 'VM'} ${params.vmid}`
-  const backTo = isShell ? nodePath(node) : guestPath({ node, type, vmid })
+  const title = isShell ? (cmd === 'upgrade' ? `${node} · 升级` : node) : guest ? guestName(guest) : `${type === 'lxc' ? 'CT' : 'VM'} ${params.vmid}`
+  const backTo = isShell ? nodePath(node, cmd === 'upgrade' ? 'updates' : undefined) : guestPath({ node, type, vmid })
 
   return (
     <ConsoleScreen
@@ -54,7 +55,7 @@ export default function ConsolePage() {
       title={title}
       backTo={backTo}
       requestedViewer={search.get('viewer')}
-      onViewerChange={(viewer) => setSearch({ viewer }, { replace: true })}
+      onViewerChange={(viewer) => setSearch(cmd ? { viewer, cmd } : { viewer }, { replace: true })}
     />
   )
 }
