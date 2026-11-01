@@ -67,6 +67,10 @@ function row(page: Page, label: string | RegExp): Locator {
 }
 
 async function menu(page: Page, label: string, item: string) {
+  // The menu of the previous action may still be closing (exit animation while
+  // the save re-renders the row); a click on the trigger meanwhile toggles it
+  // instead of opening a fresh one.
+  await expect(page.getByRole('menu')).toHaveCount(0)
   await page.getByRole('button', { name: `更多操作：${label}`, exact: true }).click()
   await page.getByRole('menuitem', { name: new RegExp(`^${item}`) }).click()
 }

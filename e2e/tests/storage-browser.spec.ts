@@ -92,8 +92,10 @@ test.describe('storage list and summary', () => {
   test('lists storages with type, content and usage, filters by content', async ({ page, pve }) => {
     await page.goto('/storage')
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('存储')
-    const local = page.getByRole('link', { name: '存储 local', exact: true })
-    const lvm = page.getByRole('link', { name: '存储 local-lvm', exact: true })
+    // Scoped to the page: on desktop the sidebar resource tree has links with the same names.
+    const main = page.getByRole('main')
+    const local = main.getByRole('link', { name: '存储 local', exact: true })
+    const lvm = main.getByRole('link', { name: '存储 local-lvm', exact: true })
     await expect(local).toContainText('目录')
     await expect(local).toContainText('ISO 镜像')
     await expect(lvm).toContainText('LVM-Thin')
