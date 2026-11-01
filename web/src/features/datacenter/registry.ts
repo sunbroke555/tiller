@@ -56,7 +56,16 @@ export const datacenterSections: DatacenterSectionDef[] = [
   { id: 'replication', title: '存储复制', hint: 'ZFS 复制任务', icon: Repeat, order: 30, phase: 2, ready: true, component: lazy(() => import('@/features/replication/ReplicationPage')) },
   { id: 'firewall', title: '防火墙', hint: '规则、安全组、IPSet', icon: Shield, order: 40, phase: 2, ready: true, permission: { privs: 'Sys.Audit' }, component: lazy(() => import('@/features/firewall/DatacenterFirewallPage')) },
   // Phase 3
-  { id: 'users', title: '用户与令牌', hint: '用户、组、API 令牌、两步验证', icon: Users, order: 50, phase: 3, component: comingSoonTab('用户、组、API 令牌和两步验证。', 3) },
+  {
+    id: 'users',
+    title: '用户与令牌',
+    hint: '用户、组、API 令牌、两步验证',
+    icon: Users,
+    order: 50,
+    phase: 3,
+    ready: true,
+    component: lazy(() => import('@/features/access-users/AccessUsersPage')),
+  },
   { id: 'permissions', title: '权限与认证', hint: '角色、ACL、认证域、资源池', icon: KeyRound, order: 60, phase: 3, component: comingSoonTab('角色、权限（ACL）、认证域和同步。', 3) },
   { id: 'ha', title: '高可用', hint: 'HA 资源与规则', icon: ShieldCheck, order: 70, phase: 3, component: comingSoonTab('HA 资源、规则和状态。', 3) },
   { id: 'sdn', title: 'SDN', hint: 'Zone、VNet、子网、Fabrics', icon: Network, order: 80, phase: 3, component: comingSoonTab('SDN Zone、VNet、子网、控制器、IPAM、DNS 和 Fabrics。', 3) },
