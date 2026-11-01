@@ -62,7 +62,16 @@ export const datacenterSections: DatacenterSectionDef[] = [
   { id: 'sdn', title: 'SDN', hint: 'Zone、VNet、子网、Fabrics', icon: Network, order: 80, phase: 3, component: comingSoonTab('SDN Zone、VNet、子网、控制器、IPAM、DNS 和 Fabrics。', 3) },
   { id: 'ceph', title: 'Ceph', hint: '集群存储', icon: Database, order: 90, phase: 3, component: comingSoonTab('Ceph 安装、监视器、OSD、存储池和 CephFS。', 3) },
   { id: 'cluster', title: '集群', hint: '创建、加入、节点管理', icon: Server, order: 100, phase: 3, component: comingSoonTab('创建集群、加入信息、节点和 corosync 链路。', 3) },
-  { id: 'notifications', title: '通知与指标', hint: '通知目标、匹配器、指标服务器', icon: Bell, order: 110, phase: 3, component: comingSoonTab('通知目标、匹配器和指标服务器。', 3) },
+  {
+    id: 'notifications',
+    title: '通知与指标',
+    hint: '通知目标、匹配规则、指标服务器',
+    icon: Bell,
+    order: 110,
+    phase: 3,
+    ready: true,
+    component: lazy(() => import('@/features/notifications-metrics/NotificationsMetricsPage')),
+  },
   { id: 'mappings', title: '资源映射', hint: 'PCI、USB、目录映射与自定义 CPU', icon: Boxes, order: 120, phase: 3, component: comingSoonTab('PCI、USB、目录映射和自定义 CPU 模型。', 3) },
   { id: 'options', title: '数据中心选项', hint: '默认值、标签、订阅', icon: Settings2, order: 130, phase: 3, component: comingSoonTab('数据中心选项、标签样式和订阅。', 3) },
 ]
