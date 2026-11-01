@@ -11,8 +11,14 @@ import {
   filenameFromUrl,
   filterVolumes,
   importKind,
+  defaultPrepareVirtio,
+  extraCdSlot,
   importParams,
   importRows,
+  importScsihw,
+  keepKnownBridges,
+  virtioDiskMap,
+  visibleCdRows,
   parseBackupConfig,
   parseOciReference,
   parsePruneBackups,
@@ -337,6 +343,8 @@ describe('import', () => {
     const rows = importRows(meta)
     expect(rows.disks.map((d) => d.id)).toEqual(['scsi0', 'scsi1'])
     expect(rows.nets).toEqual([{ id: 'net0', model: 'vmxnet3', macaddr: 'AA:BB:CC:00:11:22', bridge: undefined, enabled: true }])
+    // The source's CD drive becomes a row (no extra driver CD then).
+    expect(rows.cdroms).toEqual([{ id: 'ide2', enabled: true }])
   })
 
   it('builds the create parameters with import-from disks', () => {
@@ -362,6 +370,7 @@ describe('import', () => {
       ostype: 'l26',
       ide2: 'none,media=cdrom',
       scsihw: 'lsi',
+      cpu: 'x86-64-v2-AES',
       vmid: 3810,
       scsi0: 'local-lvm:0,import-from=local:import/app.ova/disk1.vmdk,format=raw',
       net0: 'vmxnet3=AA:BB:CC:00:11:22,bridge=vmbr0',
@@ -385,6 +394,131 @@ describe('import', () => {
     expect(params.net0).toBe('vmxnet3,bridge=vmbr1')
     expect(params['live-restore']).toBe(1)
     expect(params.name).toBe('app')
+  })
+
+  it('maps each disk to its storage and format, each NIC to model, bridge and VLAN, and CDs to ISOs', () => {
+    const rows = importRows(meta)
+    const params = importParams(meta, {
+      vmid: 3812,
+      storage: 'local-lvm',
+      format: 'raw',
+      bridge: 'vmbr0',
+      ostype: 'other',
+      scsihw: '',
+      liveImport: false,
+      uniqueMacs: false,
+      disks: rows.disks.map((d) => (d.id === 'scsi1' ? { ...d, storage: 'local', format: 'qcow2' } : d)),
+      nets: rows.nets.map((n) => ({ ...n, model: 'virtio', bridge: 'vmbr1', tag: 20 })),
+      cdroms: rows.cdroms.map((c) => ({ ...c, iso: 'local:iso/tools.iso' })),
+    })
+    expect(params.scsi0).toBe('local-lvm:0,import-from=local:import/app.ova/disk1.vmdk,format=raw')
+    expect(params.scsi1).toBe('local:0,import-from=local:import/app.ova/disk2.vmdk,format=qcow2')
+    expect(params.net0).toBe('virtio=AA:BB:CC:00:11:22,bridge=vmbr1,tag=20')
+    expect(params.ide2).toBe('local:iso/tools.iso,media=cdrom')
+    expect(params.ostype).toBe('other')
+    expect(params).not.toHaveProperty('scsihw')
+    // A CD drive left out is not created.
+    const noCd = importParams(meta, {
+      vmid: 3812,
+      storage: 'local-lvm',
+      bridge: 'vmbr0',
+      liveImport: false,
+      uniqueMacs: false,
+      disks: rows.disks,
+      nets: rows.nets,
+      cdroms: rows.cdroms.map((c) => ({ ...c, enabled: false })),
+    })
+    expect(noCd).not.toHaveProperty('ide2')
+  })
+
+  it('drops source bridges the node does not have', () => {
+    const nets = [
+      { id: 'net0', model: 'virtio', bridge: 'vmbr1', enabled: true },
+      { id: 'net1', model: 'e1000', bridge: 'VM Network', enabled: true },
+      { id: 'net2', model: 'e1000', enabled: true },
+    ]
+    expect(keepKnownBridges(nets, ['vmbr0', 'vmbr1']).map((n) => n.bridge)).toEqual(['vmbr1', undefined, undefined])
+  })
+
+  describe('Windows guests (VirtIO preparation, driver CD)', () => {
+    const win: ImportMetadata = {
+      type: 'vm',
+      source: 'esxi:ha-datacenter/ds1/win/win.vmx',
+      'create-args': { name: 'win', ostype: 'win11', bios: 'ovmf', scsihw: 'pvscsi', boot: 'order=scsi0;net0', sata0: 'x' },
+      disks: {
+        efidisk0: 'efi',
+        scsi0: { volid: 'esxi:ha-datacenter/ds1/win/win.vmdk', size: 1 },
+        scsi1: { volid: 'esxi:ha-datacenter/ds1/win/data.vmdk', size: 1 },
+      },
+      net: { net0: { model: 'vmxnet3', macaddr: '00:50:56:00:00:01' } },
+      warnings: [],
+    }
+
+    it('offers an extra CD slot and VirtIO preparation for Windows with UEFI', () => {
+      expect(extraCdSlot([])).toBe('ide0')
+      expect(extraCdSlot(['ide0'])).toBe('ide2')
+      expect(extraCdSlot(['ide0', 'ide2', 'sata0', 'sata1'])).toBe('sata2')
+      expect(extraCdSlot(['ide3', 'sata5'])).toBe('')
+      const rows = importRows(win)
+      expect(rows.cdroms).toEqual([{ id: 'ide0', enabled: true, extra: true }])
+      expect(visibleCdRows(rows.cdroms, 'win11')).toHaveLength(1)
+      expect(visibleCdRows(rows.cdroms, 'l26')).toHaveLength(0)
+      expect(defaultPrepareVirtio(win)).toBe(true)
+      expect(defaultPrepareVirtio(meta)).toBe(false)
+      expect(importScsihw(win, 'win11', true)).toBe('virtio-scsi-single')
+      expect(importScsihw(win, 'win11', false)).toBe('pvscsi')
+      expect(importScsihw(win, 'l26', true)).toBe('pvscsi')
+      expect(importScsihw(meta, 'l26', false)).toBe('lsi')
+    })
+
+    it('moves SCSI disks to free SATA slots and follows the boot order', () => {
+      const rows = importRows(win)
+      expect(virtioDiskMap(win, rows, 'win11')).toEqual({ scsi0: 'sata1', scsi1: 'sata2' })
+      const params = importParams(win, {
+        vmid: 3713,
+        storage: 'local-lvm',
+        format: 'raw',
+        bridge: 'vmbr0',
+        prepareVirtio: true,
+        scsihw: importScsihw(win, 'win11', true),
+        liveImport: false,
+        uniqueMacs: true,
+        disks: rows.disks,
+        nets: rows.nets,
+        cdroms: rows.cdroms.map((c) => ({ ...c, iso: 'local:iso/virtio-win.iso' })),
+      })
+      expect(params).toMatchObject({
+        efidisk0: 'local-lvm:0,efitype=4m,format=raw',
+        sata1: 'local-lvm:0,import-from=esxi:ha-datacenter/ds1/win/win.vmdk,format=raw',
+        sata2: 'local-lvm:0,import-from=esxi:ha-datacenter/ds1/win/data.vmdk,format=raw',
+        boot: 'order=sata1;net0',
+        scsihw: 'virtio-scsi-single',
+        ide0: 'local:iso/virtio-win.iso,media=cdrom',
+        net0: 'vmxnet3,bridge=vmbr0',
+      })
+      expect(params).not.toHaveProperty('scsi0')
+      // Not Windows any more: no mapping, no driver CD.
+      const linux = importParams(win, {
+        vmid: 3713,
+        storage: 'local-lvm',
+        bridge: 'vmbr0',
+        ostype: 'l26',
+        prepareVirtio: true,
+        liveImport: false,
+        uniqueMacs: false,
+        disks: rows.disks,
+        nets: rows.nets,
+        cdroms: rows.cdroms,
+      })
+      expect(linux).toHaveProperty('scsi0')
+      expect(linux).not.toHaveProperty('ide0')
+      expect(linux.boot).toBe('order=scsi0;net0')
+    })
+
+    it('keeps a disk on SCSI when SATA is full', () => {
+      const full = { ...win, 'create-args': { ...win['create-args'], sata4: 'x' } }
+      expect(virtioDiskMap(full, importRows(full), 'win11')).toEqual({ scsi0: 'sata5', scsi1: 'scsi1' })
+    })
   })
 
   it('wraps a single disk image in a new VM', () => {
