@@ -52,12 +52,13 @@ async function osdHostsOf(pve: PveApi): Promise<Map<string, OsdTreeNode[]>> {
 }
 
 async function cleanup(pve: PveApi, second: string | undefined) {
+  // MDS first: Ceph removes a file system only when no MDS serves it.
+  const mds = await pve.get<{ name: string; host?: string }[]>(`/nodes/${pve.node}/ceph/mds`).catch(() => [])
+  for (const m of mds.filter((x) => x.name === MDS)) await pve.run('DELETE', `/nodes/${m.host ?? pve.node}/ceph/mds/${MDS}`).catch(() => undefined)
   const fsList = await pve.get<{ name: string }[]>(`/nodes/${pve.node}/ceph/fs`).catch(() => [])
   if (fsList.some((f) => f.name === FS)) {
     await pve.run('DELETE', `/nodes/${pve.node}/ceph/fs/${FS}`, { 'remove-pools': 1, 'remove-storages': 1 }).catch(() => undefined)
   }
-  const mds = await pve.get<{ name: string; host?: string }[]>(`/nodes/${pve.node}/ceph/mds`).catch(() => [])
-  for (const m of mds.filter((x) => x.name === MDS)) await pve.run('DELETE', `/nodes/${m.host ?? pve.node}/ceph/mds/${MDS}`).catch(() => undefined)
   const pools = await pve.get<{ pool_name: string }[]>(`/nodes/${pve.node}/ceph/pool`).catch(() => [])
   for (const p of pools.filter((x) => x.pool_name.startsWith('e2e-ceph'))) {
     await pve.run('DELETE', `/nodes/${pve.node}/ceph/pool/${p.pool_name}`, { remove_storages: 1, force: 1 }).catch(() => undefined)
@@ -238,6 +239,9 @@ test.describe('ceph (lab cluster)', { tag: '@lab' }, () => {
     dialog = page.getByRole('dialog', { name: `销毁存储池 ${POOL}` })
     await expect(dialog.getByRole('button', { name: '销毁' })).toBeDisabled()
     await dialog.getByLabel('确认名称').fill(POOL)
+    // PVE 9.2 with Ceph 19.2.6 rejects the copied admin keyring (new key format) in the
+    // "RBD images left?" check, so a plain destroy fails on the lab: destroy with force.
+    await dialog.getByRole('checkbox', { name: '强制销毁' }).click()
     await dialog.getByRole('button', { name: '销毁' }).click()
     await expect(row).toBeHidden({ timeout: 90_000 })
     expect((await pve.get<{ storage: string }[]>('/storage')).some((s) => s.storage === POOL)).toBe(false)
@@ -272,9 +276,12 @@ test.describe('ceph (lab cluster)', { tag: '@lab' }, () => {
     await fsRow.getByRole('button', { name: `${FS} 操作` }).click()
     await page.getByRole('menuitem', { name: '销毁' }).click()
     dialog = page.getByRole('dialog', { name: `销毁 CephFS ${FS}` })
+    await expect(dialog.getByRole('checkbox', { name: '先停止元数据服务器' })).toBeChecked()
+    await expect(dialog).toContainText(`mds.${MDS}`)
     await dialog.getByLabel('确认名称').fill(FS)
     await dialog.getByRole('button', { name: '销毁' }).click()
     await expect(fsRow).toBeHidden({ timeout: 120_000 })
+    await expect(mdsRow.getByTestId('service-state')).toHaveText(/已停止|未知/, { timeout: 60_000 })
     const pools = await pve.get<{ pool_name: string }[]>(`/nodes/${pve.node}/ceph/pool`)
     expect(pools.filter((p) => p.pool_name.startsWith(FS))).toEqual([])
 

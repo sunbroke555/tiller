@@ -337,10 +337,12 @@ function PoolDialog({
 
 function DestroyPoolDialog({ apiNode, pool, open, onOpenChange }: { apiNode: string; pool: string | null; open: boolean; onOpenChange: (o: boolean) => void }) {
   const [removeStorages, setRemoveStorages] = useState(true)
+  const [force, setForce] = useState(false)
   const [typed, setTyped] = useState('')
   useEffect(() => {
     if (open) {
       setRemoveStorages(true)
+      setForce(false)
       setTyped('')
     }
   }, [open])
@@ -355,13 +357,19 @@ function DestroyPoolDialog({ apiNode, pool, open, onOpenChange }: { apiNode: str
       submitLabel="销毁"
       submitDisabled={typed !== pool}
       onSubmit={() =>
-        runTask(destroyPool(apiNode, pool, { remove_storages: removeStorages ? 1 : 0 }), {
+        runTask(destroyPool(apiNode, pool, { remove_storages: removeStorages ? 1 : 0, ...(force ? { force: 1 } : {}) }), {
           title: `销毁存储池 ${pool}`,
           invalidate: [cephKeys.all(), ['pve', 'cluster', 'resources']],
         })
       }
     >
       <CheckboxField label="同时删除存储" description="删除使用这个池、由 pveceph 管理的存储配置。" checked={removeStorages} onCheckedChange={setRemoveStorages} />
+      <CheckboxField
+        label="强制销毁"
+        description="不检查池中是否还有虚拟机磁盘镜像，直接销毁。检查本身失败时（例如存储的密钥文件无法识别）也可以用它。"
+        checked={force}
+        onCheckedChange={setForce}
+      />
       <FormField label={`输入 ${pool} 以确认`} required>
         <FieldInput value={typed} onChange={(e) => setTyped(e.target.value)} autoCapitalize="off" autoComplete="off" spellCheck={false} aria-label="确认名称" />
       </FormField>

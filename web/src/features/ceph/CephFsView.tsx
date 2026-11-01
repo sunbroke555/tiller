@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import { Ellipsis, FolderTree, Plus, Trash2 } from 'lucide-react'
 
-import { cephKeys, createCephFs, destroyCephFs, useCephFsList, useCephMds } from '@/api/ceph'
+import { cephKeys, cephServiceCommand, createCephFs, destroyCephFs, useCephFsList, useCephMds } from '@/api/ceph'
 import { CheckboxField, FieldInput, FormDialog, FormField, NumberInput, SwitchField } from '@/components/form'
 import { EmptyState } from '@/components/EmptyState'
 import { ErrorState, LoadingRows } from '@/components/QueryState'
@@ -145,17 +145,37 @@ function CreateFsDialog({ apiNode, existing, open, onOpenChange }: { apiNode: st
 }
 
 function DestroyFsDialog({ apiNode, name, open, onOpenChange }: { apiNode: string; name: string | null; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const mds = useCephMds(open ? apiNode : null)
   const [removePools, setRemovePools] = useState(true)
   const [removeStorages, setRemoveStorages] = useState(true)
+  const [stopMds, setStopMds] = useState(true)
   const [typed, setTyped] = useState('')
   useEffect(() => {
     if (open) {
       setRemovePools(true)
       setRemoveStorages(true)
+      setStopMds(true)
       setTyped('')
     }
   }, [open])
   if (!name) return null
+  // Ceph only removes a file system once no MDS serves it; standbys would take over, so stop them all.
+  const running = (mds.data ?? []).filter((m) => m.state?.startsWith('up:'))
+
+  const destroy = async () => {
+    if (stopMds) {
+      for (const m of running) {
+        const handle = await runTask(cephServiceCommand(m.host ?? apiNode, 'stop', `mds.${m.name}`), { title: `停止 mds.${m.name}`, invalidate: [] })
+        const outcome = await handle.done
+        if (outcome.state === 'error') throw new Error(`无法停止 mds.${m.name}`)
+      }
+    }
+    return runTask(destroyCephFs(apiNode, name, { 'remove-pools': removePools ? 1 : 0, 'remove-storages': removeStorages ? 1 : 0 }), {
+      title: `销毁 CephFS ${name}`,
+      invalidate: [cephKeys.all(), ['pve', 'cluster', 'resources']],
+    })
+  }
+
   return (
     <FormDialog
       open={open}
@@ -165,15 +185,21 @@ function DestroyFsDialog({ apiNode, name, open, onOpenChange }: { apiNode: strin
       destructive
       submitLabel="销毁"
       submitDisabled={typed !== name}
-      onSubmit={() =>
-        runTask(destroyCephFs(apiNode, name, { 'remove-pools': removePools ? 1 : 0, 'remove-storages': removeStorages ? 1 : 0 }), {
-          title: `销毁 CephFS ${name}`,
-          invalidate: [cephKeys.all(), ['pve', 'cluster', 'resources']],
-        })
-      }
+      onSubmit={destroy}
     >
       <CheckboxField label="删除存储" description="删除由 pveceph 管理、指向这个 CephFS 的存储配置。" checked={removeStorages} onCheckedChange={setRemoveStorages} />
       <CheckboxField label="删除存储池" description="同时删除数据池和元数据池。" checked={removePools} onCheckedChange={setRemovePools} />
+      <CheckboxField
+        label="先停止元数据服务器"
+        description={
+          running.length
+            ? `Ceph 只在没有 MDS 服务时才删除文件系统。将停止：${running.map((m) => `mds.${m.name}`).join('、')}（其他 CephFS 也会暂停，之后可以重新启动）。`
+            : '当前没有运行中的元数据服务器。'
+        }
+        checked={stopMds}
+        onCheckedChange={setStopMds}
+      />
+      {!stopMds && running.length > 0 && <Notice tone="warn">还有运行中的元数据服务器时，销毁会失败。</Notice>}
       {!removeStorages && <Notice tone="warn">保留存储时，需要先在存储配置里停用它，否则无法销毁。</Notice>}
       <FormField label={`输入 ${name} 以确认`} required>
         <FieldInput value={typed} onChange={(e) => setTyped(e.target.value)} autoCapitalize="off" autoComplete="off" spellCheck={false} aria-label="确认名称" />
