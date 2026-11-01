@@ -94,7 +94,8 @@ export function viewerName(target: ConsoleTarget, v: ConsoleViewer): string {
 }
 
 function fullPath(target: ConsoleTarget): string {
-  return target.kind === 'node' ? nodeShellPath(target.node) : consolePath({ node: target.node, type: target.kind, vmid: target.vmid })
+  if (target.kind === 'node') return nodeShellPath(target.node) + (target.cmd ? `?cmd=${target.cmd}` : '')
+  return consolePath({ node: target.node, type: target.kind, vmid: target.vmid })
 }
 
 async function copyToClipboard(text: string): Promise<boolean> {

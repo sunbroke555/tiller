@@ -14,6 +14,7 @@ case $area in
   guest-summary-power | guest-lifecycle) specs=(guest-core) ;;
   guest-snapshots-backup) specs=(guest-backup) ;;
   auth | app-shell | overview) specs=(shell-polish shells permissions smoke) ;;
+  node-updates) specs=(node-updates) ;;
   *) specs=("$area") ;;
 esac
 
