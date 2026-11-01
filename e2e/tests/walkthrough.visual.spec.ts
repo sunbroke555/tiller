@@ -159,6 +159,15 @@ for (const theme of THEMES) {
       localStorage.setItem('pve-web:appearance', JSON.stringify({ mode, accent: 'indigo', glass: true, density: 'comfortable' }))
       localStorage.setItem('pve-web:install-dismissed', String(Date.now()))
     }, theme)
+    // The background grain (opacity ≤ 6 %) is invisible to the eye but makes
+    // every PNG incompressible; hide it so the docs/screenshots set stays small.
+    await page.addInitScript(() => {
+      document.addEventListener('DOMContentLoaded', () => {
+        const style = document.createElement('style')
+        style.textContent = '.ambient::after, [data-theme="paper"] body::before { display: none !important; }'
+        document.head.appendChild(style)
+      })
+    })
     const vp = mobile ? 'm' : 'd'
     const file = (name: string) => path.join(testInfo.project.outputDir, 'walk', `${vp}-${theme}-${name}.png`)
     const size = mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 }

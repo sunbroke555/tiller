@@ -131,7 +131,8 @@ export const guestTabs: GuestTabDef[] = [
     order: 70,
     types: QEMU,
     visible: notTemplate,
-    permission: { privs: 'VM.Monitor' },
+    // PVE 9: info commands need Sys.Audit on /, the rest is root-only.
+    permission: { privs: 'Sys.Audit', path: '/' },
     component: lazy(() => import('@/features/qemu-config/MonitorTab')),
   },
   {

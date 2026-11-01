@@ -79,9 +79,19 @@ async function pageAction(page: Page, mobile: boolean, name: string) {
 const row = (page: Page, name: string) => page.getByRole('button', { name: `${name} 详情` })
 
 async function rowAction(page: Page, name: string, action: string) {
-  await expect(page.getByRole('menu')).toHaveCount(0)
+  await settled(page)
   await page.getByRole('button', { name: `${name} 的操作` }).click()
   await page.getByRole('menuitem', { name: action }).click()
+}
+
+/**
+ * No menu open and no dialog still animating out: a closing dialog hands focus
+ * back to its trigger when the animation ends, which closes a (non-modal) row
+ * menu opened in the meantime.
+ */
+async function settled(page: Page) {
+  await expect(page.getByRole('menu')).toHaveCount(0)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
 }
 
 test.beforeAll(async ({ pve }) => {
@@ -271,6 +281,7 @@ test.describe('backups and disks', () => {
     await test.step('protection blocks deletion', async () => {
       await rowAction(page, newest, '保护')
       await expect(list.getByRole('listitem').first()).toContainText('受保护', { timeout: 15_000 })
+      await settled(page)
       await page.getByRole('button', { name: `${newest} 的操作` }).click()
       await expect(page.getByRole('menuitem', { name: '删除' })).toBeDisabled()
       await page.keyboard.press('Escape')

@@ -46,12 +46,11 @@ test('tester@pve: read-only where it lacks privileges, per guest', async ({ brow
     await expect(page.getByRole('note').filter({ hasText: '只读' })).toBeVisible()
     await expect(page.getByRole('button', { name: '添加挂载点' })).toHaveCount(0)
 
-    // VM 101: no console tab, no notes/tags editing, snapshots disabled.
+    // VM 101: no console tab, no notes/tags editing, snapshots and backup disabled.
     await page.goto(`/guest/${node}/qemu/101`)
     const tabs = page.getByRole('navigation', { name: '页面标签' })
     await expect(tabs.getByRole('link', { name: '概要' })).toBeVisible()
     await expect(tabs.getByRole('link', { name: '控制台' })).toHaveCount(0)
-    await expect(tabs.getByRole('link', { name: '监视器' })).toHaveCount(0)
     await expect(page.getByText('标签', { exact: true }).first()).toBeVisible()
     await expect(page.getByRole('button', { name: '添加备注' })).toHaveCount(0)
     await page.goto(`/guest/${node}/qemu/101/snapshots`)
