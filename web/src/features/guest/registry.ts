@@ -149,7 +149,7 @@ export const guestTabs: GuestTabDef[] = [
     icon: Repeat,
     order: 90,
     types: BOTH,
-    component: comingSoonTab('存储复制任务的创建、立即同步和日志。', 2),
+    component: lazy(() => import('@/features/replication/GuestReplicationTab')),
   },
   {
     id: 'snapshots',
