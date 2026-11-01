@@ -22,7 +22,6 @@ import {
   SquareTerminal,
 } from 'lucide-react'
 
-import { comingSoonTab } from '@/components/page/ComingSoonTab'
 import { consoleNodeActions } from '@/features/console/actions'
 import { nodeBulkActions } from '@/features/guest-lifecycle/actions'
 import { nodeSummaryActions } from '@/features/node-summary/actions'
