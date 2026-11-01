@@ -140,7 +140,9 @@ test.describe('node network on the lab cluster', { tag: '@lab' }, () => {
     await page.getByRole('menuitem', { name: '删除' }).click()
     await page.getByRole('alertdialog').getByRole('button', { name: '删除' }).click()
     await expect(p.getByRole('button', { name: '编辑 vmbr91' })).toHaveCount(0)
-    expect((await pve.get<Iface[]>(NET)).some((i) => i.iface === 'vmbr91')).toBe(false)
+    // The confirm dialog hides the page from the a11y tree while it is busy: wait for it to close.
+    await expect(page.getByRole('alertdialog')).toBeHidden()
+    await expect.poll(async () => (await pve.get<Iface[]>(NET)).some((i) => i.iface === 'vmbr91')).toBe(false)
 
     // Edit a physical NIC, then revert everything.
     await p.getByRole('button', { name: '编辑 ens20' }).click()
