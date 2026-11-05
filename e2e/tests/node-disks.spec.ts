@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 
-import { expect, test, type PveApi } from '../fixtures'
+import { expect, mockRootPamInstance, rootPamLab, test, type PveApi, type RootPamLab } from '../fixtures'
 
 // Area node-disks: disk list, SMART, GPT / wipe, and LVM / LVM-Thin /
 // directory / ZFS storages on unused disks.
@@ -12,6 +12,9 @@ import { expect, test, type PveApi } from '../fixtures'
 // checks that both are exactly those disks and completely unused, and
 // refuses otherwise. Storages are named e2e-disks-*; beforeAll / afterAll
 // destroy leftovers with cleanup and wipe sdc / sdd so they are blank again.
+// PVE lets only root@pam itself wipe a disk (not an API token, not even
+// root@pam's, which the e2e server uses): the wipes and the wipe test go
+// through a root@pam password instance (rootPamLab).
 // Phone checks use mocks.
 
 const NODE = 'pvelab-c3'
@@ -148,17 +151,24 @@ async function destroyViaUi(page: Page, button: string, confirmText: string) {
 }
 
 test.describe('node disks (lab)', { tag: '@lab' }, () => {
+  let root: RootPamLab | undefined
+
   test.beforeAll(async ({ pve }) => {
     test.skip(!(await hasNode(pve)), `实验集群里没有 ${NODE}（需要 lab-cluster.env）`)
-    await resetDisks(pve)
+    root = await rootPamLab()
+    await resetDisks(root.pve)
   })
-  test.afterAll(async ({ pve }) => {
-    if (await hasNode(pve)) await resetDisks(pve)
+  test.afterAll(async () => {
+    try {
+      if (root) await resetDisks(root.pve)
+    } finally {
+      await root?.dispose()
+    }
   })
 
   test('disk list, SMART, initialise GPT and wipe', async ({ page, pve }) => {
     test.setTimeout(150_000)
-    await page.goto(`/node/${NODE}/disks`)
+    await page.goto(root!.instance.path(`/node/${NODE}/disks`))
     const list = panel(page).getByRole('list', { name: '磁盘' })
     await expect(list).toContainText('/dev/sda')
     await expect(panel(page).getByRole('list', { name: '/dev/sda 的分区' })).toContainText('/dev/sda3')
@@ -357,6 +367,8 @@ async function noHorizontalScroll(page: Page) {
 test.describe('node disks (phone)', { tag: '@mobile' }, () => {
   test('disk list and detail sheet with SMART attributes', async ({ page, pve }) => {
     await mockDisks(page)
+    // Wiping is root@pam only; the wipe dialog is opened and cancelled.
+    await mockRootPamInstance(page)
     await page.goto(`/node/${pve.node}/disks`)
     await expect(diskRow(page, '/dev/nvme0n1')).toContainText('寿命 97%')
     await expect(panel(page).getByRole('list', { name: '/dev/nvme0n1 的分区' })).toContainText('EFI')

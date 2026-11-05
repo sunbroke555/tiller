@@ -15,6 +15,8 @@
 // - `pve` talks to the lab through its scoped app API with a Tiller session
 //   and the server-held API Token, for setup/teardown. Writes refuse to run unless the server
 //   proxies the lab node (PVE_LAB_NODE), never production.
+// - `rootPam` opens the lab as root@pam with its password, for what PVE
+//   refuses API tokens (a node shell without `login:`, the node VNC shell).
 // - Name everything a test creates "e2e-…" so `pve.sweep()` can clean up
 //   leftovers of crashed runs.
 // - Tags (see playwright.config.ts): tests that change the lab are tagged
@@ -161,17 +163,7 @@ export class PveApi {
   ) {}
 
   static async login(user = env.user, password = env.password, baseURL = env.baseURL): Promise<PveApi> {
-    if (user === env.user && baseURL === env.baseURL) {
-      const connection = testConnection(baseURL)
-      const anon = await request.newContext({ baseURL })
-      try {
-        const res = await anon.post('/api/auth/login', { data: { username: connection.username, password: connection.password } })
-        if (!res.ok()) throw new Error(`Tiller test login failed: HTTP ${res.status()}`)
-        const { session } = await res.json()
-        const ctx = await request.newContext({ baseURL, storageState: await anon.storageState(), extraHTTPHeaders: { CSRFPreventionToken: session.csrfToken } })
-        return new PveApi(ctx, env.node, `/api/instances/${connection.instance.id}/${connection.instance.version}/api2/json`)
-      } finally { await anon.dispose() }
-    }
+    if (user === env.user && baseURL === env.baseURL) return PveApi.forInstance(testConnection(baseURL).instance, baseURL)
     // Tests that explicitly verify a PVE user's password talk directly to the
     // lab. This is separate from Tiller's administrator authentication.
     baseURL = process.env.PVE_LAB_URL ?? ''
@@ -193,6 +185,19 @@ export class PveApi {
       },
     })
     return new PveApi(ctx, env.node)
+  }
+
+  /** The lab through one of the e2e server's instances, with the test administrator's Tiller session. */
+  static async forInstance(instance: { id: string; version: string }, baseURL = env.baseURL): Promise<PveApi> {
+    const connection = testConnection(baseURL)
+    const anon = await request.newContext({ baseURL })
+    try {
+      const res = await anon.post('/api/auth/login', { data: { username: connection.username, password: connection.password } })
+      if (!res.ok()) throw new Error(`Tiller test login failed: HTTP ${res.status()}`)
+      const { session } = await res.json()
+      const ctx = await request.newContext({ baseURL, storageState: await anon.storageState(), extraHTTPHeaders: { CSRFPreventionToken: session.csrfToken } })
+      return new PveApi(ctx, env.node, `/api/instances/${instance.id}/${instance.version}/api2/json`)
+    } finally { await anon.dispose() }
   }
 
   async dispose() {
@@ -401,6 +406,76 @@ export async function mockRootPamInstance(page: Page) {
   })
 }
 
+/** A Tiller instance of the e2e server, addressed by its app routes. */
+export interface LabInstance {
+  id: string
+  version: string
+  /** App route under this instance's prefix (`/console/n/shell` → /i/<id>/<ver>/console/n/shell). */
+  path(route: string): string
+}
+
+export interface RootPamLab {
+  instance: LabInstance
+  /** The lab API as root@pam (through the instance), for setup PVE refuses tokens. */
+  pve: PveApi
+  /** Remove the instance again. */
+  dispose(): Promise<void>
+}
+
+/**
+ * Add a second instance of the lab to the e2e server that signs in as root@pam
+ * with the lab password (PVE_LAB_PASSWORD), for what PVE grants root@pam only
+ * and never to an API token, not even root@pam's: a node shell without a
+ * `login:` prompt, the node VNC / SPICE shell, wiping a disk. Tests use the
+ * `rootPam` fixture; beforeAll / afterAll call this and dispose() it. Only
+ * Tiller's instance list changes; PVE is not touched.
+ */
+export async function rootPamLab(): Promise<RootPamLab> {
+  const { instance, remove } = await addRootPasswordInstance()
+  try {
+    const pve = await PveApi.forInstance(instance)
+    return { instance, pve, dispose: async () => { await pve.dispose(); await remove() } }
+  } catch (error) {
+    await remove()
+    throw error
+  }
+}
+
+// Plain fetch, not Playwright's request API: traces must not record the password.
+async function addRootPasswordInstance(): Promise<{ instance: LabInstance; remove: () => Promise<void> }> {
+  const labURL = process.env.PVE_LAB_URL ?? ''
+  if (!labURL || new URL(labURL).hostname === '192.168.0.6') throw new Error('拒绝连接非实验机（PVE_LAB_URL）')
+  if (!process.env.PVE_LAB_PASSWORD) throw new Error('缺少密码：先 source ~/.config/pve-web/lab.env（PVE_LAB_PASSWORD）')
+  const admin = testConnection()
+  const login = await fetch(env.baseURL + '/api/auth/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: admin.username, password: admin.password }),
+  })
+  if (!login.ok) throw new Error(`Tiller test login failed: HTTP ${login.status}`)
+  const { session } = (await login.json()) as { session: { csrfToken: string } }
+  const headers = {
+    Cookie: login.headers.getSetCookie().map((c) => c.split(';')[0]).join('; '),
+    CSRFPreventionToken: session.csrfToken,
+    'Content-Type': 'application/json',
+  }
+  const created = await fetch(env.baseURL + '/api2/tiller/instances', {
+    method: 'POST', headers,
+    body: JSON.stringify({
+      name: 'E2E Lab root@pam', url: labURL, fingerprint: process.env.PVE_LAB_FINGERPRINT,
+      authMode: 'password', username: 'root', realm: 'pam', password: process.env.PVE_LAB_PASSWORD,
+    }),
+  })
+  if (created.status !== 201) throw new Error(`添加 root@pam 密码实例失败：HTTP ${created.status} ${((await created.json()) as { message?: string }).message ?? ''}`)
+  const { id, version } = (await created.json()) as { id: string; version: string }
+  const base = `/i/${id}/${version}`
+  return {
+    instance: { id, version, path: (route) => base + (isRootRoute(route) ? route.slice(1) : route) },
+    remove: async () => {
+      const res = await fetch(`${env.baseURL}/api2/tiller/instances/${id}`, { method: 'DELETE', headers })
+      if (!res.ok && res.status !== 404) throw new Error(`删除 root@pam 密码实例失败：HTTP ${res.status}`)
+    },
+  }
+}
+
 /**
  * Open the command palette (desktop: Ctrl+K, phone: the search button) and
  * return its input. The shell, and with it the shortcut, mounts only after the
@@ -453,6 +528,12 @@ interface TestFixtures {
   mobile: boolean
   /** Phone project: fails the test when the page sent a write to the lab. */
   readOnlyGuard: void
+  /**
+   * The lab as a second instance signing in as root@pam with its password
+   * (the e2e server's own instance uses an API token). Added for this test
+   * only and removed afterwards; open its routes with `rootPam.path(…)`.
+   */
+  rootPam: LabInstance
 }
 
 interface WorkerFixtures {
@@ -501,6 +582,15 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 
   mobile: async ({}, use, testInfo) => use(testInfo.project.name === 'mobile'),
+
+  rootPam: async ({}, use) => {
+    const lab = await rootPamLab()
+    try {
+      await use(lab.instance)
+    } finally {
+      await lab.dispose()
+    }
+  },
 
   readOnlyGuard: [
     async ({ page, mobile }, use) => {

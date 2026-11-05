@@ -9,6 +9,11 @@ import type { Page } from '@playwright/test'
 // are named e2e-console-*; they are destroyed after the run (desktop, @lab).
 // The phone checks (key bar, pinch zoom, /shell) use the node shell and the
 // running sample VM 101 without sending it any keys.
+//
+// The e2e server reaches PVE with a root@pam API token. PVE gives a token
+// (even root@pam's) a `login:` prompt in the node shell and refuses its node
+// VNC shell, so the tests that need a root shell or the node VNC shell open
+// the lab through `rootPam`, a root@pam password instance.
 
 const VMID_RANGE = [3200, 3299] as const
 
@@ -75,8 +80,8 @@ test.describe.serial('console', { tag: '@lab' }, () => {
     for (const id of [vm, ct]) if (id) await pve.destroyGuest(id)
   })
 
-  test('node shell runs commands through termproxy', async ({ page, pve }) => {
-    await page.goto(`/console/${pve.node}/shell`)
+  test('node shell runs commands through termproxy', async ({ page, pve, rootPam }) => {
+    await page.goto(rootPam.path(`/console/${pve.node}/shell`))
     await expect(page.getByRole('heading', { level: 1, name: pve.node })).toBeVisible()
     await expectConnected(page)
     await runInTerminal(page, 'echo tiller-$((6*7))', 'tiller-42')
@@ -95,7 +100,7 @@ test.describe.serial('console', { tag: '@lab' }, () => {
     await expect(page.getByTestId('xterm-console').locator('.xterm-rows')).toContainText('pasted-2')
 
     await page.getByRole('link', { name: '返回' }).click()
-    await expect(page).toHaveURL(new RegExp(`/node/${pve.node}$`))
+    await expect(page).toHaveURL(new RegExp(`${rootPam.path(`/node/${pve.node}`)}$`))
   })
 
   test('VM opens in noVNC and takes Ctrl+Alt+Del', async ({ page, pve }) => {
@@ -200,18 +205,48 @@ test.describe('datacenter default console', { tag: '@desktop' }, () => {
     })
   }
 
-  test('html5 opens the node shell tab in noVNC', async ({ page, pve }) => {
+  test('html5 opens the node shell tab in noVNC', async ({ page, pve, rootPam }) => {
     await mockConsoleOption(page, 'html5')
-    await page.goto(`/node/${pve.node}/shell`)
+    await page.goto(rootPam.path(`/node/${pve.node}/shell`))
     const panel = page.getByRole('tabpanel', { name: 'Shell' })
     await expect(panel.getByRole('radiogroup', { name: '控制台类型' }).getByRole('radio', { name: 'VNC' })).toHaveAttribute('aria-checked', 'true')
     await expect(panel.getByTestId('vnc-console').locator('canvas')).toBeVisible({ timeout: 30_000 })
     await expectConnected(page)
+    // root@pam with its password: a direct root shell, nothing to explain.
+    await expect(panel.getByRole('note', { name: 'Shell 提示' })).toHaveCount(0)
   })
 
-  test('vv (SPICE) offers the .vv download once and keeps the web shell', async ({ page, pve }) => {
+  test('html5 under an API token keeps the node shell in the terminal', async ({ page, pve }) => {
+    // PVE refuses the node VNC and SPICE shells for tokens ("… does not look
+    // like a valid user name"): only the terminal, with a note why and about login:.
+    await mockConsoleOption(page, 'html5')
+    await page.goto(`/node/${pve.node}/shell`)
+    const panel = page.getByRole('tabpanel', { name: 'Shell' })
+    const note = panel.getByRole('note', { name: 'Shell 提示' })
+    await expect(note).toContainText('PVE 的节点 VNC 和 SPICE Shell 不接受 API Token，已改用终端')
+    await expect(note).toContainText('login:')
+    await expect(note).toContainText('root@pam 密码')
+    await expect(panel.getByRole('radiogroup', { name: '控制台类型' })).toHaveCount(0)
+    await expect(panel.getByTestId('vnc-console')).toHaveCount(0)
+    await expectConnected(page)
+    await expect(panel.getByTestId('xterm-console').locator('.xterm-rows')).toContainText('login:', { timeout: 20_000 })
+    await panel.getByRole('button', { name: '控制台菜单' }).click()
+    await expect(page.getByRole('menuitem', { name: '重新连接' })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: /SPICE/ })).toHaveCount(0)
+  })
+
+  test('vv under an API token keeps the node shell in the terminal', async ({ page, pve }) => {
     await mockConsoleOption(page, 'vv')
     await page.goto(`/console/${pve.node}/shell`)
+    await expect(page.getByRole('note', { name: 'Shell 提示' })).toContainText('不接受 API Token，已改用终端')
+    await expectConnected(page)
+    await expect(page.getByTestId('xterm-console')).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'SPICE 远程查看' })).toHaveCount(0)
+  })
+
+  test('vv (SPICE) offers the .vv download once and keeps the web shell', async ({ page, pve, rootPam }) => {
+    await mockConsoleOption(page, 'vv')
+    await page.goto(rootPam.path(`/console/${pve.node}/shell`))
     const dialog = page.getByRole('dialog', { name: 'SPICE 远程查看' })
     await expect(dialog).toBeVisible({ timeout: 20_000 })
     await dialog.getByRole('button', { name: '取消' }).click()
@@ -223,8 +258,8 @@ test.describe('datacenter default console', { tag: '@desktop' }, () => {
 })
 
 test.describe('console on phones', { tag: '@mobile' }, () => {
-  test('node shell key bar: Ctrl+C and sticky Ctrl', async ({ page, pve }) => {
-    await page.goto(`/console/${pve.node}/shell`)
+  test('node shell key bar: Ctrl+C and sticky Ctrl', async ({ page, pve, rootPam }) => {
+    await page.goto(rootPam.path(`/console/${pve.node}/shell`))
     await expectConnected(page)
     await runInTerminal(page, 'echo tiller-$((6*7))', 'tiller-42')
     const keys = page.getByRole('toolbar', { name: '辅助按键' })

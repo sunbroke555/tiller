@@ -21,6 +21,8 @@
 | `root@pam` | 全部 | 常规功能和写操作测试 |
 | `tester@pve` | `/` 上 `PVEAuditor`，`/vms/100` 上 `PVEVMUser` | 受限用户测试：能看到全部资源，但只能操作 VM 100（启停、控制台、快照等）；对其他资源的写操作应返回 403，界面应隐藏或禁用对应按钮 |
 
+e2e 服务器用 `root@pam` 的 API Token 连接实验集群。PVE 只对 `root@pam` 本人开放的功能（节点 Shell 直接进入 root、节点 VNC / SPICE Shell、擦除磁盘）不接受 Token：测试用 `e2e/fixtures.ts` 的 `rootPam` 夹具（或 `rootPamLab()`）临时加一个 `root@pam` 密码实例（`PVE_LAB_PASSWORD`），用完删除。
+
 资源池：`lab-pool`，成员 VM 101。
 
 ## 固定样例客户机
