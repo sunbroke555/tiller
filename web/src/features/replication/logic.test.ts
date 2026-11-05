@@ -164,6 +164,20 @@ describe('form → params', () => {
     expect(updateJobParams(job({ disable: 1 }), { ...jobToForm(job({ disable: 1 })), enabled: true })).toEqual({ delete: 'disable' })
   })
 
+  it('sends skip-freeze-fs only when checked, deleting it when cleared', () => {
+    const form = { ...emptyJobForm(100), target: 'b' }
+    expect(createJobParams(form, [])).not.toHaveProperty('skip-freeze-fs', 1)
+    expect(createJobParams({ ...form, skipFreezeFs: true }, [])).toMatchObject({ 'skip-freeze-fs': 1 })
+    expect(jobToForm(job()).skipFreezeFs).toBe(false)
+    const skipping = job({ 'skip-freeze-fs': 1, digest: 'abc' })
+    expect(jobToForm(skipping).skipFreezeFs).toBe(true)
+    expect(updateJobParams(skipping, jobToForm(skipping))).toBeNull()
+    expect(updateJobParams(skipping, { ...jobToForm(skipping), skipFreezeFs: false })).toEqual({ delete: 'skip-freeze-fs', digest: 'abc' })
+    expect(updateJobParams(job(), { ...jobToForm(job()), skipFreezeFs: true })).toEqual({ 'skip-freeze-fs': 1 })
+    // An explicit 0 is the default: unchanged, nothing sent.
+    expect(updateJobParams(job({ 'skip-freeze-fs': 0 }), jobToForm(job({ 'skip-freeze-fs': 0 })))).toBeNull()
+  })
+
   it('maps delete modes', () => {
     expect(deleteOptions('full')).toEqual({})
     expect(deleteOptions('keep')).toEqual({ keep: true })

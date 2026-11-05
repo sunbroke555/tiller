@@ -8,7 +8,13 @@ import type { StorageDef, StorageType } from '@/api/storage-config'
 import type { Params } from '@/api/client'
 import type { StorageContent } from '@/api/types'
 import { parsePruneBackups, pruneBackupsString, type PruneKeep } from '@/features/storage-browser/volumes'
-import { configChanges, tryParsePropertyString, type ConfigValues } from '@/lib/propstring'
+import {
+  configChanges,
+  propBool,
+  stringifyPropertyString,
+  tryParsePropertyString,
+  type ConfigValues,
+} from '@/lib/propstring'
 
 // ------------------------------------------------------------- type info
 
@@ -227,6 +233,8 @@ export interface StorageForm {
   blocksize: string
   sparse: boolean
   saferemove: boolean
+  /** LVM on-volume-remove discard=1 (newer PVE only; hidden otherwise, so it stays false). */
+  discardOnRemove: boolean
   portal: string
   target: string
   /** iSCSI: use LUNs directly (content images vs none). */
@@ -325,6 +333,7 @@ export function initialForm(type: StorageType, def?: StorageDef): StorageForm {
     blocksize: def?.blocksize ?? (type === 'zfs' && !def ? '4k' : ''),
     sparse: flag(def?.sparse),
     saferemove: flag(def?.saferemove),
+    discardOnRemove: volumeRemoveDiscard(def?.['on-volume-remove']),
     portal: def?.portal ?? '',
     target: def?.target ?? '',
     luns: def ? list(def.content).includes('images') : true,
@@ -368,6 +377,24 @@ export const preallocationActive = (f: StorageForm) =>
  * other types must not change it once volumes exist).
  */
 export const snapshotChainEditable = (type: StorageType, create: boolean) => create || type === 'lvm'
+
+/** LVM on-volume-remove ("[discard=<1|0>]"): whether removed volumes are discarded. */
+export function volumeRemoveDiscard(value: string | undefined): boolean {
+  return propBool(tryParsePropertyString(value).discard)
+}
+
+/**
+ * New on-volume-remove value for the discard switch. Other options are kept,
+ * an equal value keeps its spelling; null = unset (PVE wants at least one
+ * option when the property is present, so an empty string becomes a delete).
+ */
+export function onVolumeRemoveValue(discard: boolean, before: string | undefined): string | null {
+  if (discard && before && volumeRemoveDiscard(before)) return before
+  const props = { ...tryParsePropertyString(before) }
+  if (discard) props.discard = '1'
+  else delete props.discard
+  return stringifyPropertyString(props) || null
+}
 
 /** Storages whose node restriction cannot change (official: `local`). */
 export const nodesLocked = (storage: string) => storage === 'local'
@@ -704,6 +731,8 @@ export function formValues(f: StorageForm, create: boolean, before?: StorageDef)
         if (f.baseStorage) v.base = text(f.base)
       }
       v.saferemove = on(f.saferemove)
+      // Only ever non-null when switched on or already configured: older PVE rejects the key.
+      v['on-volume-remove'] = onVolumeRemoveValue(f.discardOnRemove, before?.['on-volume-remove'])
       break
     case 'lvmthin':
       if (create) {

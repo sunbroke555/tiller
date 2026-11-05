@@ -61,6 +61,8 @@ export interface StorageDef {
   thinpool?: string
   base?: string
   saferemove?: PveBool
+  /** LVM: "[discard=<1|0>]" (libpve-storage-perl ≥ 9.1.12). */
+  'on-volume-remove'?: string
   pool?: string
   blocksize?: string
   sparse?: PveBool

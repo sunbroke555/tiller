@@ -6,23 +6,30 @@
 // - range: load everything between two days, no polling.
 //
 // Filters (priority / identifier / unit / kernel) are server side and need the
-// structured journal API (PVE 9.2.x+). On older PVE the plain format is used;
-// a per-service log then falls back to GET /syslog?service=.
+// structured journal API (pve-manager ≥ 9.2.4, see PVE_FEATURES.journalFilters).
+// The node's version decides the format before the first request; when it
+// cannot be read in time the structured format is tried and a 400 falls back.
+// On older PVE the plain format is used; a per-service log then falls back to
+// GET /syslog?service=.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import {
   fetchJournal,
   fetchServiceSyslog,
+  journalStructuredHint,
   type JournalChunk,
   type JournalFilters,
   type JournalLine,
 } from '@/api/node-summary'
+import type { FeatureSupport } from '@/api/pve-features'
 
 export const JOURNAL_PAGE = 500
 /** Keep at most this many lines in memory / the DOM. */
 export const JOURNAL_MAX_LINES = 5000
 export const JOURNAL_POLL_MS = 2_000
+/** How long the first request waits for the version check before probing. */
+export const JOURNAL_SUPPORT_WAIT_MS = 2_500
 
 export type JournalMode = 'live' | 'range'
 
@@ -103,18 +110,46 @@ export interface UseJournalOptions {
   follow: boolean
   /** Bump to reload from scratch (retry button). */
   reloadKey?: number
+  /** usePveFeature('journalFilters', node). */
+  support?: FeatureSupport
 }
 
-export function useJournal({ node, mode, range, filters, follow, reloadKey = 0 }: UseJournalOptions) {
+/**
+ * The request format, fixed once per node: the version check's answer, or
+ * "probe" (undefined) when it is still unknown after JOURNAL_SUPPORT_WAIT_MS.
+ * null while waiting. Later version answers don't reload what already shows.
+ */
+function useStructuredHint(node: string, support: FeatureSupport): { value: boolean | undefined } | null {
+  const [decided, setDecided] = useState<{ node: string; value: boolean | undefined } | null>(null)
+  const current = decided?.node === node ? decided : null
+  useEffect(() => {
+    if (current) return
+    if (support !== 'unknown') {
+      setDecided({ node, value: journalStructuredHint(support) })
+      return
+    }
+    const t = setTimeout(() => setDecided({ node, value: undefined }), JOURNAL_SUPPORT_WAIT_MS)
+    return () => clearTimeout(t)
+  }, [node, support, current])
+  if (current) return current
+  // Known on the first render: no need to wait for the effect.
+  return support === 'unknown' ? null : { value: journalStructuredHint(support) }
+}
+
+export function useJournal({ node, mode, range, filters, follow, reloadKey = 0, support = 'unknown' }: UseJournalOptions) {
   const [state, setState] = useState<JournalState>(INITIAL)
   const cursors = useRef<{ first?: string; last?: string }>({})
   const listsLoaded = useRef(false)
   const generation = useRef(0)
+  const hint = useStructuredHint(node, support)
+  const ready = hint !== null
+  const structured = hint?.value
 
   const filterKey = JSON.stringify(filters)
 
   // Initial load (and on mode / range / filter change).
   useEffect(() => {
+    if (!ready) return
     const gen = ++generation.current
     const ctrl = new AbortController()
     cursors.current = {}
@@ -147,11 +182,18 @@ export function useJournal({ node, mode, range, filters, follow, reloadKey = 0 }
             setState((s) => ({ ...s, loading: false, lines: [], error: new Error('时间范围无效') }))
             return
           }
-          apply(await fetchJournal(node, { mode: 'range', ...epoch }, filters, { withLists: !listsLoaded.current, signal: ctrl.signal }))
+          apply(
+            await fetchJournal(node, { mode: 'range', ...epoch }, filters, {
+              withLists: !listsLoaded.current,
+              signal: ctrl.signal,
+              structured,
+            }),
+          )
         } else {
           const chunk = await fetchJournal(node, { mode: 'tail', lastentries: JOURNAL_PAGE }, filters, {
             withLists: !listsLoaded.current,
             signal: ctrl.signal,
+            structured,
           })
           if (!chunk.structured && filters.unit) {
             // Old PVE: the journal cannot filter by unit; read the service's syslog instead.
@@ -170,7 +212,7 @@ export function useJournal({ node, mode, range, filters, follow, reloadKey = 0 }
     void load()
     return () => ctrl.abort()
     // filters are compared through filterKey
-  }, [node, mode, range.since, range.until, filterKey, reloadKey])
+  }, [node, mode, range.since, range.until, filterKey, reloadKey, ready, structured])
 
   // Live polling for new entries.
   useEffect(() => {
@@ -191,7 +233,10 @@ export function useJournal({ node, mode, range, filters, follow, reloadKey = 0 }
           const lines = await fetchServiceSyslog(node, filters.unit, JOURNAL_PAGE, ctrl.signal)
           if (gen === generation.current && !stopped) setState((s) => ({ ...s, lines }))
         } else if (cursors.current.last) {
-          const chunk = await fetchJournal(node, { mode: 'follow', startcursor: cursors.current.last }, filters, { signal: ctrl.signal })
+          const chunk = await fetchJournal(node, { mode: 'follow', startcursor: cursors.current.last }, filters, {
+            signal: ctrl.signal,
+            structured,
+          })
           if (gen !== generation.current || stopped) return
           // Only move the cursor when the answer carried one (an empty poll must not lose our place).
           if (chunk.lastCursor) cursors.current.last = chunk.lastCursor
@@ -214,7 +259,7 @@ export function useJournal({ node, mode, range, filters, follow, reloadKey = 0 }
       ctrl.abort()
       if (timer) clearTimeout(timer)
     }
-  }, [node, mode, follow, state.loading, state.error, state.syslogFallback, filterKey])
+  }, [node, mode, follow, state.loading, state.error, state.syslogFallback, filterKey, structured])
 
   const loadOlder = useCallback(async () => {
     const first = cursors.current.first
@@ -222,7 +267,7 @@ export function useJournal({ node, mode, range, filters, follow, reloadKey = 0 }
     const gen = generation.current
     setState((s) => ({ ...s, loadingOlder: true }))
     try {
-      const chunk = await fetchJournal(node, { mode: 'older', endcursor: first, lastentries: JOURNAL_PAGE }, filters)
+      const chunk = await fetchJournal(node, { mode: 'older', endcursor: first, lastentries: JOURNAL_PAGE }, filters, { structured })
       if (gen !== generation.current) return
       if (chunk.firstCursor) cursors.current.first = chunk.firstCursor
       setState((s) => {
@@ -234,7 +279,7 @@ export function useJournal({ node, mode, range, filters, follow, reloadKey = 0 }
       setState((s) => ({ ...s, loadingOlder: false, error: s.lines.length ? s.error : e }))
       throw e
     }
-  }, [node, mode, filterKey])
+  }, [node, mode, filterKey, structured])
 
   return { ...state, loadOlder }
 }

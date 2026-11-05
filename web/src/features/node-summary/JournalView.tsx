@@ -6,9 +6,12 @@ import {
   PRIORITY_LABEL,
   formatJournalTime,
   journalLineText,
+  journalPriorityTone,
   type JournalFilters,
   type JournalLine,
+  type JournalPriorityTone,
 } from '@/api/node-summary'
+import { PVE_FEATURES, usePveFeature } from '@/api/pve-features'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,14 +27,18 @@ import { JOURNAL_MAX_LINES, JOURNAL_PAGE, dayString, useJournal, type JournalMod
 
 const ALL = '__all__'
 
+const TONE_ROW: Record<JournalPriorityTone, string> = {
+  // Errors and warnings also get a faint band so they stand out while scrolling.
+  critical: 'text-destructive font-medium bg-destructive/10 -mx-1.5 px-1.5 rounded-sm',
+  error: 'text-destructive bg-destructive/[0.06] -mx-1.5 px-1.5 rounded-sm',
+  warning: 'text-warning-strong bg-warning/[0.08] -mx-1.5 px-1.5 rounded-sm',
+  notice: 'text-info',
+  debug: 'text-muted-foreground',
+}
+
 export function priorityClass(p: number | undefined): string | undefined {
-  if (p === undefined) return undefined
-  if (p <= 2) return 'text-destructive font-medium'
-  if (p === 3) return 'text-destructive'
-  if (p === 4) return 'text-warning-strong'
-  if (p === 5) return 'text-info'
-  if (p === 7) return 'text-muted-foreground'
-  return undefined
+  const tone = journalPriorityTone(p)
+  return tone ? TONE_ROW[tone] : undefined
 }
 
 function LineView({ line, host }: { line: JournalLine; host?: string }) {
@@ -85,7 +92,8 @@ export function JournalView({ node, unit, className, logClassName }: JournalView
   const [reloadKey, setReloadKey] = useState(0)
   const ids = useId()
 
-  const journal = useJournal({ node, mode, range, filters, follow: !paused, reloadKey })
+  const support = usePveFeature('journalFilters', node)
+  const journal = useJournal({ node, mode, range, filters, follow: !paused, reloadKey, support })
 
   // --------------------------------------------------------------- scrolling
   const scroller = useRef<HTMLDivElement>(null)
@@ -141,7 +149,9 @@ export function JournalView({ node, unit, className, logClassName }: JournalView
     setUnitDraft('')
     setFilters(unit ? { unit } : {})
   }
-  const canFilter = journal.structured !== false
+  // Filters need the structured journal: shown once an answer proves it, or
+  // before the first answer when the node's version supports it.
+  const canFilter = journal.structured ?? support === 'supported'
 
   const download = () => {
     const text = journal.lines.map((l) => journalLineText(l, journal.host)).join('\n')
@@ -418,7 +428,11 @@ export function JournalView({ node, unit, className, logClassName }: JournalView
           {mode === 'live' && !journal.syslogFallback && (paused ? ' · 已暂停' : ' · 实时更新')}
         </span>
         {journal.structured === false && (
-          <span>{journal.syslogFallback ? '此 PVE 版本不支持按单元读取 journal，显示的是 syslog。' : '此 PVE 版本的日志接口不支持筛选。'}</span>
+          <span>
+            {journal.syslogFallback
+              ? `此 PVE 版本不能按单元读取 journal，显示的是 syslog（需要 pve-manager ${PVE_FEATURES.journalFilters.min} 或更新）。`
+              : `日志筛选和按级别着色需要 pve-manager ${PVE_FEATURES.journalFilters.min} 或更新。`}
+          </span>
         )}
       </div>
     </div>

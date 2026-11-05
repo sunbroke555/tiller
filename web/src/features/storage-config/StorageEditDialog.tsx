@@ -27,6 +27,7 @@ import {
   type StorageType,
   type StorageWriteResult,
 } from '@/api/storage-config'
+import { usePveFeature } from '@/api/pve-features'
 import { useClusterResources } from '@/api/queries'
 import { isNode } from '@/api/types'
 import {
@@ -470,7 +471,10 @@ function scanPlaceholder(q: { isPending: boolean; isError: boolean; fetchStatus:
   return count === 0 && !q.isPending ? none : idle
 }
 
-function LvmFields({ form, set, create, err, scanNode }: TypeFieldsProps) {
+function LvmFields({ form, set, create, def, err, scanNode }: TypeFieldsProps) {
+  const discardSupport = usePveFeature('storageOnVolumeRemove')
+  // Older PVE rejects the key; a storage that already has it proves support.
+  const showDiscard = discardSupport === 'supported' || (!create && def?.['on-volume-remove'] !== undefined)
   const vgs = useLocalScan('lvm', scanNode, scanLvm, create && !form.baseStorage)
   const defs = useStorageDefs({ enabled: create })
   const iscsi = (defs.data ?? []).filter((d) => d.type === 'iscsi')
@@ -514,6 +518,14 @@ function LvmFields({ form, set, create, err, scanNode }: TypeFieldsProps) {
         </>
       )}
       <SwitchField label="删除时擦除卷" description="删除逻辑卷前先写零（saferemove），较慢" checked={form.saferemove} onCheckedChange={(saferemove) => set({ saferemove })} />
+      {showDiscard && (
+        <SwitchField
+          label="删除卷时执行 discard（TRIM）"
+          description="删除的逻辑卷会在后台 discard，把空间还给精简置备的 LUN 或 SSD。"
+          checked={form.discardOnRemove}
+          onCheckedChange={(discardOnRemove) => set({ discardOnRemove })}
+        />
+      )}
     </>
   )
 }
