@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test'
 
-import { expect, test, type PveApi } from '../fixtures'
+import { appUrl, expect, openPalette, test, type PveApi } from '../fixtures'
 
 // Guest summary, power and lifecycle (areas guest-summary-power and
 // guest-lifecycle). Writes (@lab, desktop) only to guests this spec creates,
@@ -135,8 +135,7 @@ test.describe('power', { tag: '@lab' }, () => {
     const id = BASE + 2
     await vm(pve, cleanup, id, 'e2e-gc-palette')
     await page.goto('/')
-    await page.keyboard.press('Control+K')
-    await page.getByPlaceholder('搜索资源、页面或操作…').fill('启动 e2e-gc-palette')
+    await (await openPalette(page)).fill('启动 e2e-gc-palette')
     await page.getByRole('option', { name: /启动 e2e-gc-palette/ }).click()
     await running(pve, id)
   })
@@ -184,7 +183,7 @@ test.describe('lifecycle', () => {
     await dialog.getByRole('button', { name: '取消保护' }).click()
     await expect(dialog).not.toContainText('已启用删除保护', { timeout: 15_000 })
     await dialog.getByRole('button', { name: '删除', exact: true }).click()
-    await expect(page).toHaveURL(/\/$/, { timeout: 60_000 })
+    await expect(page).toHaveURL(appUrl('/'), { timeout: 60_000 })
     await expect.poll(async () => (await pve.guests()).some((g) => g.vmid === copy), { timeout: 30_000 }).toBe(false)
   })
 

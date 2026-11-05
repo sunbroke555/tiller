@@ -217,7 +217,9 @@ export class PveApi {
     const text = await res.text()
     const json = text ? (JSON.parse(text) as { data?: T; message?: string; errors?: Record<string, string> }) : {}
     if (!res.ok()) {
-      throw new PveApiError(res.status(), `${method} ${apiPath}: ${json.message ?? res.statusText()}`, json.errors)
+      // PVE names the offending parameters in `errors` ("Parameter verification failed.").
+      const detail = json.errors ? ` ${JSON.stringify(json.errors)}` : ''
+      throw new PveApiError(res.status(), `${method} ${apiPath}: ${json.message ?? res.statusText()}${detail}`, json.errors)
     }
     return json.data as T
   }
@@ -324,9 +326,9 @@ export class PveApi {
     const base = `/nodes/${guest.node}/${guest.type}/${vmid}`
     // /cluster/resources lags behind; ask the node for the live state.
     const { status } = await this.get<{ status: string }>(`${base}/status/current`)
-    if (status !== 'stopped') {
-      await this.run('POST', `${base}/status/stop`, guest.type === 'qemu' ? { skiplock: 1 } : undefined)
-    }
+    // No skiplock: the e2e server talks to PVE with a root@pam API token, and
+    // PVE allows skiplock only for root@pam itself ("Only root may use this option.").
+    if (status !== 'stopped') await this.run('POST', `${base}/status/stop`)
     await this.run('DELETE', base, { purge: 1, 'destroy-unreferenced-disks': 1 })
   }
 
@@ -344,6 +346,77 @@ const AUTH_DIR = path.join(import.meta.dirname, '.auth')
 export function testConnection(baseURL = env.baseURL): { username: string; password: string; instance: { id: string; version: string } } {
   const file = process.env.TILLER_E2E_CONNECTION_FILE ?? path.join(import.meta.dirname, '.run', `server-${new URL(baseURL).port}.connection.json`)
   return JSON.parse(fs.readFileSync(file, 'utf8'))
+}
+
+/** Path prefix of the lab instance's app routes: /i/<instance id>/<version>. */
+export function instanceBase(): string {
+  const { instance } = testConnection()
+  return `/i/${instance.id}/${instance.version}`
+}
+
+const isRootRoute = (route: string) => route === '/' || /^\/[?#]/.test(route)
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * An app route as links show it (`href`): under the lab instance's prefix,
+ * the root route being the bare prefix, like React Router's basename
+ * (`/` → /i/<id>/<ver>, `/?node=c1` → /i/<id>/<ver>?node=c1).
+ *
+ *   await expect(link).toHaveAttribute('href', appPath('/datacenter/ceph'))
+ */
+export function appPath(route: string): string {
+  return instanceBase() + (isRootRoute(route) ? route.slice(1) : route)
+}
+
+/**
+ * toHaveURL() pattern for exactly this app route (path and query). The root
+ * route matches with or without a trailing slash: in-app navigation drops it,
+ * page.goto('/') keeps it.
+ *
+ *   await expect(page).toHaveURL(appUrl(`/?node=${pve.node}`))
+ */
+export function appUrl(route: string): RegExp {
+  const body = isRootRoute(route) ? `${escapeRe(instanceBase())}/?${escapeRe(route.slice(1))}` : escapeRe(appPath(route))
+  return new RegExp(`^[a-z]+://[^/]+${body}$`)
+}
+
+/**
+ * Let the page believe the lab instance signs in as root@pam with a password.
+ * The e2e server connects with a root@pam API token, which PVE (and so the
+ * app) does not treat as root@pam: root-only UI such as the Ceph install shell
+ * stays hidden. Only for mocked tests whose root-only requests are intercepted.
+ */
+export async function mockRootPamInstance(page: Page) {
+  const { instance } = testConnection()
+  await page.route('**/api2/tiller/instances', async (route) => {
+    if (route.request().method() !== 'GET') return route.fallback()
+    const response = await route.fetch()
+    const catalog = (await response.json()) as { instances: { id: string; version: string }[] }
+    catalog.instances = catalog.instances.map((i) =>
+      i.id === instance.id && i.version === instance.version
+        ? { ...i, authMode: 'password', username: 'root', realm: 'pam', tokenId: undefined }
+        : i,
+    )
+    return route.fulfill({ response, json: catalog })
+  })
+}
+
+/**
+ * Open the command palette (desktop: Ctrl+K, phone: the search button) and
+ * return its input. The shell, and with it the shortcut, mounts only after the
+ * session and the instance list have loaded, so a key press right after
+ * page.goto() can go nowhere: retry until the palette is open.
+ */
+export async function openPalette(page: Page, mobile = false): Promise<Locator> {
+  const input = page.getByRole('dialog').getByPlaceholder('搜索资源、页面或操作…')
+  await expect(async () => {
+    if (!(await input.isVisible())) {
+      if (mobile) await page.getByRole('button', { name: '搜索', exact: true }).first().click({ timeout: 2_000 })
+      else await page.keyboard.press('Control+K')
+    }
+    await expect(input).toBeVisible({ timeout: 2_000 })
+  }).toPass({ timeout: 20_000 })
+  return input
 }
 
 /** Log in through Tiller's UI; each worker gets an independent session. */

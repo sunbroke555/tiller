@@ -1,6 +1,6 @@
 import type { Page, Route } from '@playwright/test'
 
-import { expect, labNodes, labSsh, test, type PveApi } from '../fixtures'
+import { appPath, expect, labNodes, labSsh, test, type PveApi } from '../fixtures'
 
 // Storage configuration (area storage-config, /datacenter/storage).
 //
@@ -98,7 +98,7 @@ test.describe('存储配置', () => {
     // Browse link to the per-node storage page.
     await expect(row.getByRole('link', { name: `浏览 ${DIR_ID} 的内容` })).toHaveAttribute(
       'href',
-      `/storage/${pve.node}/${DIR_ID}`,
+      appPath(`/storage/${pve.node}/${DIR_ID}`),
       { timeout: 30_000 },
     )
 
@@ -227,7 +227,7 @@ test.describe('存储配置', () => {
       await row.getByRole('button', { name: 'local 的操作' }).click()
       const menu = page.getByRole('menu')
       await expect(menu.getByRole('menuitem')).toHaveText(nodes)
-      await expect(menu.getByRole('menuitem', { name: pve.node })).toHaveAttribute('href', `/storage/${pve.node}/local`)
+      await expect(menu.getByRole('menuitem', { name: pve.node })).toHaveAttribute('href', appPath(`/storage/${pve.node}/local`))
       await page.keyboard.press('Escape')
     }
   })

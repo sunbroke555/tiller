@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 
-import { expect, test, type PveApi } from '../fixtures'
+import { appUrl, expect, openPalette, test, type PveApi } from '../fixtures'
 
 // Area node-summary: node summary (status, charts, package versions, system
 // report, repository status), notes, services, system log and node power.
@@ -313,16 +313,13 @@ test.describe('node summary', () => {
     await expect(row('tiny-vm')).toHaveCount(0)
 
     await panel.getByRole('link', { name: '在概览中查看' }).click()
-    await expect(page).toHaveURL(new RegExp(`/\\?node=${pve.node}$`))
+    await expect(page).toHaveURL(appUrl(`/?node=${pve.node}`))
   })
 
   test('palette offers node commands', async ({ page, pve, mobile }) => {
     await page.goto(`/node/${pve.node}`)
-    if (mobile) await page.getByRole('button', { name: /搜索/ }).first().click()
-    else await page.keyboard.press('Control+k')
-    const palette = page.getByRole('dialog')
-    await palette.getByRole('combobox').fill('系统日志')
-    await palette.getByRole('option', { name: new RegExp(`系统日志.*${pve.node}`) }).first().click()
+    await (await openPalette(page, mobile)).fill('系统日志')
+    await page.getByRole('dialog').getByRole('option', { name: new RegExp(`系统日志.*${pve.node}`) }).first().click()
     await expect(page).toHaveURL(new RegExp(`/node/${pve.node}/syslog$`))
   })
 })

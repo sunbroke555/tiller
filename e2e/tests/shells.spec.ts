@@ -1,4 +1,4 @@
-import { expect, test } from '../fixtures'
+import { expect, openPalette, test } from '../fixtures'
 
 // Page shells and registries (guest / node / storage pages, area routes,
 // command palette). Read-only against the lab, on the sample guests (VM 100,
@@ -91,10 +91,7 @@ test.describe('page shells', () => {
 
   test('command palette runs registered commands', async ({ page, mobile }) => {
     await page.goto('/')
-    if (mobile) await page.getByRole('button', { name: '搜索' }).click()
-    else await page.keyboard.press('Control+K')
-    const input = page.getByPlaceholder('搜索资源、页面或操作…')
-    await expect(input).toBeVisible()
+    const input = await openPalette(page, mobile)
     await input.fill('创建虚拟机')
     await page.getByRole('option', { name: '创建虚拟机' }).click()
     await expect(page).toHaveURL(/\/create\/qemu$/)

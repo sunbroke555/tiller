@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 
 import type { Browser, Page } from '@playwright/test'
 
-import { env, expect, splitUser, test, type PveApi } from '../fixtures'
+import { appUrl, env, expect, openPalette, splitUser, test, type PveApi } from '../fixtures'
 
 // Area shell-polish: datacenter summary, pools, tags, resource tree,
 // permission-aware actions, account (password + TOTP), consent banner,
@@ -86,7 +86,7 @@ test.describe('datacenter, pools and tags', { tag: '@lab' }, () => {
       (g) => g.type === 'qemu' && g.status === 'running' && g.template !== 1 && !g.name?.startsWith('e2e-'),
     )
     await page.locator('[aria-labelledby="dc-guests"]').getByRole('link', { name: /^运行中/ }).first().click()
-    await expect(page).toHaveURL(/\/\?type=qemu&filter=running$/)
+    await expect(page).toHaveURL(appUrl('/?type=qemu&filter=running'))
     const list = page.locator('section[aria-labelledby="guests-heading"]')
     for (const g of running) await expect(list.getByText(g.name ?? `VM ${g.vmid}`, { exact: true })).toBeVisible()
     await expect(list.getByText('e2e-shell-polish')).toHaveCount(0)
@@ -188,7 +188,7 @@ test('datacenter: per-type template links and the storages counted in the total'
 
   // VM column → only VM templates, with the 模板 status chip selected.
   await card.getByRole('link', { name: /^模板/ }).first().click()
-  await expect(page).toHaveURL(/\/\?type=qemu&filter=template$/)
+  await expect(page).toHaveURL(appUrl('/?type=qemu&filter=template'))
   await expect(page.getByRole('radiogroup', { name: '状态' }).getByRole('radio', { name: /^模板/ })).toHaveAttribute('aria-checked', 'true')
   for (const g of vmTemplates) await expect(row(g.name)).toBeVisible()
   const ct = guests.find((g) => g.type === 'lxc' && g.template !== 1)
@@ -197,7 +197,7 @@ test('datacenter: per-type template links and the storages counted in the total'
   // CT column → CT templates only (none of the VM templates).
   await page.goto('/datacenter')
   await card.getByRole('link', { name: /^模板/ }).nth(1).click()
-  await expect(page).toHaveURL(/\/\?type=lxc&filter=template$/)
+  await expect(page).toHaveURL(appUrl('/?type=lxc&filter=template'))
   for (const g of vmTemplates) await expect(row(g.name)).toHaveCount(0)
 
   // Which storages count toward the storage total (kept in this browser only).
@@ -235,9 +235,7 @@ test('actions and commands are hidden without privileges', async ({ browser, pve
     await expect(page.getByRole('tabpanel')).toBeVisible()
     await expect(bar.getByRole('button', { name: '控制台' })).toHaveCount(0)
     // No VM.Allocate: no "create" in the palette.
-    if (mobile) await page.getByRole('button', { name: '搜索' }).click()
-    else await page.keyboard.press('Control+K')
-    await page.getByPlaceholder('搜索资源、页面或操作…').fill('创建虚拟机')
+    await (await openPalette(page, mobile)).fill('创建虚拟机')
     await expect(page.getByRole('option', { name: '创建虚拟机' })).toHaveCount(0)
     await page.keyboard.press('Escape')
     // No Sys.Modify: datacenter notes are read-only.

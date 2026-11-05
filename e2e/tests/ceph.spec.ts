@@ -1,4 +1,4 @@
-import { expect, test, type PveApi } from '../fixtures'
+import { appPath, expect, mockRootPamInstance, test, type PveApi } from '../fixtures'
 
 // Area ceph: status, monitors / managers, OSDs, pools, CephFS + MDS,
 // configuration, log, the node tab and the install wizard.
@@ -312,7 +312,7 @@ test.describe('ceph (lab cluster)', { tag: '@lab' }, () => {
     await expect(page.getByTestId('node-ceph-health')).toBeVisible()
     await expect(page.getByTestId('ceph-mon-list').locator(`[data-service="mon.${pve.node}"]`)).toBeVisible()
     await expect(page.getByTestId(`osd-host-${pve.node}`)).toBeVisible()
-    await expect(page.getByRole('link', { name: /集群 Ceph/ })).toHaveAttribute('href', '/datacenter/ceph')
+    await expect(page.getByRole('link', { name: /集群 Ceph/ })).toHaveAttribute('href', appPath('/datacenter/ceph'))
   })
 })
 
@@ -327,6 +327,9 @@ test('安装向导：版本、安装 Shell 的参数、初始配置', async ({ p
   let termproxy: URLSearchParams | null = null
   let init: URLSearchParams | null = null
   let mon = ''
+  // Only root@pam may run the install shell; the lab connection is a root@pam
+  // API token. termproxy and init are intercepted, nothing runs as root.
+  await mockRootPamInstance(page)
   await page.route('**/api2/json/cluster/ceph/**', (route) => route.fulfill(NOT_INSTALLED))
   await page.route(`**/api2/json/nodes/*/ceph/status`, (route) => route.fulfill(installed ? NOT_INITIALIZED : NOT_INSTALLED))
   await page.route(`**/api2/json/nodes/${node}/subscription`, (route) => route.fulfill({ json: { data: { status: 'notfound' } } }))
@@ -441,6 +444,7 @@ test('手机：状态页、健康检查详情和导航', { tag: '@mobile' }, asy
 })
 
 test('手机：未安装时的提示，安装向导第一步', { tag: '@mobile' }, async ({ page, pve }) => {
+  await mockRootPamInstance(page)
   await page.route('**/api2/json/cluster/ceph/**', (route) => route.fulfill(NOT_INSTALLED))
   await page.route('**/api2/json/nodes/*/ceph/status', (route) => route.fulfill(NOT_INSTALLED))
   await page.goto(`/node/${pve.node}/ceph`)

@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 
-import { expect, test, type PveApi } from '../fixtures'
+import { appPath, expect, test, type PveApi } from '../fixtures'
 import type { Page } from '@playwright/test'
 
 // Consoles against the lab through the Go proxy: node shell (termproxy +
@@ -179,7 +179,7 @@ test.describe.serial('console', { tag: '@lab' }, () => {
 
     await page.goto('/shell')
     await expect(page.getByRole('heading', { level: 1, name: 'Shell' })).toBeVisible()
-    const vmLink = page.locator(`main a[href="/console/${pve.node}/qemu/${vm}"]`)
+    const vmLink = page.locator(`main a[href="${appPath(`/console/${pve.node}/qemu/${vm}`)}"]`)
     await expect(vmLink).toBeVisible()
     await expect(vmLink).toContainText('e2e-console-vm')
     await expectConnected(page)
