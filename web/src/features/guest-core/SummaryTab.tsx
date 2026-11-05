@@ -15,6 +15,7 @@ import { visibleActions } from '@/components/page/registry'
 import { guestActions } from '@/features/guest/registry'
 import { useGuestContext, type GuestTabProps } from '@/features/guest/types'
 
+import { AgentStatsCard } from './AgentStatsCard'
 import { GuestCharts } from './GuestCharts'
 import { NetworkCard } from './NetworkCard'
 import { NotesCard } from './NotesCard'
@@ -96,6 +97,7 @@ export default function SummaryTab({ node, type, vmid, guest }: GuestTabProps) {
           config={config.data}
           agentResponds={type === 'qemu' && running && agentEnabled ? (ips.isSuccess ? true : ips.isError ? false : undefined) : undefined}
         />
+        {type === 'qemu' && <AgentStatsCard node={node} vmid={vmid} active={agentOk} />}
         <div className="grid gap-(--row-gap) lg:grid-cols-3">
           <NetworkCard
             type={type}
