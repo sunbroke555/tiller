@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { parseCephTime, releaseOptions } from '@/features/ceph/model'
+import { cpuBreakdown, diskRates, guestDiskRows, parseLoad } from '@/features/guest-core/agentStats'
 
 import { parseJournal } from './node-summary'
 
@@ -52,5 +53,46 @@ describe('GET /nodes/{node}/ceph/releases', () => {
     expect(byName('squid')?.unavailable).toBeNull()
     expect(byName('tentacle')?.isDefault).toBe(true)
     expect(byName('umbrella')?.preview).toBe(true)
+  })
+})
+
+describe('GET /nodes/{node}/qemu/{vmid}/agent/get-* (Linux guest)', () => {
+  it('reads get-load as load1m / load5m / load15m', () => {
+    expect(parseLoad({ load15m: 1.388671875, load1m: 0.23681640625, load5m: 1.06005859375 })).toEqual({
+      load1: 0.23681640625,
+      load5: 1.06005859375,
+      load15: 1.388671875,
+    })
+  })
+
+  it('splits get-cpustats deltas into user / system / iowait / steal', () => {
+    const cpu = (user: number, idle: number) => ({ cpu: 0, type: 'linux', user, nice: 0, system: 100, idle, iowait: 0, irq: 0, softirq: 0, steal: 0, guest: 0, guestnice: 0 })
+    const b = cpuBreakdown([cpu(1000, 1000)], [cpu(1100, 1300)])
+    expect(b?.user).toBeCloseTo(0.25)
+  })
+
+  it('nests partitions under their disk from get-disks', () => {
+    const rows = guestDiskRows([
+      { dependencies: [], name: '/dev/zram0', partition: false },
+      { dependencies: ['/dev/sda'], name: '/dev/sda1', partition: true },
+      {
+        address: { bus: 0, 'bus-type': 'scsi', dev: '/dev/sda', serial: '0QEMU_QEMU_HARDDISK_drive-scsi0', target: 0, unit: 0 },
+        dependencies: [],
+        name: '/dev/sda',
+        partition: false,
+      },
+    ])
+    expect(rows.map((r) => [r.name, r.depth])).toEqual([
+      ['zram0', 0],
+      ['sda', 0],
+      ['sda1', 1],
+    ])
+    expect(rows.find((r) => r.name === 'sda')?.bus).toBe('scsi')
+  })
+
+  it('computes get-diskstats rates for the whole disk, not its partitions', () => {
+    const s = (name: string, minor: number, rs: number, ws: number) => ({ major: 8, minor, name, stats: { 'read-sectors': rs, 'write-sectors': ws, 'read-ios': rs / 8, 'write-ios': ws / 8 } })
+    const rates = diskRates([s('sda', 0, 1000, 2000), s('sda1', 1, 100, 0)], [s('sda', 0, 1800, 4000), s('sda1', 1, 900, 0)], 10)
+    expect(rates.map((r) => [r.name, r.readBps, r.writeBps])).toEqual([['sda', 800 * 512 / 10, 2000 * 512 / 10]])
   })
 })

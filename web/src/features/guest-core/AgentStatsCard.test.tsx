@@ -37,7 +37,7 @@ describe('AgentStatsCard', () => {
 
   it('shows the blocks whose commands work and hides the others', async () => {
     const { wrapper } = setup((path) => {
-      if (path.endsWith('/agent/get-load')) return json({ data: { result: { load1: 0.42, load5: 1, load15: 2.5 } } })
+      if (path.endsWith('/agent/get-load')) return json({ data: { result: { load1m: 0.42, load5m: 1, load15m: 2.5 } } })
       if (path.endsWith('/agent/get-disks'))
         return json({
           data: {

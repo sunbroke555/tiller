@@ -137,9 +137,9 @@ export interface AgentOsInfo {
 
 /** GET .../agent/get-load → result (qemu-server ≥ 9.2.14, Linux guests). */
 export interface AgentLoad {
-  load1?: number
-  load5?: number
-  load15?: number
+  load1m?: number
+  load5m?: number
+  load15m?: number
 }
 
 /** GET .../agent/get-cpustats → result[]: cumulative counters in USER_HZ ticks. */

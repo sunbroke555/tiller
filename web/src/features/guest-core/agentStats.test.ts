@@ -44,9 +44,9 @@ describe('sampleGap', () => {
 
 describe('parseLoad', () => {
   it('keeps finite numbers and drops the rest', () => {
-    expect(parseLoad({ load1: 0.5, load5: 0.25, load15: 0.1 })).toEqual({ load1: 0.5, load5: 0.25, load15: 0.1 })
-    expect(parseLoad({ load1: 1.5 })).toEqual({ load1: 1.5, load5: undefined, load15: undefined })
-    expect(parseLoad({ load1: Number.NaN, load5: 'x' as unknown as number })).toBeNull()
+    expect(parseLoad({ load1m: 0.5, load5m: 0.25, load15m: 0.1 })).toEqual({ load1: 0.5, load5: 0.25, load15: 0.1 })
+    expect(parseLoad({ load1m: 1.5 })).toEqual({ load1: 1.5, load5: undefined, load15: undefined })
+    expect(parseLoad({ load1m: Number.NaN, load5m: 'x' as unknown as number })).toBeNull()
     expect(parseLoad({})).toBeNull()
     expect(parseLoad(null)).toBeNull()
     expect(parseLoad(undefined)).toBeNull()

@@ -35,7 +35,7 @@ export interface LoadAverages {
 /** get-load result with only finite numbers; null when nothing is usable. */
 export function parseLoad(load: AgentLoad | null | undefined): LoadAverages | null {
   if (!load || typeof load !== 'object') return null
-  const out: LoadAverages = { load1: num(load.load1), load5: num(load.load5), load15: num(load.load15) }
+  const out: LoadAverages = { load1: num(load.load1m), load5: num(load.load5m), load15: num(load.load15m) }
   return out.load1 === undefined && out.load5 === undefined && out.load15 === undefined ? null : out
 }
 
