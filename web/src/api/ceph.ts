@@ -15,6 +15,13 @@
 //   GET/POST/DELETE /nodes/{node}/ceph/fs[/{name}]
 //   GET  /nodes/{node}/ceph/{cfg/raw|cfg/db|cfg/value|crush|rules|log}
 //
+// Newer pve-manager only (gated with usePveFeature, api/pve-features.ts):
+//   GET  /cluster/ceph/health-mute · PUT /cluster/ceph/health-mute/{code} value= ttl= sticky=   (≥ 9.2.12)
+//   POST /cluster/ceph/restart-bulk service-type=mon|mgr|mds|osd (task)                          (≥ 9.2.5)
+//   POST /nodes/{node}/ceph/restart-bulk service-type=osd (task)                                 (≥ 9.2.5)
+//   GET  /nodes/{node}/ceph/releases                                                             (≥ 9.2.7)
+//   PUT  /cluster/ceph/flags noautoscale=                                                        (≥ 9.2.23)
+//
 // Most node-scoped reads are cluster-wide (any node with Ceph configured
 // answers them); the page picks one "API node" (features/ceph/useCephNode.ts).
 // Services are managed on the node they run on.
@@ -307,6 +314,30 @@ export interface CephCmdSafety {
 
 export type CephServiceType = 'mon' | 'mgr' | 'mds' | 'osd'
 
+/** GET /cluster/ceph/health-mute entry. */
+export interface CephHealthMute {
+  code: string
+  /** The mute survives the check getting worse. */
+  sticky?: boolean | PveBool
+  summary?: string
+  /** When the mute expires; absent when it does not. */
+  ttl?: string
+}
+
+/** GET /nodes/{node}/ceph/releases entry. */
+export interface CephReleaseInfo {
+  /** Code name, e.g. "squid". */
+  release: string
+  /** Major version, e.g. "19.2". */
+  version: string
+  /** Installable on this node (packages for its architecture and PVE release). */
+  available: boolean | PveBool
+  /** Recommended for new installations. */
+  'is-default'?: boolean | PveBool
+  /** Not (yet) supported for production use. */
+  unsupported?: boolean | PveBool
+}
+
 // ------------------------------------------------------------------- keys
 
 export const cephKeys = {
@@ -332,6 +363,8 @@ export const cephKeys = {
   cfgValue: (keys: string) => ['pve', 'ceph', 'cfg', 'value', keys] as const,
   crush: () => ['pve', 'ceph', 'crush'] as const,
   log: (node: string) => [...queryKeys.node(node), 'ceph', 'log'] as const,
+  healthMutes: () => ['pve', 'ceph', 'health-mute'] as const,
+  releases: (node: string) => [...queryKeys.node(node), 'ceph', 'releases'] as const,
 }
 
 /** Ceph status polls like the official UI (5 s); lists a bit slower. */
@@ -403,6 +436,51 @@ export function useCephFlags(enabled = true) {
     queryFn: ({ signal }) => get<CephFlag[]>('/cluster/ceph/flags', undefined, { signal }),
     enabled,
     refetchInterval: CEPH_POLL.lists,
+  })
+}
+
+/** 501: the endpoint does not exist on this (older) PVE. */
+function isNotImplemented(error: unknown): boolean {
+  return isPveApiError(error) && error.status === 501
+}
+
+/**
+ * Muted health checks (pve-manager ≥ 9.2.12). `null` when the node answers 501
+ * (older PVE); other errors (no Sys.Audit / Datastore.Audit) stay errors and
+ * are not retried. Polling stops once the endpoint is known to be missing.
+ */
+export function useCephHealthMutes(enabled = true) {
+  return useQuery({
+    queryKey: cephKeys.healthMutes(),
+    queryFn: async ({ signal }) => {
+      try {
+        return await get<CephHealthMute[]>('/cluster/ceph/health-mute', undefined, { signal })
+      } catch (e) {
+        if (isNotImplemented(e)) return null
+        throw e
+      }
+    },
+    enabled,
+    retry: false,
+    refetchInterval: (q) => (q.state.data === null || q.state.error ? false : CEPH_POLL.lists),
+  })
+}
+
+/** Ceph releases known to the node (pve-manager ≥ 9.2.7); `null` on 501. */
+export function useCephReleases(node: string | null | undefined, enabled = true) {
+  return useQuery({
+    queryKey: cephKeys.releases(node ?? ''),
+    queryFn: async ({ signal }) => {
+      try {
+        return await get<CephReleaseInfo[]>(p`/nodes/${node ?? ''}/ceph/releases`, undefined, { signal })
+      } catch (e) {
+        if (isNotImplemented(e)) return null
+        throw e
+      }
+    },
+    enabled: !!node && enabled,
+    retry: false,
+    staleTime: 5 * 60_000,
   })
 }
 
@@ -568,6 +646,21 @@ export function osdScrub(node: string, id: number, deep: boolean) {
 
 export function setCephFlags(values: Record<string, 0 | 1>) {
   return put<string>('/cluster/ceph/flags', values)
+}
+
+/** Mute (value=1, optional ttl / sticky) or unmute (value=0) a health check; see model.healthMuteParams. */
+export function setCephHealthMute(code: string, params: Params) {
+  return put<null>(p`/cluster/ceph/health-mute/${code}`, params)
+}
+
+/** Cluster-wide rolling restart of every daemon of one type (task); see model.restartBulkParams. */
+export function restartCephBulk(params: Params) {
+  return post<string>('/cluster/ceph/restart-bulk', params)
+}
+
+/** Rolling restart of all OSDs on one node (task); see model.nodeOsdRestartParams. */
+export function restartNodeOsds(node: string, params: Params) {
+  return post<string>(p`/nodes/${node}/ceph/restart-bulk`, params)
 }
 
 export function createPool(node: string, params: Params) {

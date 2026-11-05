@@ -2,15 +2,18 @@
 // repository, run `pveceph install` in the node shell (termproxy
 // cmd=ceph_install), then create the initial configuration (public / cluster
 // network, size, min_size) with the first monitor, and show the next steps.
-// Only root@pam may run the install shell.
+// Only root@pam may run the install shell. The release list comes from the
+// node (GET /nodes/{node}/ceph/releases, pve-manager ≥ 9.2.7) when it has it,
+// else from the built-in CEPH_RELEASES.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Check, CircleCheck, Loader2, SquareTerminal } from 'lucide-react'
 
-import { cephErrorState, cephInit, cephKeys, createCephService, useCephMetadata, useNodeCephStatus } from '@/api/ceph'
+import { cephErrorState, cephInit, cephKeys, createCephService, useCephMetadata, useCephReleases, useNodeCephStatus } from '@/api/ceph'
 import type { ConsoleTarget } from '@/api/console'
 import { useNodeSubscription } from '@/api/node-summary'
+import { usePveFeature } from '@/api/pve-features'
 import { useNodeNetworks } from '@/api/queries'
 import { FieldInput, FormField, FormRow, FormSection, NodeSelect, NumberInput, SelectField } from '@/components/form'
 import { GlassCard } from '@/components/GlassCard'
@@ -22,7 +25,6 @@ import { nodePath } from '@/lib/resources'
 import { cn } from '@/lib/utils'
 
 import {
-  CEPH_RELEASES,
   CEPH_REPOSITORIES,
   defaultRelease,
   initFormError,
@@ -31,6 +33,7 @@ import {
   isCidr,
   networkOfCidr,
   newestNodeVersion,
+  releaseOptions,
   repositoryHint,
   type CephRepository,
   type InitForm,
@@ -47,7 +50,7 @@ export function InstallWizard({ initialNode, base }: { initialNode?: string | un
   const versions = useCephMetadata('versions')
   const clusterVersion = newestNodeVersion(versions.data)
   const [release, setRelease] = useState<string | null>(null)
-  const [repo, setRepo] = useState<CephRepository>('enterprise')
+  const [repoChoice, setRepo] = useState<CephRepository>('enterprise')
   const subscription = useNodeSubscription(node ?? '', { enabled: !!node })
   const hasSubscription = subscription.data?.status === 'active'
   const [repoTouched, setRepoTouched] = useState(false)
@@ -56,7 +59,12 @@ export function InstallWizard({ initialNode, base }: { initialNode?: string | un
   useEffect(() => {
     if (!repoTouched && subscription.data) setRepo(hasSubscription ? 'enterprise' : 'no-subscription')
   }, [subscription.data, hasSubscription, repoTouched])
-  const chosenRelease = release ?? defaultRelease(clusterVersion)
+  // Older PVE answers 501 (→ null): keep the built-in list. "unknown" still tries.
+  const releasesSupport = usePveFeature('cephReleases', node)
+  const nodeReleases = useCephReleases(node, releasesSupport !== 'unsupported')
+  const releases = useMemo(() => releaseOptions(nodeReleases.data), [nodeReleases.data])
+  const chosenRelease =
+    release && releases.some((r) => r.release === release && !r.unavailable) ? release : defaultRelease(clusterVersion, releases)
 
   // Install state of the node: polled fast while the shell runs.
   const nodeStatus = useNodeCephStatus(node, { refetchInterval: step === 1 ? 2_000 : 10_000 })
@@ -65,12 +73,15 @@ export function InstallWizard({ initialNode, base }: { initialNode?: string | un
   /** A configuration (ceph.conf) exists: the configuration step is skipped. */
   const configured = state === 'ok' || state === 'unreachable'
 
+  const releaseInfo = releases.find((r) => r.release === chosenRelease)
+  // Technology previews have no enterprise repository.
+  const repo: CephRepository = releaseInfo?.preview && repoChoice === 'enterprise' ? 'no-subscription' : repoChoice
+
   const target = useMemo<ConsoleTarget | null>(
     () => (node ? { kind: 'node', node, cmd: 'ceph_install', cmdOpts: installCmdOpts(chosenRelease, repo) } : null),
     [node, chosenRelease, repo],
   )
 
-  const releaseInfo = CEPH_RELEASES.find((r) => r.release === chosenRelease)
   const hint = repositoryHint(repo, hasSubscription)
 
   return (
@@ -114,7 +125,12 @@ export function InstallWizard({ initialNode, base }: { initialNode?: string | un
               <SelectField
                 value={chosenRelease}
                 onValueChange={(v) => v && setRelease(v)}
-                options={CEPH_RELEASES.map((r) => ({ value: r.release, label: `${r.release} (${r.version})` }))}
+                options={releases.map((r) => ({
+                  value: r.release,
+                  label: `${r.release} (${r.version})${r.preview ? ' · 技术预览' : ''}${r.isDefault ? ' · 推荐' : ''}`,
+                  description: r.unavailable ?? undefined,
+                  disabled: !!r.unavailable,
+                }))}
                 aria-label="Ceph 版本"
               />
             </FormField>
@@ -145,7 +161,7 @@ export function InstallWizard({ initialNode, base }: { initialNode?: string | un
             </Button>
             <Button
               onClick={() => setStep(1)}
-              disabled={!node || nodeStatus.isPending || (!installed && !access.isRoot)}
+              disabled={!node || nodeStatus.isPending || (!installed && (!access.isRoot || !!releaseInfo?.unavailable))}
               data-testid="ceph-install-start"
             >
               {installed ? '下一步' : `开始安装 ${chosenRelease}`}

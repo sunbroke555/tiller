@@ -1,13 +1,15 @@
 // Ceph status dashboard: health with its checks, usage and I/O, recovery,
 // PG states, OSD up/in matrix and the monitor / manager / MDS overview
 // (official PVE.node.CephStatus + PVE.ceph.StatusDetail + PVE.ceph.Services).
+// Health checks can be muted / unmuted on pve-manager ≥ 9.2.12.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { ChevronDown, ClipboardCopy, VolumeX } from 'lucide-react'
+import { ChevronDown, ClipboardCopy, Volume2, VolumeX } from 'lucide-react'
 import { toast } from 'sonner'
 
-import type { CephMetadata, CephStatus } from '@/api/ceph'
+import { useCephHealthMutes, type CephMetadata, type CephStatus } from '@/api/ceph'
+import { usePveFeature } from '@/api/pve-features'
 import { Sparkline } from '@/components/Sparkline'
 import { UsageBar } from '@/components/UsageBar'
 import { Button } from '@/components/ui/button'
@@ -23,6 +25,9 @@ import {
   healthCheckText,
   healthChecks,
   healthTone,
+  idleMutes,
+  muteExpiryLabel,
+  muteInfos,
   newestNodeVersion,
   osdCounts,
   parseCephVersion,
@@ -30,11 +35,13 @@ import {
   recoveryInfo,
   SERVICE_LABEL,
   type HealthCheckRow,
+  type MuteInfo,
   type PgCategory,
   type ServiceRow,
   type ServiceType,
 } from './model'
-import { Chip, Section, ToneDot, ToneIcon, TONE_TEXT, type Tone } from './ui'
+import { HealthMuteDialog, unmuteHealthCheck } from './HealthMuteDialog'
+import { Chip, Section, ToneDot, ToneIcon, TONE_TEXT, useCephAccess, type Tone } from './ui'
 
 const PG_TONE: Record<PgCategory, Tone> = { unknown: 'unknown', clean: 'ok', busy: 'info', warning: 'warn', critical: 'err' }
 
@@ -64,6 +71,18 @@ function HealthCard({ status, metadata }: { status: CephStatus; metadata: CephMe
   const tone = healthTone(status.health?.status)
   const checks = useMemo(() => healthChecks(status.health), [status.health])
   const version = newestNodeVersion(metadata)
+  const access = useCephAccess()
+  // Reading the mute list is tried while the version is unknown (501 = older PVE);
+  // muting / unmuting needs a version known to support it.
+  const muteSupport = usePveFeature('cephHealthMute')
+  const mutesQuery = useCephHealthMutes(muteSupport !== 'unsupported')
+  const mutes = useMemo(() => muteInfos(mutesQuery.data), [mutesQuery.data])
+  const idle = useMemo(() => idleMutes(checks, mutes), [checks, mutes])
+  const canMute = muteSupport === 'supported' && access.canModify
+  const [muting, setMuting] = useState<HealthCheckRow | null>(null)
+  const [shown, setShown] = useState<HealthCheckRow | null>(null)
+  if (muting && muting !== shown) setShown(muting)
+
   return (
     <Section title="健康" count={checks.length || undefined} data-testid="ceph-health">
       <div className="flex items-center gap-3">
@@ -84,16 +103,66 @@ function HealthCard({ status, metadata }: { status: CephStatus; metadata: CephMe
       ) : (
         <ul className="mt-3 grid gap-1.5" aria-label="健康检查">
           {checks.map((c) => (
-            <HealthCheckItem key={c.id} check={c} />
+            <HealthCheckItem key={c.id} check={c} mute={mutes.get(c.id)} canMute={canMute} onMute={() => setMuting(c)} />
           ))}
         </ul>
       )}
+      {idle.length > 0 && (
+        <div className="mt-4" data-testid="ceph-idle-mutes">
+          <h3 className="mb-1.5 text-xs font-medium text-muted-foreground">
+            已静默但当前未触发 <span className="tabular">{idle.length}</span>
+          </h3>
+          <ul className="grid gap-1.5" aria-label="已静默的检查">
+            {idle.map((m) => (
+              <li
+                key={m.code}
+                className="flex min-h-11 items-center gap-2 rounded-xl bg-foreground/[0.03] py-1.5 pr-1 pl-3 text-sm ring-1 ring-border/60 ring-inset paper:bg-secondary/40"
+                data-mute={m.code}
+              >
+                <VolumeX className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-mono text-xs">{m.code}</span>
+                  <MuteMeta mute={m} />
+                </span>
+                {canMute && <UnmuteButton code={m.code} />}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <HealthMuteDialog code={shown?.id ?? null} summary={shown?.summary} open={!!muting} onOpenChange={(o) => !o && setMuting(null)} />
     </Section>
   )
 }
 
-function HealthCheckItem({ check }: { check: HealthCheckRow }) {
+/** Expiry and stickiness of a mute: "2026-11-12 08:00 到期（还剩 7 天） · 变严重时也保持". */
+function MuteMeta({ mute }: { mute: MuteInfo }) {
+  return (
+    <span className="block text-[11px] break-words text-muted-foreground">
+      {muteExpiryLabel(mute.ttl)}
+      {mute.sticky && ' · 变严重时也保持'}
+    </span>
+  )
+}
+
+function UnmuteButton({ code }: { code: string }) {
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="shrink-0 pointer-coarse:size-10"
+      onClick={() => unmuteHealthCheck(code)}
+      aria-label={`取消静默 ${code}`}
+      title="取消静默"
+    >
+      <Volume2 />
+    </Button>
+  )
+}
+
+function HealthCheckItem({ check, mute, canMute, onMute }: { check: HealthCheckRow; mute: MuteInfo | undefined; canMute: boolean; onMute: () => void }) {
   const [open, setOpen] = useState(false)
+  const muted = check.muted || !!mute
   const copy = () => {
     navigator.clipboard
       .writeText(healthCheckText(check))
@@ -101,7 +170,7 @@ function HealthCheckItem({ check }: { check: HealthCheckRow }) {
       .catch(() => toast.error('无法复制到剪贴板'))
   }
   return (
-    <li className="rounded-xl bg-foreground/[0.03] ring-1 ring-border/60 ring-inset paper:bg-secondary/40" data-check={check.id}>
+    <li className="rounded-xl bg-foreground/[0.03] ring-1 ring-border/60 ring-inset paper:bg-secondary/40" data-check={check.id} data-muted={muted || undefined}>
       <div className="flex items-start gap-1">
         <button
           type="button"
@@ -109,24 +178,35 @@ function HealthCheckItem({ check }: { check: HealthCheckRow }) {
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
         >
-          <ToneIcon tone={check.tone} className="mt-0.5" />
+          <ToneIcon tone={check.tone} className={cn('mt-0.5', muted && 'opacity-50')} />
           <span className="min-w-0 flex-1">
-            <span className="break-words">{check.summary}</span>
+            <span className={cn('break-words', muted && 'text-muted-foreground')}>{check.summary}</span>
             <span className="mt-0.5 flex flex-wrap items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
               {check.id}
-              {check.muted && (
+              {muted && (
                 <Chip tone="unknown">
                   <VolumeX className="size-3" aria-hidden />
                   已静默
                 </Chip>
               )}
             </span>
+            {mute && <MuteMeta mute={mute} />}
           </span>
           <ChevronDown className={cn('mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} aria-hidden />
         </button>
-        <Button variant="ghost" size="icon" className="mt-1 mr-1 shrink-0 pointer-coarse:size-10" onClick={copy} aria-label={`复制 ${check.id}`} title="复制">
-          <ClipboardCopy />
-        </Button>
+        <div className="mt-1 mr-1 flex shrink-0">
+          {canMute &&
+            (muted ? (
+              <UnmuteButton code={check.id} />
+            ) : (
+              <Button variant="ghost" size="icon" className="pointer-coarse:size-10" onClick={onMute} aria-label={`静默 ${check.id}`} title="静默">
+                <VolumeX />
+              </Button>
+            ))}
+          <Button variant="ghost" size="icon" className="pointer-coarse:size-10" onClick={copy} aria-label={`复制 ${check.id}`} title="复制">
+            <ClipboardCopy />
+          </Button>
+        </div>
       </div>
       {open && (
         <pre className="mx-3 mb-3 max-h-60 overflow-auto rounded-lg bg-background/60 p-2 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-muted-foreground paper:bg-card">

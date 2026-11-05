@@ -7,6 +7,8 @@
 import type {
   CephFlag,
   CephHealthCheck,
+  CephHealthMute,
+  CephReleaseInfo,
   CephHealthStatus,
   CephMetadata,
   CephOsdTree,
@@ -18,6 +20,7 @@ import type {
   PoolApplication,
 } from '@/api/ceph'
 import type { Params } from '@/api/client'
+import { formatDuration } from '@/lib/format'
 
 // ----------------------------------------------------------------- health
 
@@ -73,6 +76,95 @@ export function healthChecks(health: { checks?: Record<string, CephHealthCheck> 
 /** "HEALTH_WARN: summary\ndetail…" for the clipboard. */
 export function healthCheckText(c: HealthCheckRow): string {
   return [`${c.severity}: ${c.summary}`, ...c.detail].join('\n')
+}
+
+// ------------------------------------------------------------- health mute
+// PUT /cluster/ceph/health-mute/{code}: value=1 mutes, value=0 unmutes. `ttl`
+// ("2h", "3d", "1w"…) is optional and its absence means no expiry, so "不过期"
+// omits it (never ttl=0; pve-manager 9.2.22 fixed muting without expiry).
+// `sticky` defaults to 0 and is only sent when wanted.
+
+export type MuteDuration = '1h' | '4h' | '1d' | '1w' | '30d' | 'forever'
+
+export const MUTE_DURATIONS: { value: MuteDuration; label: string }[] = [
+  { value: '1h', label: '1 小时' },
+  { value: '4h', label: '4 小时' },
+  { value: '1d', label: '1 天' },
+  { value: '1w', label: '1 周' },
+  { value: '30d', label: '30 天' },
+  { value: 'forever', label: '不过期' },
+]
+
+/** The ttl parameter of a duration choice; undefined = no expiry. */
+export function muteTtl(duration: MuteDuration): string | undefined {
+  return duration === 'forever' ? undefined : duration
+}
+
+export interface MuteForm {
+  duration: MuteDuration
+  sticky: boolean
+}
+
+export function healthMuteParams(f: MuteForm): Params {
+  const params: Params = { value: 1 }
+  const ttl = muteTtl(f.duration)
+  if (ttl) params.ttl = ttl
+  if (f.sticky) params.sticky = 1
+  return params
+}
+
+export function healthUnmuteParams(): Params {
+  return { value: 0 }
+}
+
+export interface MuteInfo {
+  code: string
+  sticky: boolean
+  ttl?: string | undefined
+  summary?: string | undefined
+}
+
+export function muteInfos(mutes: readonly CephHealthMute[] | null | undefined): Map<string, MuteInfo> {
+  const out = new Map<string, MuteInfo>()
+  for (const m of mutes ?? []) {
+    if (!m?.code) continue
+    out.set(m.code, { code: m.code, sticky: m.sticky === true || m.sticky === 1, ttl: m.ttl || undefined, summary: m.summary || undefined })
+  }
+  return out
+}
+
+/** Mutes whose check is not raised right now (listed separately so they can be removed). */
+export function idleMutes(checks: readonly Pick<HealthCheckRow, 'id'>[], mutes: ReadonlyMap<string, MuteInfo>): MuteInfo[] {
+  const raised = new Set(checks.map((c) => c.id))
+  return [...mutes.values()].filter((m) => !raised.has(m.code)).sort((a, b) => a.code.localeCompare(b.code))
+}
+
+/**
+ * Ceph's expiry stamp ("2026-11-05T12:00:00.123456+0000", sometimes with a
+ * space instead of the T) as epoch ms, or null when it cannot be read.
+ */
+export function parseCephTime(value: string | undefined): number | null {
+  if (!value) return null
+  const v = value
+    .trim()
+    .replace(' ', 'T')
+    .replace(/(\.\d{3})\d+/, '$1')
+    .replace(/([+-]\d{2})(\d{2})$/, '$1:$2')
+  const ms = Date.parse(v)
+  return Number.isNaN(ms) ? null : ms
+}
+
+/** "不过期", "2026-11-05 20:00 到期（还剩 3 小时）" or the raw stamp. */
+export function muteExpiryLabel(ttl: string | undefined, nowMs = Date.now()): string {
+  if (!ttl) return '不过期'
+  const at = parseCephTime(ttl)
+  if (at === null) return `到期：${ttl}`
+  const left = Math.round((at - nowMs) / 1000)
+  if (left <= 0) return '即将到期'
+  const d = new Date(at)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return `${stamp} 到期（还剩 ${formatDuration(left, 1)}）`
 }
 
 // ------------------------------------------------------------- PG states
@@ -257,11 +349,46 @@ export function releaseOfVersion(version: string | undefined): string | undefine
   return MAJOR_RELEASE[major]
 }
 
-/** Release to preselect: the one already running in the cluster, else the newest offered. */
-export function defaultRelease(clusterVersion: string | undefined): string {
-  const r = releaseOfVersion(clusterVersion)
-  if (r && CEPH_RELEASES.some((x) => x.release === r)) return r
-  return CEPH_RELEASES[CEPH_RELEASES.length - 1]!.release
+/** A release choice of the install wizard. */
+export interface CephReleaseOption extends CephRelease {
+  /** Why it cannot be installed on the node (shown disabled), null when it can. */
+  unavailable: string | null
+  /** Recommended for new installations (from the node). */
+  isDefault?: boolean
+}
+
+const truthy = (v: boolean | number | undefined) => v === true || v === 1
+
+/**
+ * The wizard's release list: from GET /nodes/{node}/ceph/releases when the
+ * node provides it (pve-manager ≥ 9.2.7), oldest first, with the ones the node
+ * cannot install disabled; else the built-in CEPH_RELEASES.
+ */
+export function releaseOptions(fromNode: readonly CephReleaseInfo[] | null | undefined): CephReleaseOption[] {
+  const list = (fromNode ?? []).filter((r) => r?.release)
+  if (list.length === 0) return CEPH_RELEASES.map((r) => ({ ...r, unavailable: null }))
+  return list
+    .map((r) => ({
+      release: r.release,
+      version: r.version ?? '',
+      preview: truthy(r.unsupported),
+      isDefault: truthy(r['is-default']),
+      unavailable: truthy(r.available) ? null : '此节点无可用软件包',
+    }))
+    .sort((a, b) => compareCephVersions(a.version, b.version) || a.release.localeCompare(b.release))
+}
+
+/**
+ * Release to preselect: the one already running in the cluster, else the one
+ * the node recommends, else the newest installable one.
+ */
+export function defaultRelease(clusterVersion: string | undefined, options: readonly CephReleaseOption[] = releaseOptions(null)): string {
+  const installable = options.filter((o) => !o.unavailable)
+  const running = releaseOfVersion(clusterVersion)
+  if (running && installable.some((x) => x.release === running)) return running
+  const recommended = installable.find((o) => o.isDefault)
+  if (recommended) return recommended.release
+  return (installable[installable.length - 1] ?? options[options.length - 1] ?? CEPH_RELEASES[CEPH_RELEASES.length - 1]!).release
 }
 
 export type CephRepository = 'enterprise' | 'no-subscription' | 'test' | 'manual'
@@ -560,6 +687,23 @@ export const FLAG_LABEL: Record<string, string> = {
   notieragent: '暂停缓存分层',
   noup: '禁止 OSD 启动',
   pause: '暂停读写',
+  noautoscale: '暂停 PG 自动伸缩',
+}
+
+/** Chinese flag descriptions (the API's are English); unknown flags keep the API text. */
+export const FLAG_DESCRIPTION: Record<string, string> = {
+  nobackfill: '暂停 PG 回填。',
+  'nodeep-scrub': '停止深度清洗。',
+  nodown: '忽略 OSD 故障报告，监视器不会把 OSD 标记为 down。',
+  noin: '之前被标记为 out 的 OSD 启动后不会自动标记为 in。',
+  noout: 'OSD 停止一段时间后不会被自动标记为 out。',
+  norebalance: '暂停 PG 再平衡。',
+  norecover: '暂停 PG 恢复。',
+  noscrub: '停止清洗。',
+  notieragent: '暂停缓存分层代理。',
+  noup: 'OSD 不能启动（不会被标记为 up）。',
+  pause: '暂停所有读写。',
+  noautoscale: 'PG 自动伸缩器不再调整任何存储池的 PG 数量（需要 pve-manager 9.2.23 或更高版本）。',
 }
 
 /** Flags that limit self-healing (destroy-OSD warning). */
@@ -577,6 +721,49 @@ export function flagChanges(current: readonly CephFlag[], next: Record<string, b
     if (want !== undefined && want !== flagIsSet(f)) out[f.name] = want ? 1 : 0
   }
   return Object.keys(out).length ? out : null
+}
+
+// ---------------------------------------------------------- rolling restart
+// POST /cluster/ceph/restart-bulk and /nodes/{node}/ceph/restart-bulk restart
+// daemons one at a time, waiting until Ceph reports the previous one back up
+// and the next one safe to stop. Only non-default options are sent.
+
+export interface RestartBulkForm {
+  /** Proceed past non-fatal HEALTH_WARN checks (HEALTH_ERR still stops it). */
+  force: boolean
+  /** Only log the plan. */
+  dryRun: boolean
+  /** OSDs only: skip daemons already running the installed version. */
+  onlyOutdated: boolean
+  /** Per-node OSDs: set noout on the targeted OSDs while restarting (API default on). */
+  setNoout: boolean
+  /** Per-node OSDs: continue an aborted run from its checkpoint. */
+  resume: boolean
+}
+
+export const DEFAULT_RESTART_FORM: RestartBulkForm = { force: false, dryRun: false, onlyOutdated: false, setNoout: true, resume: false }
+
+/** Cluster-wide (MON / MGR / MDS / OSD). */
+export function restartBulkParams(type: ServiceType | 'osd', f: RestartBulkForm): Params {
+  const params: Params = { 'service-type': type }
+  if (f.force) params.force = 1
+  if (f.dryRun) params['dry-run'] = 1
+  if (type === 'osd' && f.onlyOutdated) params['only-outdated'] = 1
+  return params
+}
+
+/** All OSDs of one node. On resume the saved plan is used, so only-outdated / set-noout are not sent. */
+export function nodeOsdRestartParams(f: RestartBulkForm): Params {
+  const params: Params = { 'service-type': 'osd' }
+  if (f.force) params.force = 1
+  if (f.dryRun) params['dry-run'] = 1
+  if (f.resume) {
+    params.resume = 1
+    return params
+  }
+  if (f.onlyOutdated) params['only-outdated'] = 1
+  if (!f.setNoout) params['set-noout'] = 0
+  return params
 }
 
 // -------------------------------------------------------------------- OSDs

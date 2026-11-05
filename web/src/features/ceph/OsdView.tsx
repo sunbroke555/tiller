@@ -1,10 +1,12 @@
 // OSD tree by host with in/out, start/stop/restart, scrub, details and
-// destroy; create OSD and global flags (official PVE.node.CephOsdTree).
+// destroy; create OSD and global flags (official PVE.node.CephOsdTree); rolling
+// restart of all OSDs of a node (pve-manager ≥ 9.2.5).
 
 import { useMemo, useState } from 'react'
-import { ArrowDownToLine, ArrowUpFromLine, Ellipsis, Flag, Info, Play, Plus, RotateCw, ScanSearch, Server, Square, Trash2 } from 'lucide-react'
+import { ArrowDownToLine, ArrowUpFromLine, Ellipsis, Flag, Info, ListRestart, Play, Plus, RotateCw, ScanSearch, Server, Square, Trash2 } from 'lucide-react'
 
 import { cephKeys, cephServiceCommand, osdInOut, osdScrub, useCephOsdTree } from '@/api/ceph'
+import { usePveFeature } from '@/api/pve-features'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { EmptyState } from '@/components/EmptyState'
 import { ErrorState, LoadingRows } from '@/components/QueryState'
@@ -17,16 +19,18 @@ import { cephUsageTone, CEPH_USAGE_HINT, METRIC_FILL, METRIC_TEXT } from '@/lib/
 
 import { FLAG_LABEL, activeOsdFlags, osdDestroyBlocker, osdHosts, type OsdHost, type OsdRow } from './model'
 import { CreateOsdDialog, DestroyOsdDialog, FlagsDialog, OsdDetailsDialog, StopOsdDialog } from './OsdDialogs'
+import { RollingRestartDialog } from './RollingRestartDialog'
 import { Chip, RefreshButton, Section, useCephAccess } from './ui'
 
 type Dialog =
   | { kind: 'create' }
   | { kind: 'flags' }
+  | { kind: 'rolling'; node: string }
   | { kind: 'details' | 'stop' | 'destroy' | 'scrub' | 'deep-scrub'; osd: OsdRow }
   | null
 
 export interface OsdActions {
-  open: (kind: Exclude<NonNullable<Dialog>['kind'], 'create' | 'flags'>, osd: OsdRow) => void
+  open: (kind: Exclude<NonNullable<Dialog>['kind'], 'create' | 'flags' | 'rolling'>, osd: OsdRow) => void
   start: (osd: OsdRow) => void
   restart: (osd: OsdRow) => void
   inOut: (osd: OsdRow, dir: 'in' | 'out') => void
@@ -60,7 +64,7 @@ export function OsdView({ apiNode, host }: { apiNode: string; host?: string }) {
       }),
   }
 
-  const active = shown && shown.kind !== 'create' && shown.kind !== 'flags' ? shown.osd : null
+  const active = shown && 'osd' in shown ? shown.osd : null
 
   return (
     <div className="grid min-w-0 gap-(--section-gap)">
@@ -109,11 +113,24 @@ export function OsdView({ apiNode, host }: { apiNode: string; host?: string }) {
           }
         />
       ) : (
-        hosts.map((h) => <HostCard key={h.name || '-'} host={h} actions={actions} canModify={access.canModify} />)
+        hosts.map((h) => (
+          <HostCard
+            key={h.name || '-'}
+            host={h}
+            actions={actions}
+            canModify={access.canModify}
+            onRollingRestart={() => setDialog({ kind: 'rolling', node: h.name })}
+          />
+        ))
       )}
 
       <CreateOsdDialog apiNode={apiNode} defaultNode={host} open={dialog?.kind === 'create'} onOpenChange={close} />
       <FlagsDialog open={dialog?.kind === 'flags'} onOpenChange={close} />
+      <RollingRestartDialog
+        target={shown?.kind === 'rolling' ? { kind: 'node', node: shown.node } : null}
+        open={dialog?.kind === 'rolling'}
+        onOpenChange={close}
+      />
       <OsdDetailsDialog osd={shown?.kind === 'details' ? active : null} actions={actions} canModify={access.canModify} open={dialog?.kind === 'details'} onOpenChange={close} />
       <StopOsdDialog osd={shown?.kind === 'stop' ? active : null} open={dialog?.kind === 'stop'} onOpenChange={close} />
       <DestroyOsdDialog osd={shown?.kind === 'destroy' ? active : null} open={dialog?.kind === 'destroy'} onOpenChange={close} />
@@ -137,7 +154,19 @@ export function OsdView({ apiNode, host }: { apiNode: string; host?: string }) {
   )
 }
 
-function HostCard({ host, actions, canModify }: { host: OsdHost; actions: OsdActions; canModify: boolean }) {
+function HostCard({
+  host,
+  actions,
+  canModify,
+  onRollingRestart,
+}: {
+  host: OsdHost
+  actions: OsdActions
+  canModify: boolean
+  onRollingRestart: () => void
+}) {
+  // Per node: the endpoint runs on (and needs the version of) the OSDs' node.
+  const rollingRestart = usePveFeature('cephRestartBulk', host.name || undefined) === 'supported' && canModify && !!host.name && host.osds.length > 0
   return (
     <Section
       flush
@@ -150,6 +179,22 @@ function HostCard({ host, actions, canModify }: { host: OsdHost; actions: OsdAct
       }
       count={host.osds.length}
       data-testid={`osd-host-${host.name}`}
+      actions={
+        rollingRestart ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onRollingRestart}
+            className="pointer-coarse:h-10"
+            aria-label={`重启 ${host.name} 上的所有 OSD`}
+            title="逐个重启该节点的 OSD，等待集群恢复健康后再重启下一个"
+            data-testid={`osd-host-${host.name}-rolling-restart`}
+          >
+            <ListRestart />
+            <span className="hidden sm:inline">重启该节点所有 OSD</span>
+          </Button>
+        ) : undefined
+      }
     >
       <ul className="divide-y divide-border/60">
         {host.osds.map((o) => (
