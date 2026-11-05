@@ -3,6 +3,7 @@ import { ShieldOff } from 'lucide-react'
 
 import { useGuestConfig } from '@/api/guest-core'
 import { destroyGuest, setGuestConfig } from '@/api/guest-lifecycle'
+import { appPathname } from '@/api/instance-scope'
 import { CheckboxField, FormDialog, FormField } from '@/components/form'
 import type { ActionDialogProps } from '@/components/page/registry'
 import { fireTask, runTask } from '@/components/tasks/tracker'
@@ -50,7 +51,7 @@ export default function RemoveDialog({ ctx, open, onOpenChange }: ActionDialogPr
       title: `删除 ${name}`,
       onSuccess: () => {
         // Leave the page of the guest that no longer exists.
-        if (isGuestPathname(window.location.pathname, guest)) navigate('/', { replace: true })
+        if (isGuestPathname(appPathname(window.location.pathname), guest)) navigate('/', { replace: true })
       },
     })
 

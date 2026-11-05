@@ -21,6 +21,17 @@ export function instanceBase(s: InstanceScope | null = scope): string {
   return s ? `/i/${s.id}/${s.version}` : ''
 }
 
+/**
+ * A browser pathname as the app's routes see it: without the instance prefix
+ * (the router's basename). For code that reads window.location instead of the
+ * router, e.g. after a task finished and the user may have moved on.
+ */
+export function appPathname(pathname: string, s: InstanceScope | null = scope): string {
+  const base = instanceBase(s)
+  if (!base || (pathname !== base && !pathname.startsWith(base + '/'))) return pathname
+  return pathname.slice(base.length) || '/'
+}
+
 export function instanceApiBase(selected: InstanceScope | null = scope): string {
   return selected ? `/api/instances/${selected.id}/${selected.version}` : ''
 }

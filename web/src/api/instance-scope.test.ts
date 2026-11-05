@@ -54,4 +54,18 @@ describe('instance isolation', () => {
     expect(scope.scopeFromPath('/i/default/../../')).toBeNull()
     expect(scope.scopeFromPath('/i/' + id + '/bad/')).toBeNull()
   })
+
+  it('strips the instance prefix from browser pathnames, so route checks match (deleting a guest leaves its page)', async () => {
+    const { appPathname } = await import('./instance-scope')
+    const { isGuestPathname } = await import('@/lib/resources')
+    const scope = { id, version }
+    expect(appPathname(scopePath + '/guest/pve/qemu/100/hardware', scope)).toBe('/guest/pve/qemu/100/hardware')
+    expect(appPathname(scopePath, scope)).toBe('/')
+    expect(appPathname(scopePath + '/', scope)).toBe('/')
+    expect(appPathname(scopePath + 'x/guest', scope)).toBe(scopePath + 'x/guest')
+    expect(appPathname('/guest/pve/qemu/100', null)).toBe('/guest/pve/qemu/100')
+    const vm = { node: 'pve', type: 'qemu' as const, vmid: 100 }
+    expect(isGuestPathname(scopePath + '/guest/pve/qemu/100', vm)).toBe(false)
+    expect(isGuestPathname(appPathname(scopePath + '/guest/pve/qemu/100', scope), vm)).toBe(true)
+  })
 })
