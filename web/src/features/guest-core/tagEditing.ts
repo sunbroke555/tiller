@@ -1,6 +1,6 @@
 import type { Params } from '@/api/client'
-import type { ClusterOptions } from '@/api/guest-core'
-import { parsePropertyString, stringifyPropertyString } from '@/lib/propstring'
+import type { ClusterOptions, GuestConfig } from '@/api/guest-core'
+import { configUpdateParams, parsePropertyString, stringifyPropertyString } from '@/lib/propstring'
 import { parseTagStyle, splitTags } from '@/lib/tags'
 
 import { parseUserTagAccess, TAG_RE } from './tags'
@@ -13,7 +13,7 @@ export function tagStyleString(options: ClusterOptions): string {
 /** Change one colour while keeping all other colours and style settings. Empty = automatic. */
 export function tagColorParams(options: ClusterOptions, tag: string, color: string): Params {
   if (!TAG_RE.test(tag)) throw new Error('标签名称无效')
-  const hex = color.replace(/^#/, '').toUpperCase()
+  const hex = color.trim().replace(/^#/, '').toUpperCase()
   if (hex && !/^[0-9A-F]{6}$/.test(hex)) throw new Error('请输入六位十六进制颜色，例如 #82BBDD')
   const raw = tagStyleString(options)
   const fields = parsePropertyString(raw)
@@ -33,6 +33,12 @@ export function tagColorParams(options: ClusterOptions, tag: string, color: stri
   return value ? { 'tag-style': value } : { delete: 'tag-style' }
 }
 
+/** Remove only the selected guest tag; PVE expects delete=tags for the last one. */
+export function removeGuestTagParams(config: GuestConfig, tag: string, caseSensitive: boolean): Params | null {
+  const tags = splitTags(config.tags).filter((value) => caseSensitive ? value !== tag : value.toLowerCase() !== tag.toLowerCase())
+  return configUpdateParams(config, { tags: tags.join(';') }, { digest: config.digest })
+}
+
 /** Guest config permission is checked separately; registered tags still need Sys.Modify. */
 export function tagAccessError(tag: string, options: ClusterOptions, usedTags: readonly string[], privileged: boolean): string | null {
   if (privileged) return null
@@ -41,7 +47,7 @@ export function tagAccessError(tag: string, options: ClusterOptions, usedTags: r
   const registered = options['registered-tags']
   if ((Array.isArray(registered) ? registered : splitTags(registered)).some(matches)) return '此标签需要管理员权限'
   const access = parseUserTagAccess(options)
-  if (access.mode === 'none') return '数据中心不允许当前用户添加标签'
+  if (access.mode === 'none') return '数据中心不允许当前用户修改标签'
   if (access.mode === 'free') return null
   const allowed = [...access.list, ...(options['allowed-tags'] ?? []), ...(access.mode === 'existing' ? usedTags : [])]
   return allowed.some(matches) ? null : '只能使用数据中心允许的标签'

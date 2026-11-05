@@ -15,6 +15,7 @@ import { useIsDesktop } from '@/hooks/useMediaQuery'
 import { formatPercent, formatUptime, ratio } from '@/lib/format'
 import { GUEST_TYPE_LABEL, byVmid, consolePath, guestName, nodeShellPath, statusLabel } from '@/lib/resources'
 import { cn } from '@/lib/utils'
+import { METRIC_TEXT, usageTone } from '@/lib/metric-status'
 
 // The console UI (and xterm.js behind it) loads only when a shell is shown.
 const ConsoleScreen = lazy(() => import('@/features/console/ConsoleScreen').then((m) => ({ default: m.ConsoleScreen })))
@@ -141,7 +142,7 @@ function NodeShellCard({ node: n }: { node: NodeResource }) {
           </div>
           <div className="truncate text-xs text-muted-foreground tabular">
             {online
-              ? `CPU ${formatPercent(n.cpu)} · 内存 ${formatPercent(ratio(n.mem, n.maxmem))} · 运行 ${formatUptime(n.uptime)}`
+              ? <><span className={METRIC_TEXT[usageTone(n.cpu)]}>CPU {formatPercent(n.cpu)}</span> · <span className={METRIC_TEXT[usageTone(ratio(n.mem, n.maxmem))]}>内存 {formatPercent(ratio(n.mem, n.maxmem))}</span> · 运行 {formatUptime(n.uptime)}</>
               : statusLabel(n.status)}
           </div>
         </div>

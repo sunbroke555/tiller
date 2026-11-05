@@ -5,7 +5,7 @@
 // Action order ranges: node-summary 100–199, console 200–249,
 // guest-lifecycle (bulk actions) 300–399.
 
-import { lazy } from 'react'
+import { lazyComponent as lazy } from '@/lib/lazyComponent'
 import {
   Activity,
   Database,

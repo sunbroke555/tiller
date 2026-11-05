@@ -27,8 +27,12 @@ export function CreateMenu({ node, className }: { node?: string; className?: str
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button className={cn('rounded-full max-lg:size-9 max-lg:px-0 pointer-coarse:max-lg:size-11', className)} aria-label="新建">
-          <Plus />
+        <Button
+          className={cn('group relative rounded-full max-lg:size-9 max-lg:bg-transparent max-lg:px-0 max-lg:hover:bg-transparent pointer-coarse:max-lg:size-11', className)}
+          aria-label="新建"
+        >
+          <span aria-hidden className="pointer-events-none absolute size-8 rounded-full bg-primary transition-colors group-hover:bg-primary/90 lg:hidden" />
+          <Plus className="relative" />
           <span className="max-lg:hidden">新建</span>
         </Button>
       </DropdownMenuTrigger>

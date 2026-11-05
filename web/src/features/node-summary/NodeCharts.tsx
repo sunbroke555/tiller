@@ -1,6 +1,7 @@
 import { useNodeRrdData, type NodeRrdSample } from '@/api/node-summary'
 import { SectionHeader } from '@/components/PageHeader'
 import { RrdChart, RrdRangePicker, useRrdRange, type RrdSeries } from '@/components/charts/RrdChart'
+import { CAPACITY_HEADROOM, capacityAxisMax } from '@/components/charts/rrd'
 import { errorMessage } from '@/lib/errors'
 
 type S = RrdSeries<NodeRrdSample>
@@ -45,6 +46,8 @@ export function NodeCharts({ node }: { node: string }) {
     error: rrd.isError && !rrd.data ? `无法加载图表：${errorMessage(rrd.error)}` : undefined,
   }
   const hasSwap = rrd.data?.some((p) => (p.swapused ?? 0) > 0)
+  const memoryMax = capacityAxisMax(rrd.data?.map((p) => p.memtotal), rrd.data?.flatMap((p) => [p.memused, p.memavailable, p.arcsize]))
+  const swapMax = capacityAxisMax(rrd.data?.map((p) => p.swaptotal), rrd.data?.map((p) => p.swapused))
 
   return (
     <section aria-labelledby="node-charts-heading">
@@ -54,12 +57,27 @@ export function NodeCharts({ node }: { node: string }) {
       <div className="grid gap-(--row-gap) lg:grid-cols-2 lg:[&>*:last-child:nth-child(odd)]:col-span-2">
         <RrdChart title="CPU 使用率" unit="percent" series={CPU} {...common} />
         <RrdChart title="服务器负载" unit="number" series={LOAD} {...common} />
-        <RrdChart title="内存" unit="bytes" series={MEMORY} {...common} />
+        <RrdChart title="内存" unit="bytes" series={MEMORY} yMax={memoryMax} headroom={memoryMax ? CAPACITY_HEADROOM : undefined} {...common} />
         <RrdChart title="网络流量" unit="bytesPerSecond" series={NET} {...common} />
-        {hasSwap && <RrdChart title="交换分区" unit="bytes" series={SWAP_ROOT} {...common} />}
-        <RrdChart title="CPU 压力（PSI）" unit="percent" series={PSI_CPU} {...common} />
-        <RrdChart title="IO 压力（PSI）" unit="percent" series={PSI_IO} {...common} />
-        <RrdChart title="内存压力（PSI）" unit="percent" series={PSI_MEM} {...common} />
+        {hasSwap && <RrdChart title="交换分区" unit="bytes" series={SWAP_ROOT} yMax={swapMax} headroom={swapMax ? CAPACITY_HEADROOM : undefined} {...common} />}
+        <RrdChart
+          title="CPU 压力（PSI）" unit="percent" series={PSI_CPU}
+          emptyMessage="所选时间范围内没有 PSI 采样"
+          zeroMessage="采样值均为 0%，未记录到 CPU 压力"
+          {...common}
+        />
+        <RrdChart
+          title="IO 压力（PSI）" unit="percent" series={PSI_IO}
+          emptyMessage="所选时间范围内没有 PSI 采样"
+          zeroMessage="采样值均为 0%，未记录到 IO 压力"
+          {...common}
+        />
+        <RrdChart
+          title="内存压力（PSI）" unit="percent" series={PSI_MEM}
+          emptyMessage="所选时间范围内没有 PSI 采样"
+          zeroMessage="采样值均为 0%，未记录到内存压力"
+          {...common}
+        />
       </div>
     </section>
   )

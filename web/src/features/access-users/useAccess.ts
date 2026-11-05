@@ -1,6 +1,6 @@
 import { usePermissions } from '@/api/permissions'
 import { needsPasswordConfirmation } from '@/api/shell'
-import { useSession } from '@/api/useSession'
+import { usePveIdentity } from '@/api/instances'
 
 /**
  * What the logged-in user may do here. The official UI checks the ticket's
@@ -9,7 +9,7 @@ import { useSession } from '@/api/useSession'
  */
 export function useAccess() {
   const perms = usePermissions()
-  const self = useSession()?.username ?? ''
+  const self = usePveIdentity() ?? ''
   return {
     self,
     userModify: perms.can({ privs: 'User.Modify', path: '/access', anywhere: true }),

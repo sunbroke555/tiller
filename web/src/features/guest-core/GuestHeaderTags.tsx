@@ -1,5 +1,5 @@
 import { useId, useRef, useState } from 'react'
-import { Check, LoaderCircle, Plus } from 'lucide-react'
+import { Check, LoaderCircle, Plus, Trash2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
@@ -9,7 +9,7 @@ import { guestBase, guestCoreKeys, updateGuestConfig, useClusterOptions, type Cl
 import { usePermissions } from '@/api/permissions'
 import { queryKeys, useClusterResources } from '@/api/queries'
 import { isGuest, type GuestResource } from '@/api/types'
-import { useSession } from '@/api/useSession'
+import { usePveIdentity } from '@/api/instances'
 import { TagChip, useTagStyle } from '@/components/TagChip'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { errorMessage } from '@/lib/errors'
 import { hexToRgb, orderTags, parseTagStyle, splitTags, tagColors, type TagStyle } from '@/lib/tags'
 
-import { tagAccessError, tagColorParams, tagStyleString } from './tagEditing'
+import { removeGuestTagParams, tagAccessError, tagColorParams, tagStyleString } from './tagEditing'
 import { tagError } from './tags'
 
 const COLORS = ['E7A6B5', 'D9B86F', 'B5C98D', '83BDA9', '82BBDD', 'A7A0DA', 'C2A4CB', 'B8BDC6']
@@ -27,28 +27,28 @@ const toHex = (rgb: readonly number[]) => rgb.map((v) => Math.round(v).toString(
 export function GuestHeaderTags({ guest }: { guest: GuestResource }) {
   const style = useTagStyle()
   const perms = usePermissions()
-  const session = useSession()
-  const ready = session?.username === 'root@pam' || perms.ready
+  const pveUser = usePveIdentity()
+  const ready = pveUser === 'root@pam' || perms.ready
   const canColor = ready && perms.can({ privs: 'Sys.Modify', path: '/' })
-  const canAdd = ready && perms.can({ privs: 'VM.Config.Options' }, { kind: 'guest', vmid: guest.vmid, pool: guest.pool })
+  const canEditTags = ready && perms.can({ privs: 'VM.Config.Options' }, { kind: 'guest', vmid: guest.vmid, pool: guest.pool })
   return (
     <span className="inline-flex min-w-0 flex-wrap items-center gap-1.5" aria-label="客户机标签">
-      {orderTags(splitTags(guest.tags), style).map((tag) => canColor ? (
-        <TagPopover key={tag} guest={guest} tag={tag} canColor={canColor} style={style} />
+      {orderTags(splitTags(guest.tags), style).map((tag) => canColor || canEditTags ? (
+        <TagPopover key={tag} guest={guest} tag={tag} canColor={canColor} canEditTags={canEditTags} style={style} />
       ) : <TagChip key={tag} tag={tag} shape="full" size="md" tagStyle={style} />)}
-      {canAdd && <TagPopover guest={guest} canColor={canColor} style={style} />}
+      {canEditTags && <TagPopover guest={guest} canColor={canColor} canEditTags={canEditTags} style={style} />}
     </span>
   )
 }
 
-function TagPopover({ guest, tag, canColor, style }: { guest: GuestResource; tag?: string; canColor: boolean; style: TagStyle }) {
+function TagPopover({ guest, tag, canColor, canEditTags, style }: { guest: GuestResource; tag?: string; canColor: boolean; canEditTags: boolean; style: TagStyle }) {
   const [open, setOpen] = useState(false)
   const busy = useRef(false)
   return (
     <Popover open={open} onOpenChange={(next) => { if (!busy.current) setOpen(next) }}>
       <PopoverTrigger asChild>
         {tag ? (
-          <button type="button" aria-label={`修改标签 ${tag} 的颜色`} title="点击修改颜色" className="rounded-full outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11">
+          <button type="button" aria-label={`编辑标签 ${tag}`} title="点击编辑标签" className="rounded-full outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11">
             <TagChip tag={tag} shape="full" size="md" tagStyle={style} />
           </button>
         ) : (
@@ -57,14 +57,14 @@ function TagPopover({ guest, tag, canColor, style }: { guest: GuestResource; tag
           </button>
         )}
       </PopoverTrigger>
-      <PopoverContent align="start" sideOffset={8} collisionPadding={12} aria-label={tag ? `修改标签 ${tag} 的颜色` : '添加标签'} className="max-h-(--radix-popover-content-available-height) w-80 max-w-[calc(100vw-1.5rem)] overflow-y-auto">
-        {open && <TagEditor guest={guest} tag={tag} canColor={canColor} onBusy={(value) => { busy.current = value }} onClose={() => setOpen(false)} />}
+      <PopoverContent align="start" sideOffset={8} collisionPadding={12} aria-label={tag ? `编辑标签 ${tag}` : '添加标签'} className="max-h-(--radix-popover-content-available-height) w-80 max-w-[calc(100vw-1.5rem)] overflow-y-auto">
+        {open && <TagEditor guest={guest} tag={tag} canColor={canColor} canEditTags={canEditTags} onBusy={(value) => { busy.current = value }} onClose={() => setOpen(false)} />}
       </PopoverContent>
     </Popover>
   )
 }
 
-function TagEditor({ guest, tag, canColor, onBusy, onClose }: { guest: GuestResource; tag?: string; canColor: boolean; onBusy: (busy: boolean) => void; onClose: () => void }) {
+function TagEditor({ guest, tag, canColor, canEditTags, onBusy, onClose }: { guest: GuestResource; tag?: string; canColor: boolean; canEditTags: boolean; onBusy: (busy: boolean) => void; onClose: () => void }) {
   const id = useId()
   const client = useQueryClient()
   const options = useClusterOptions({ refetchOnMount: 'always' })
@@ -73,12 +73,14 @@ function TagEditor({ guest, tag, canColor, onBusy, onClose }: { guest: GuestReso
   // Undefined preserves the current colour; an empty string restores the default.
   const [color, setColor] = useState<string>()
   const [added, setAdded] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [pending, setPending] = useState<'save' | 'remove' | null>(null)
+  const saving = pending !== null
   const [error, setError] = useState<string>()
   const name = input.trim()
   const editing = !!tag || added
   const style = parseTagStyle(tagStyleString(options.data ?? {}))
   const usedTags = [...new Set((resources.data ?? []).filter(isGuest).flatMap((g) => splitTags(g.tags)))]
+  const removalError = editing && options.data ? tagAccessError(name, options.data, usedTags, canColor) : null
   const suggestions = [...new Set([...usedTags, ...(options.data?.['allowed-tags'] ?? [])])]
     .filter((t) => !tagError(t, splitTags(guest.tags), style.caseSensitive) && !tagAccessError(t, options.data ?? {}, usedTags, canColor) && t.toLowerCase().includes(name.toLowerCase()))
     .sort().slice(0, 8)
@@ -98,7 +100,7 @@ function TagEditor({ guest, tag, canColor, onBusy, onClose }: { guest: GuestReso
       if (validation) return setError(validation)
     }
     if (!validColor) return setError('请输入六位十六进制颜色，例如 #82BBDD')
-    setSaving(true)
+    setPending('save')
     onBusy(true)
     let tagSaved = added
     try {
@@ -131,7 +133,33 @@ function TagEditor({ guest, tag, canColor, onBusy, onClose }: { guest: GuestReso
     } catch (e) {
       setError(`${tagSaved && !tag ? '标签已添加，颜色未保存，可重试。' : ''}${errorMessage(e)}`)
     } finally {
-      setSaving(false)
+      setPending(null)
+      onBusy(false)
+    }
+  }
+
+  async function remove() {
+    if (saving || !canEditTags || !editing) return
+    setError(undefined)
+    setPending('remove')
+    onBusy(true)
+    try {
+      const latestOptions = await get<ClusterOptions>('/cluster/options')
+      const accessError = tagAccessError(name, latestOptions, usedTags, canColor)
+      if (accessError) throw new Error(accessError)
+      const config = await get<GuestConfig>(`${guestBase(guest.node, guest.type, guest.vmid)}/config`)
+      const params = removeGuestTagParams(config, name, parseTagStyle(tagStyleString(latestOptions)).caseSensitive)
+      if (params) await updateGuestConfig(guest.node, guest.type, guest.vmid, params)
+      onClose()
+      await Promise.all([
+        client.invalidateQueries({ queryKey: queryKeys.resources() }),
+        client.invalidateQueries({ queryKey: guestCoreKeys.config(guest.node, guest.type, guest.vmid) }),
+      ])
+      toast.success('标签已从当前客户机移除')
+    } catch (e) {
+      setError(errorMessage(e))
+    } finally {
+      setPending(null)
       onBusy(false)
     }
   }
@@ -139,7 +167,7 @@ function TagEditor({ guest, tag, canColor, onBusy, onClose }: { guest: GuestReso
   return (
     <form className="grid gap-4" onSubmit={(event) => { event.preventDefault(); void save() }}>
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-medium">{editing ? '标签颜色' : '添加标签'}</h2>
+        <h2 className="text-sm font-medium">{editing ? '编辑标签' : '添加标签'}</h2>
         {name && !tagError(name, []) && <TagChip tag={name} tagStyle={previewStyle} shape="full" size="md" className="max-w-36" />}
       </div>
       {!editing && (
@@ -168,19 +196,28 @@ function TagEditor({ guest, tag, canColor, onBusy, onClose }: { guest: GuestReso
               <span className="size-6 rounded-md ring-1 ring-black/10 ring-inset" style={{ backgroundColor: `#${hex}` }} aria-hidden />
               <input type="color" aria-label="自定义标签颜色" value={`#${hex}`} onChange={(e) => setColor(e.target.value.slice(1).toUpperCase())} className="absolute inset-0 size-full cursor-pointer opacity-0" />
             </label>
-            <Input aria-label="颜色值" value={color === undefined || color === '' ? `#${hex}` : `#${color.replace(/^#/, '')}`} onChange={(e) => setColor(e.target.value.replace(/^#/, ''))} aria-invalid={!validColor} className="font-mono" spellCheck={false} />
+            <Input aria-label="颜色值" value={color === undefined || color === '' ? `#${hex}` : `#${color.replace(/^#/, '')}`} onChange={(e) => setColor(e.target.value.trim().replace(/^#/, '').toUpperCase())} aria-invalid={!validColor} className="font-mono" spellCheck={false} />
             <Button type="button" variant="ghost" size="sm" onClick={() => setColor('')} className="shrink-0">默认色</Button>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">同名标签在当前集群中共用此颜色。</p>
         </fieldset>
-      ) : <p className="text-xs text-muted-foreground">使用默认颜色，自定义颜色需要管理员权限。</p>}
+      ) : !editing && <p className="text-xs text-muted-foreground">使用默认颜色，自定义颜色需要管理员权限。</p>}
+      {editing && canEditTags && <p className="text-xs leading-relaxed text-muted-foreground">{removalError ?? '删除仅从当前客户机移除标签，保留同名标签的颜色。'}</p>}
       {(error || !validColor || options.isError) && <p role="alert" className="text-xs text-destructive">{error ?? (!validColor ? '请输入六位十六进制颜色，例如 #82BBDD' : '无法读取标签设置，请关闭后重试。')}</p>}
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={onClose}>取消</Button>
-        <Button type="submit" size="sm" disabled={saving || !options.data || !name || !validColor || (editing && color === undefined)}>
-          {saving && <LoaderCircle className="size-3.5 animate-spin" aria-hidden />}
-          {saving ? '保存中…' : editing ? '保存颜色' : '添加'}
-        </Button>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {editing && canEditTags && (
+          <Button type="button" variant="ghost" size="sm" className="mr-auto text-destructive hover:bg-destructive/10 hover:text-destructive pointer-coarse:h-11" disabled={saving || !options.data || !!removalError} onClick={() => void remove()}>
+            {pending === 'remove' ? <LoaderCircle className="size-3.5 animate-spin" aria-hidden /> : <Trash2 className="size-3.5" aria-hidden />}
+            {pending === 'remove' ? '删除中…' : '删除标签'}
+          </Button>
+        )}
+        <Button type="button" variant="ghost" size="sm" className="pointer-coarse:h-11" disabled={saving} onClick={onClose}>取消</Button>
+        {(!editing || canColor) && (
+          <Button type="submit" size="sm" className="pointer-coarse:h-11" disabled={saving || !options.data || !name || !validColor || (editing && color === undefined)}>
+            {pending === 'save' && <LoaderCircle className="size-3.5 animate-spin" aria-hidden />}
+            {pending === 'save' ? '保存中…' : editing ? '保存颜色' : '添加'}
+          </Button>
+        )}
       </div>
     </form>
   )

@@ -51,7 +51,7 @@ export const queryKeys = {
   clusterStatus: () => ['pve', 'cluster', 'status'] as const,
   tasks: () => ['pve', 'cluster', 'tasks'] as const,
   nodes: () => ['pve', 'nodes'] as const,
-  nodeRrd: (node: string, timeframe: RrdTimeframe) => ['pve', 'nodes', node, 'rrddata', timeframe] as const,
+  nodeRrd: (node: string, timeframe: RrdTimeframe, cf: 'AVERAGE' | 'MAX' = 'AVERAGE') => ['pve', 'nodes', node, 'rrddata', timeframe, cf] as const,
   version: () => ['pve', 'version'] as const,
   /** Outside `all`: realms are not user data and survive logout. */
   domains: () => ['access', 'domains'] as const,

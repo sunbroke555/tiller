@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
+import { preloadOnIntent } from '@/lib/lazyComponent'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   BadgeCheck,
@@ -33,6 +34,7 @@ import { UsageBar } from '@/components/UsageBar'
 import { formatBytes, formatPercent, formatUptime, formatUsage, ratio } from '@/lib/format'
 import { nodePath } from '@/lib/resources'
 import { cn } from '@/lib/utils'
+import { METRIC_TEXT, USAGE_HINT, usageTone } from '@/lib/metric-status'
 
 import { useCountedStorages } from './countedStorages'
 import { CountedStoragesDialog } from './CountedStoragesDialog'
@@ -376,9 +378,9 @@ function NodeTable({ nodes, statusByNode }: { nodes: NodeListEntry[]; statusByNo
                 {online && (
                   <div className="grid shrink-0 grid-cols-[auto_auto] gap-x-2 text-right text-xs leading-5">
                     <span className="text-muted-foreground">CPU</span>
-                    <span className="min-w-10 tabular">{formatPercent(n.cpu)}</span>
+                    <span title={USAGE_HINT} className={cn('min-w-10 tabular', METRIC_TEXT[usageTone(n.cpu)])}>{formatPercent(n.cpu)}</span>
                     <span className="text-muted-foreground">内存</span>
-                    <span className="min-w-10 tabular">{formatPercent(ratio(n.mem, n.maxmem))}</span>
+                    <span title={USAGE_HINT} className={cn('min-w-10 tabular', METRIC_TEXT[usageTone(ratio(n.mem, n.maxmem))])}>{formatPercent(ratio(n.mem, n.maxmem))}</span>
                   </div>
                 )}
                 <ChevronRight className="size-4 shrink-0 text-faint" />
@@ -449,7 +451,7 @@ function ManageLinks() {
             </>
           )
           return m.ready ? (
-            <Link key={m.id} to={datacenterSectionPath(m.id)} className="rounded-2xl focus-visible:outline-2 focus-visible:outline-ring">
+            <Link key={m.id} to={datacenterSectionPath(m.id)} onPointerEnter={() => preloadOnIntent(m.component)} onFocus={() => preloadOnIntent(m.component)} onTouchStart={() => preloadOnIntent(m.component)} className="rounded-2xl focus-visible:outline-2 focus-visible:outline-ring">
               <GlassCard className="flex h-full min-h-20 flex-col gap-1 transition-colors hover:bg-accent/40">{body}</GlassCard>
             </Link>
           ) : (

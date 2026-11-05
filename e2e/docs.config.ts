@@ -13,7 +13,7 @@ export default defineConfig({
   webServer: {
     command: '../server/tiller',
     url: `${baseURL}/healthz`,
-    env: { LISTEN: `127.0.0.1:${port}`, PVE_URL: 'https://127.0.0.1:1' },
+    env: { LISTEN: `127.0.0.1:${port}`, PVE_URL: '', TILLER_AUTH_FILE: `.run/docs-${port}/auth.json`, TILLER_INSTANCES_FILE: `.run/docs-${port}/instances.json` },
     reuseExistingServer: false,
     timeout: 15_000,
   },

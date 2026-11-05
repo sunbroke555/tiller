@@ -836,8 +836,9 @@
 ### 4.3 Hardware / Cloud-Init / Options / Monitor
 
 - **硬件列表 + pending** · `qemu-config/vm-hw-view` · P1
-  - 用户操作：列出全部硬件项；未生效的变更（pending）高亮，可单项“撤销”。
-  - API：`GET /nodes/{node}/qemu/{vmid}/pending`；`PUT /nodes/{node}/qemu/{vmid}/config`
+  - 用户操作：列出全部硬件项；未生效的变更（pending）高亮，可单项“撤销”；硬件和选项页可查看应用条件，并尝试在线应用符合条件且有权限的参数。
+  - API：`GET /nodes/{node}/qemu/{vmid}/pending`；`PUT /nodes/{node}/qemu/{vmid}/config`；`POST /nodes/{node}/qemu/{vmid}/config`
+  - 在线重试：按当前生效配置判定，不能使用 pending 中的热插拔开关、NUMA 或 CPU 拓扑；POST 原待生效值及原 digest，等待任务结束后重新读取 pending，逐项确认实际值。没有 dry-run 能力，未知项和设备删除不批量提交；任务 OK 不代表所有参数生效。
   - 要点：/pending 返回 key、value、pending、delete 标记。撤销 = PUT config revert=<key>。
 - **内存** · `qemu-config/vm-hw-memory` · P1
   - 用户操作：内存大小、最小内存（Ballooning）、启用/禁用 balloon 设备、KSM 允许。

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { DEFAULT_QUERY, activeFilterCount, applyGuestQuery, narrowGuests, readGuestQuery, writeGuestQuery } from './filter'
+import { DEFAULT_QUERY, activeFilterCount, applyGuestQuery, guestSortDirection, narrowGuests, readGuestQuery, sortGuests, writeGuestQuery } from './filter'
 
 const g = (vmid: number, extra: Record<string, unknown> = {}) =>
   ({ vmid, name: `g${vmid}`, type: 'qemu', status: 'stopped', node: 'pve', ...extra }) as {
@@ -45,6 +45,18 @@ describe('guest query in the URL', () => {
     expect(p.toString()).toBe('keep=1&type=qemu&tag=demo')
     expect(activeFilterCount({ ...DEFAULT_QUERY, type: 'qemu', pool: 'x', sort: 'name' })).toBe(3)
   })
+
+  it('round-trips sort direction without changing filters or old usage links', () => {
+    const q = readGuestQuery(new URLSearchParams('keep=1&sort=cpu&dir=asc&type=lxc&tag=demo&q=web'))
+    expect(guestSortDirection(q)).toBe('asc')
+    expect(readGuestQuery(writeGuestQuery(new URLSearchParams('keep=1'), q))).toEqual(q)
+    expect(writeGuestQuery(new URLSearchParams('keep=1'), q).get('keep')).toBe('1')
+    expect(guestSortDirection(readGuestQuery(new URLSearchParams('sort=cpu')))).toBe('desc')
+    expect(guestSortDirection(readGuestQuery(new URLSearchParams('sort=mem&dir=junk')))).toBe('desc')
+    expect(writeGuestQuery(new URLSearchParams('sort=cpu&dir=asc'), DEFAULT_QUERY).toString()).toBe('')
+    expect(writeGuestQuery(new URLSearchParams(), { ...DEFAULT_QUERY, direction: 'desc' }).toString()).toBe('dir=desc')
+    expect(activeFilterCount({ ...DEFAULT_QUERY, direction: 'desc' })).toBe(1)
+  })
 })
 
 describe('filtering', () => {
@@ -73,5 +85,40 @@ describe('filtering', () => {
     expect(run({ sort: 'mem' }).slice(0, 2)).toEqual([200, 101])
     expect(run({ sort: 'name' })).toEqual([200, 100, 101, 9000, 300])
     expect(run({ sort: 'status' }).slice(0, 2)).toEqual([101, 200])
+  })
+
+  it('sorts names and IDs in both directions with stable ID tie-breaks', () => {
+    const rows = [g(103, { name: 'web10' }), g(102, { name: 'WEB2' }), g(101, { name: 'web2' })]
+    expect(sortGuests(rows, 'name', 'asc').map((x) => x.vmid)).toEqual([101, 102, 103])
+    expect(sortGuests(rows, 'name', 'desc').map((x) => x.vmid)).toEqual([103, 101, 102])
+    expect(sortGuests(rows, 'vmid', 'desc').map((x) => x.vmid)).toEqual([103, 102, 101])
+    expect(rows.map((x) => x.vmid)).toEqual([103, 102, 101])
+  })
+
+  it('sorts nodes and tag sets naturally, keeping untagged guests last', () => {
+    const rows = [g(103, { node: 'pve10', tags: 'z;b' }), g(102, { node: 'pve2' }), g(101, { node: 'pve1', tags: 'A;z' })]
+    expect(sortGuests(rows, 'node', 'asc').map((x) => x.vmid)).toEqual([101, 102, 103])
+    expect(sortGuests(rows, 'node', 'desc').map((x) => x.vmid)).toEqual([103, 102, 101])
+    expect(sortGuests(rows, 'tags', 'asc').map((x) => x.vmid)).toEqual([101, 103, 102])
+    expect(sortGuests(rows, 'tags', 'desc').map((x) => x.vmid)).toEqual([103, 101, 102])
+  })
+
+  it.each(['cpu', 'mem'] as const)('keeps unavailable %s readings last in both directions and treats zero as a value', (metric) => {
+    const rows = [
+      g(100, { [metric]: 999 }),
+      g(101, { status: 'running', [metric]: 0 }),
+      g(102, { status: 'running', [metric]: 0.5 }),
+      g(103, { status: 'running' }),
+      g(104, { status: 'running', [metric]: Number.NaN }),
+      g(105, { status: 'running', template: 1, [metric]: 0.8 }),
+    ]
+    expect(sortGuests(rows, metric, 'asc').map((x) => x.vmid)).toEqual([101, 102, 100, 103, 104, 105])
+    expect(sortGuests(rows, metric, 'desc').map((x) => x.vmid)).toEqual([102, 101, 100, 103, 104, 105])
+  })
+
+  it('distinguishes templates from stopped guests when sorting status', () => {
+    const rows = [g(100, { template: 1 }), g(101), g(102, { status: 'paused' }), g(103, { status: 'running' })]
+    expect(sortGuests(rows, 'status', 'asc').map((x) => x.vmid)).toEqual([103, 102, 101, 100])
+    expect(sortGuests(rows, 'status', 'desc').map((x) => x.vmid)).toEqual([100, 101, 102, 103])
   })
 })

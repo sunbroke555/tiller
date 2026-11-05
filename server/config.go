@@ -12,7 +12,7 @@ import (
 )
 
 // Config combines deployment environment variables with saved instance
-// connection metadata. Passwords and authentication tickets are never stored.
+// connections. Administrator passwords are hashed; PVE credentials are encrypted.
 type Config struct {
 	// Listen is the address the HTTP server binds to (LISTEN, default ":8080").
 	Listen string
@@ -41,10 +41,13 @@ type Config struct {
 	// X-Forwarded-For is believed when working out the client address
 	// (TRUSTED_PROXIES, IPs/CIDRs). Without them the socket peer counts.
 	TrustedProxies []*net.IPNet
-	// InstancesFile stores connection metadata only, never passwords or tickets.
+	// InstancesFile stores connection metadata and encrypted PVE credentials.
 	InstancesFile string
 	InstanceName  string
 	Instances     []InstanceConfig
+	AuthFile      string
+	Auth          *localAuth
+	ImportDefault bool
 }
 
 const defaultPVEURL = "https://127.0.0.1:8006"
@@ -62,6 +65,7 @@ func LoadConfig(getenv func(string) string) (*Config, error) {
 	}
 
 	raw := strings.TrimSpace(getenv("PVE_URL"))
+	cfg.ImportDefault = raw != ""
 	if raw == "" {
 		raw = defaultPVEURL
 	}
@@ -121,6 +125,10 @@ func LoadConfig(getenv func(string) string) (*Config, error) {
 	}
 	if cfg.Instances, err = loadInstances(cfg.InstancesFile); err != nil {
 		return nil, err
+	}
+	cfg.AuthFile = strings.TrimSpace(getenv("TILLER_AUTH_FILE"))
+	if cfg.AuthFile == "" {
+		cfg.AuthFile = "tiller-auth.json"
 	}
 	return cfg, nil
 }

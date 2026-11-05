@@ -12,8 +12,8 @@
 // - `page` is logged in: each worker logs in through the UI once and reuses
 //   the storage state (cookie + localStorage) for every test. For a logged-out
 //   page use `test.use({ storageState: { cookies: [], origins: [] } })`.
-// - `pve` talks to the lab through the app server (/api2/json/...) with its
-//   own ticket, for setup/teardown. Writes refuse to run unless the server
+// - `pve` talks to the lab through its scoped app API with a Tiller session
+//   and the server-held API Token, for setup/teardown. Writes refuse to run unless the server
 //   proxies the lab node (PVE_LAB_NODE), never production.
 // - Name everything a test creates "e2e-…" so `pve.sweep()` can clean up
 //   leftovers of crashed runs.
@@ -157,11 +157,27 @@ export class PveApi {
   constructor(
     readonly ctx: APIRequestContext,
     readonly node: string,
+    readonly apiBase = '/api2/json',
   ) {}
 
   static async login(user = env.user, password = env.password, baseURL = env.baseURL): Promise<PveApi> {
+    if (user === env.user && baseURL === env.baseURL) {
+      const connection = testConnection(baseURL)
+      const anon = await request.newContext({ baseURL })
+      try {
+        const res = await anon.post('/api/auth/login', { data: { username: connection.username, password: connection.password } })
+        if (!res.ok()) throw new Error(`Tiller test login failed: HTTP ${res.status()}`)
+        const { session } = await res.json()
+        const ctx = await request.newContext({ baseURL, storageState: await anon.storageState(), extraHTTPHeaders: { CSRFPreventionToken: session.csrfToken } })
+        return new PveApi(ctx, env.node, `/api/instances/${connection.instance.id}/${connection.instance.version}/api2/json`)
+      } finally { await anon.dispose() }
+    }
+    // Tests that explicitly verify a PVE user's password talk directly to the
+    // lab. This is separate from Tiller's administrator authentication.
+    baseURL = process.env.PVE_LAB_URL ?? ''
+    if (!baseURL || new URL(baseURL).hostname === '192.168.0.6') throw new Error('Refusing non-lab authentication')
     if (!password) throw new Error('缺少密码：先 source ~/.config/pve-web/lab.env（PVE_LAB_PASSWORD）')
-    const anon = await request.newContext({ baseURL })
+    const anon = await request.newContext({ baseURL, ignoreHTTPSErrors: true })
     const res = await anon.post('/api2/json/access/ticket', {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       data: form({ username: user, password }),
@@ -170,7 +186,7 @@ export class PveApi {
     const { data } = (await res.json()) as { data: { ticket: string; CSRFPreventionToken: string } }
     await anon.dispose()
     const ctx = await request.newContext({
-      baseURL,
+      baseURL, ignoreHTTPSErrors: true,
       extraHTTPHeaders: {
         Cookie: `PVEAuthCookie=${encodeURIComponent(data.ticket)}`,
         CSRFPreventionToken: data.CSRFPreventionToken,
@@ -188,7 +204,7 @@ export class PveApi {
       throw new Error(`手机布局的测试不写实验机：${method} ${apiPath}（写操作放到 @lab 测试里）`)
     }
     if (method !== 'GET') await this.assertLab()
-    const url = `/api2/json${apiPath}`
+    const url = `${this.apiBase}${apiPath}`
     const body = form(params)
     const res =
       method === 'GET' || method === 'DELETE'
@@ -325,43 +341,27 @@ export class PveApi {
 // ------------------------------------------------------------- UI login
 
 const AUTH_DIR = path.join(import.meta.dirname, '.auth')
-/** Reuse a saved login for this long (tickets live 2 h). */
-const AUTH_MAX_AGE_MS = 80 * 60 * 1000
+export function testConnection(baseURL = env.baseURL): { username: string; password: string; instance: { id: string; version: string } } {
+  const file = process.env.TILLER_E2E_CONNECTION_FILE ?? path.join(import.meta.dirname, '.run', `server-${new URL(baseURL).port}.connection.json`)
+  return JSON.parse(fs.readFileSync(file, 'utf8'))
+}
 
-/** Log in through the login page and save the storage state; returns its path. */
-export async function uiLogin(browser: Browser, user = env.user, password = env.password): Promise<string> {
+/** Log in through Tiller's UI; each worker gets an independent session. */
+export async function uiLogin(browser: Browser): Promise<string> {
   fs.mkdirSync(AUTH_DIR, { recursive: true })
-  const file = path.join(AUTH_DIR, `${user.replace(/[^\w.-]/g, '_')}.json`)
-  try {
-    if (Date.now() - fs.statSync(file).mtimeMs < AUTH_MAX_AGE_MS) return file
-  } catch {
-    // no saved state yet
-  }
-  if (!password) throw new Error('缺少密码：先 source ~/.config/pve-web/lab.env（PVE_LAB_PASSWORD）')
-  const { username, realm } = splitUser(user)
-  // Inside a test, browser.newContext() inherits the project's (logged-in)
-  // storageState, and /login would redirect away: start empty explicitly.
+  const { username, password } = testConnection()
+  const file = path.join(AUTH_DIR, `${new URL(env.baseURL).port}-${process.pid}.json`)
   const context = await browser.newContext({ baseURL: env.baseURL, locale: 'zh-CN', storageState: { cookies: [], origins: [] } })
   const page = await context.newPage()
   try {
     await page.goto('/login')
-    await page.getByLabel('用户名').fill(username)
+    await page.getByLabel('用户名', { exact: true }).fill(username)
     await page.getByLabel('密码', { exact: true }).fill(password)
-    const realmBox = page.getByRole('combobox', { name: '认证域' })
-    await expect(realmBox).toBeEnabled()
-    if (!(await realmBox.textContent())?.includes(`@${realm}`)) {
-      await realmBox.click()
-      await page.getByRole('option', { name: new RegExp(`@${realm}$`) }).click()
-    }
-    await page.getByRole('button', { name: '登录' }).click()
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 20_000 })
-    // Workers log in in parallel: write, then rename, so nobody reads half a file.
-    const tmp = `${file}.${process.pid}.tmp`
-    await context.storageState({ path: tmp })
-    fs.renameSync(tmp, file)
-  } finally {
-    await context.close()
-  }
+    await page.getByRole('button', { name: '登录', exact: true }).click()
+    await expect(page.getByRole('heading', { name: '概览', exact: true })).toBeVisible()
+    await context.storageState({ path: file })
+    fs.chmodSync(file, 0o600)
+  } finally { await context.close() }
   return file
 }
 
@@ -390,6 +390,15 @@ interface WorkerFixtures {
 export const test = base.extend<TestFixtures, WorkerFixtures>({
   authFile: [async ({ browser }, use) => use(await uiLogin(browser)), { scope: 'worker' }],
   storageState: async ({ authFile }, use) => use(authFile),
+  // Existing feature specs address routes relative to the lab instance.
+  // Global authentication/aggregation specs import Playwright directly.
+  page: async ({ page }, use) => {
+    const { instance } = testConnection()
+    const goto = page.goto.bind(page)
+    page.goto = (url, options) => goto(url.startsWith('/') && !/^\/(login|docs|api|i)(\/|$)/.test(url)
+      ? `/i/${instance.id}/${instance.version}${url}` : url, options)
+    await use(page)
+  },
 
   pve: [
     async ({}, use, workerInfo) => {

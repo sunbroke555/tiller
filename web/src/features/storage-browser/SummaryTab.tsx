@@ -18,6 +18,7 @@ import { STORAGE_CONTENT_LABEL, storageContents, type StorageTabProps } from '@/
 import { DASH, formatBytes, formatPercent, ratio } from '@/lib/format'
 import { storagePath } from '@/lib/resources'
 import { cn } from '@/lib/utils'
+import { METRIC_TEXT, USAGE_HINT, usageTone } from '@/lib/metric-status'
 
 import { CONTENT_ICON, CONTENT_ORDER, storageTypeLabel } from './labels'
 import { UsageChart } from './UsageChart'
@@ -73,7 +74,7 @@ export default function SummaryTab({ node, storage, resource }: StorageTabProps)
               {status.isPending && !resource.maxdisk ? (
                 <Skeleton className="mt-2 h-9 w-28" />
               ) : (
-                <div className="mt-1 text-4xl font-semibold tracking-tight text-foreground tabular paper:font-serif">
+                <div title={USAGE_HINT} className={cn('mt-1 text-4xl font-semibold tracking-tight text-foreground tabular paper:font-serif', METRIC_TEXT[usageTone(usage)])}>
                   {formatPercent(usage)}
                 </div>
               )}

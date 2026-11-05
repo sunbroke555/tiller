@@ -11,6 +11,8 @@ import { StatusDot } from '@/components/StatusDot'
 import { UsageBar } from '@/components/UsageBar'
 import { formatCores, formatPercent, formatUptime, formatUsage, ratio } from '@/lib/format'
 import { nodePath, statusLabel } from '@/lib/resources'
+import { METRIC_TEXT, USAGE_HINT, usageTone } from '@/lib/metric-status'
+import { cn } from '@/lib/utils'
 
 interface NodeCardProps {
   node: NodeResource
@@ -60,9 +62,9 @@ export function NodeCard({ node, storages }: NodeCardProps) {
             <div className="mt-4 flex items-end gap-3">
               <div className="shrink-0">
                 <div className="text-xs text-muted-foreground">CPU</div>
-                <div className="text-2xl leading-tight font-medium tabular">{formatPercent(node.cpu)}</div>
+                <div title={USAGE_HINT} className={cn('text-2xl leading-tight font-medium tabular', METRIC_TEXT[usageTone(node.cpu)])}>{formatPercent(node.cpu)}</div>
               </div>
-              <Sparkline values={cpuHistory} min={0} max={cpuScale} className="h-10 flex-1" aria-label="最近一小时 CPU 使用率" />
+              <Sparkline values={cpuHistory} min={0} max={cpuScale} className="h-10 min-w-0 flex-1" aria-label="最近一小时 CPU 使用率" />
             </div>
             <div className="mt-4 grid gap-3">
               <UsageBar label="内存" value={ratio(node.mem, node.maxmem)} detail={formatUsage(node.mem, node.maxmem)} />

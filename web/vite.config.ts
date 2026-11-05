@@ -79,6 +79,24 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: false,
     chunkSizeWarningLimit: 900,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            // Group shared dependencies instead of preloading hundreds of tiny
+            // icon, primitive and API chunks over HTTP/1.1.
+            { name: 'framework', test: /node_modules\/(?:react(?:-dom|-router|-is)?|scheduler|use-sync-external-store|@tanstack\/[^/]+)\//, priority: 50 },
+            { name: 'ui', test: /node_modules\/(?:@radix-ui\/[^/]+|radix-ui|@floating-ui\/[^/]+|lucide-react|vaul|cmdk|sonner)\//, priority: 40 },
+            { name: 'utilities', test: /node_modules\/(?:clsx|tailwind-merge|class-variance-authority)\//, priority: 40 },
+            // These large libraries must stay out of the initial app shell.
+            { name: 'charts', test: /node_modules\/recharts\//, priority: 30 },
+            { name: 'terminal', test: /node_modules\/@xterm\//, priority: 30 },
+            { name: 'vnc', test: /node_modules\/@novnc\//, priority: 30 },
+            { name: 'shared', test: /\/src\/(?:(?:api|lib|hooks|theme)\/|components\/(?!charts\/))/, minShareCount: 2, priority: 10 },
+          ],
+        },
+      },
+    },
   },
   test: {
     environment: 'jsdom',

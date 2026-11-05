@@ -3,7 +3,7 @@ import { Check, Copy, Download, KeyRound } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { addTfa, deleteTfa, needsPasswordConfirmation, updateTfa, type TfaEntry } from '@/api/shell'
-import { useSession } from '@/api/useSession'
+import { usePveIdentity } from '@/api/instances'
 import { FieldInput, FormDialog, FormField } from '@/components/form'
 import { QrCode } from '@/components/QrCode'
 import { ResponsiveDialog } from '@/components/ResponsiveDialog'
@@ -23,14 +23,14 @@ interface Common {
  * root@pam), which differs from `userid` when an admin manages another user.
  */
 export function useNeedsPassword(userid: string): boolean {
-  return needsPasswordConfirmation(useSession()?.username ?? userid)
+  return needsPasswordConfirmation(usePveIdentity() ?? userid)
 }
 
 function PasswordField({ userid, value, onChange }: { userid: string; value: string; onChange: (v: string) => void }) {
-  const actor = useSession()?.username ?? userid
+  const actor = usePveIdentity() ?? userid
   if (!needsPasswordConfirmation(actor)) return null
   return (
-    <FormField label="当前密码" name="password" required hint={actor === userid ? '确认是你本人在修改两步验证' : `输入你（${actor}）的密码以确认`}>
+    <FormField label="当前密码" name="password" required hint={actor === userid ? '确认是你本人在修改两步验证' : `输入 PVE 账户 ${actor} 的密码以确认`}>
       <FieldInput type="password" autoComplete="current-password" value={value} onChange={(e) => onChange(e.target.value)} />
     </FormField>
   )

@@ -1,6 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 
-async function mockAPI(page: Page) {
+async function mockAPI(page: Page, authenticated = false) {
+  await page.route('**/api/auth/session', (route) => route.fulfill({ json: { setupRequired: false, session: authenticated ? { username: 'admin', csrfToken: 'mock', ticketIssuedAt: Date.now(), expiresAt: Date.now() + 3600000 } : null } }))
+  await page.route('**/api2/tiller/instances*', (route) => route.fulfill({ json: { canManage: true, instances: [{ id: 'a'.repeat(24), version: 'b'.repeat(24), name: 'Docs demo', hasCredential: true }] } }))
   await page.route('**/api/config', (route) => route.fulfill({ json: { consentText: '' } }))
   await page.route('**/api2/json/**', (route) => {
     const path = new URL(route.request().url()).pathname
@@ -46,7 +48,7 @@ test('中文和配置名可搜索，空结果可恢复', async ({ page }) => {
   await expect(result).toBeVisible()
   await result.click()
   await expect(input).toBeHidden()
-  await expect(page).toHaveURL(/\/docs\/guide\/(configuration|install|troubleshooting)/)
+  await expect(page).toHaveURL(/\/docs\/guide\/(configuration|docker|install|troubleshooting)/)
 })
 
 test('手机目录可以跳转章节 @mobile', async ({ page }) => {
@@ -80,17 +82,12 @@ test('PWA 接管后登录页仍能打开文档，并返回 Tiller', async ({ pag
   await expect(docs.getByRole('heading', { level: 1 })).toHaveText('Tiller 使用手册')
   await mockAPI(docs)
   await docs.getByRole('link', { name: '返回 Tiller' }).click()
-  await expect(docs).toHaveURL(/\/login/)
-  await expect(docs.getByLabel('用户名')).toBeVisible()
+  await expect(docs.getByRole('heading', { name: '登录 Tiller' })).toBeVisible()
 })
 
 test('账户菜单有可用的文档入口', async ({ page, context }) => {
-  await mockAPI(page)
-  await page.addInitScript(() => {
-    localStorage.setItem('tiller:session', JSON.stringify({ username: 'reader@pve', csrfToken: 'mock', ticketIssuedAt: Date.now() }))
-    document.cookie = 'tiller-session=1; Path=/'
-  })
-  await page.goto('/')
+  await mockAPI(page, true)
+  await page.goto(`/i/${'a'.repeat(24)}/${'b'.repeat(24)}/`)
   await page.getByRole('button', { name: '账户菜单' }).click()
   const popupPromise = context.waitForEvent('page')
   await page.getByRole('menuitem', { name: '使用文档' }).click()
@@ -117,7 +114,7 @@ test('所有目录、正文链接和锚点可达，缺失章节返回 404 @deskt
       if (!visited.has(url.pathname)) pending.push(url.pathname)
     }
   }
-  expect(visited.size).toBe(13)
+  expect(visited.size).toBe(14)
   for (const href of links) {
     const url = new URL(href)
     if (url.hash) expect(visited.get(url.pathname)?.has(decodeURIComponent(url.hash.slice(1))), href).toBe(true)

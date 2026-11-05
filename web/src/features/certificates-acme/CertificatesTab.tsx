@@ -3,7 +3,7 @@
 
 import { usePermissions } from '@/api/permissions'
 import { useNodeAcmeConfig } from '@/api/certificates-acme'
-import { useSession } from '@/api/useSession'
+import { usePveIdentity } from '@/api/instances'
 import type { NodeTabProps } from '@/features/node/types'
 
 import { AcmeClusterSection } from './AcmeClusterSection'
@@ -14,13 +14,13 @@ import { useLocalNode } from './shared'
 
 export default function CertificatesTab({ node }: NodeTabProps) {
   const perms = usePermissions()
-  const session = useSession()
+  const pveUser = usePveIdentity()
   const localNode = useLocalNode()
   const config = useNodeAcmeConfig(node)
 
   const canModify = perms.can({ privs: 'Sys.Modify' }, { kind: 'node', node })
   const canModifyRoot = perms.can({ privs: 'Sys.Modify', path: '/' })
-  const isRoot = session?.username === 'root@pam'
+  const isRoot = pveUser === 'root@pam'
   const isLocal = localNode === node
 
   return (

@@ -2,12 +2,13 @@ import { useMemo, type CSSProperties, type ComponentProps } from 'react'
 import { Check } from 'lucide-react'
 
 import { useClusterOptions } from '@/api/shell'
+import type { InstanceScope } from '@/api/instance-scope'
 import { contrastText, orderTags, parseTagStyle, rgbCss, splitTags, tagColors, type TagStyle } from '@/lib/tags'
 import { cn } from '@/lib/utils'
 
 /** The datacenter tag style (colour overrides, shape, ordering); defaults until loaded. */
-export function useTagStyle(): TagStyle {
-  const { data } = useClusterOptions()
+export function useTagStyle(instance?: InstanceScope): TagStyle {
+  const { data } = useClusterOptions(instance)
   const raw: unknown = data?.['tag-style']
   return useMemo(() => parseTagStyle(tagStyleString(raw)), [raw])
 }
@@ -107,7 +108,7 @@ export function TagList({ tags, max, size, className }: { tags: string | undefin
   )
 }
 
-/** Toggleable tag for filter rows (44px touch target on phones). */
+/** Compact filter pill inside a 44px touch target on phones. */
 export function TagFilterChip({
   tag,
   count,
@@ -125,18 +126,23 @@ export function TagFilterChip({
     <button
       type="button"
       aria-pressed={selected}
+      title={tag}
       onClick={onToggle}
       style={s.css}
-      className={cn(
-        'tag-palette inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors pointer-coarse:h-11 pointer-coarse:px-3.5',
-        selected
-          ? 'border-[color-mix(in_oklab,var(--tag-tone)_40%,var(--border))] bg-[color-mix(in_oklab,var(--tag-tone)_18%,var(--field))] text-foreground'
-          : 'border-border bg-(--field) text-foreground/80 hover:text-foreground',
-      )}
+      className="tag-palette group inline-flex h-8 min-w-11 shrink-0 items-center justify-center rounded-full text-xs font-medium pointer-coarse:h-11"
     >
-      {selected ? <Check className="size-3.5" aria-hidden /> : <span aria-hidden className="size-2 rounded-full bg-(--tag-tone)" />}
-      <span className="max-w-32 truncate">{tag}</span>
-      {count !== undefined && <span className="text-muted-foreground tabular">{count}</span>}
+      <span
+        className={cn(
+          'inline-flex h-7 w-full items-center justify-center gap-1 rounded-full border px-2 text-xs transition-colors lg:h-8 lg:gap-1.5 lg:px-3',
+          selected
+            ? 'border-[color-mix(in_oklab,var(--tag-tone)_40%,var(--border))] bg-[color-mix(in_oklab,var(--tag-tone)_18%,var(--field))] text-foreground'
+            : 'border-border bg-(--field) text-foreground/80 group-hover:text-foreground',
+        )}
+      >
+        {selected ? <Check className="size-3 shrink-0 lg:size-3.5" aria-hidden /> : <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-(--tag-tone) lg:size-2" />}
+        <span className="max-w-24 truncate lg:max-w-32">{tag}</span>
+        {count !== undefined && <span className="shrink-0 text-muted-foreground tabular">{count}</span>}
+      </span>
     </button>
   )
 }

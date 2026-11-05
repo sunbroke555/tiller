@@ -58,11 +58,26 @@ describe('resource tree', () => {
     expect(shape(buildTree(R, { ...DEFAULT_TREE_PREFS, group: 'tag' }, 'zzz'))).toEqual([])
   })
 
+  it('filters VM and CT resources without mixing storage or other guest types', () => {
+    expect(shape(buildTree(R, { ...DEFAULT_TREE_PREFS, guestType: 'lxc' }))).toEqual([
+      ['b', [200], []],
+    ])
+    expect(shape(buildTree(R, { ...DEFAULT_TREE_PREFS, guestType: 'qemu' }, 'tpl'))).toEqual([
+      ['b', [9000], []],
+    ])
+    expect(shape(buildTree(R, { ...DEFAULT_TREE_PREFS, guestType: 'lxc', group: 'tag' }))).toEqual([
+      ['没有标签', [200], []],
+    ])
+  })
+
   it('persists prefs and tolerates junk', () => {
     saveTreePrefs({ ...DEFAULT_TREE_PREFS, group: 'tag', collapsed: { 'node:a': true } })
     expect(loadTreePrefs()).toMatchObject({ group: 'tag', collapsed: { 'node:a': true } })
     localStorage.setItem('tiller:resource-tree', '{"group":"weird"}')
     expect(loadTreePrefs().group).toBe('node')
+    expect(loadTreePrefs()).toMatchObject({ view: 'current', guestType: 'all' })
+    saveTreePrefs({ ...DEFAULT_TREE_PREFS, view: 'all', guestType: 'lxc', collapsed: { 'instance:a:v/node:pve/storage': false } })
+    expect(loadTreePrefs()).toMatchObject({ view: 'all', guestType: 'lxc', collapsed: { 'instance:a:v/node:pve/storage': false } })
     localStorage.setItem('tiller:resource-tree', 'not json')
     expect(loadTreePrefs()).toEqual(DEFAULT_TREE_PREFS)
   })

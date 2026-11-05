@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { CornerDownLeft, Eraser, Gauge, Loader2, PowerOff } from 'lucide-react'
 
 import { qemuMonitor } from '@/api/qemu-config'
-import { useSession } from '@/api/useSession'
+import { usePveIdentity } from '@/api/instances'
 import { EmptyState } from '@/components/EmptyState'
 import { GlassCard } from '@/components/GlassCard'
 import { Button } from '@/components/ui/button'
@@ -36,8 +36,8 @@ function trim(entries: Entry[]): Entry[] {
 
 /** /guest/:node/qemu/:vmid/monitor — QEMU human monitor (HMP) console. */
 export default function MonitorTab({ node, vmid, guest }: GuestTabProps) {
-  const session = useSession()
-  const isRoot = session?.username === 'root@pam'
+  const pveUser = usePveIdentity()
+  const isRoot = pveUser === 'root@pam'
   const [entries, setEntries] = useState<Entry[]>([])
   const [command, setCommand] = useState('')
   const [history, setHistory] = useState<string[]>([])

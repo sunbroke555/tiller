@@ -27,6 +27,7 @@ import {
   FILTERS,
   applyGuestQuery,
   filterGuests,
+  guestSortDirection,
   narrowGuests,
   readGuestQuery,
   writeGuestQuery,
@@ -138,7 +139,7 @@ export function OverviewPage() {
       {resources.isError && !resources.data ? (
         <ErrorCard error={resources.error} onRetry={() => void resources.refetch()} title="无法加载资源" />
       ) : (
-        <div className="grid gap-(--section-gap)">
+        <div className="grid grid-cols-1 gap-(--section-gap)">
           <section aria-label="统计" className="grid grid-cols-3 gap-(--row-gap)">
             <Stat to="/datacenter" icon={Server} label="节点" value={stats.nodesOnline} total={nodes.length} loading={resources.isPending} />
             <Stat
@@ -161,7 +162,7 @@ export function OverviewPage() {
 
           <section aria-labelledby="nodes-heading">
             <SectionHeader title={<span id="nodes-heading">节点</span>} />
-            <div className="grid gap-(--row-gap) sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-(--row-gap) sm:grid-cols-2 xl:grid-cols-3">
               {resources.isPending
                 ? Array.from({ length: 2 }, (_, i) => <Skeleton key={i} className="h-56 rounded-2xl" />)
                 : nodes.map((n) => (
@@ -220,6 +221,9 @@ export function OverviewPage() {
                   guests={visible}
                   showNode={nodes.length > 1}
                   showPool={!query.pool && pools.length > 0}
+                  sort={query.sort}
+                  direction={guestSortDirection(query)}
+                  onSort={(sort, direction) => setQuery({ ...query, sort, direction })}
                   selected={selecting ? selected : undefined}
                   onToggle={selecting ? toggleSelected : undefined}
                 />

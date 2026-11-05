@@ -15,6 +15,9 @@ export type RrdUnit = 'percent' | 'bytes' | 'bytesPerSecond' | 'number'
 
 export type RrdCfValue = 'AVERAGE' | 'MAX'
 
+/** Breathing room above capacity lines, without rounding up to another capacity. */
+export const CAPACITY_HEADROOM = 0.08
+
 export const RRD_TIMEFRAMES: readonly { value: RrdTimeframe; label: string; long: string }[] = [
   { value: 'hour', label: '时', long: '最近一小时' },
   { value: 'day', label: '天', long: '最近一天' },
@@ -173,6 +176,13 @@ export function rowsEmpty(rows: readonly RrdRow[], keys: readonly string[]): boo
   return !rows.some((r) => keys.some((k) => isNum(r[k])))
 }
 
+/** Every series has samples, and all recorded values are zero; gaps are not zero samples. */
+export function rowsAllZero(rows: readonly RrdRow[], keys: readonly string[]): boolean {
+  return keys.length > 0 && keys.every((key) =>
+    !rowsEmpty(rows, [key]) && rows.every((row) => !isNum(row[key]) || row[key] === 0),
+  )
+}
+
 /** Latest non-null value of a series. */
 export function latestValue(rows: readonly RrdRow[], key: string): number | null {
   for (let i = rows.length - 1; i >= 0; i--) {
@@ -197,4 +207,14 @@ export function maxValue(rows: readonly RrdRow[], keys: readonly string[], stack
     }
   }
   return max
+}
+
+/** Capacity charts anchor their ticks at the largest recorded capacity.
+ * Include actual readings above capacity (e.g. VM host overhead) rather than clipping them.
+ * Missing capacity keeps the chart's normal automatic scale.
+ */
+export function capacityAxisMax(capacities: readonly unknown[] | undefined, readings: readonly unknown[] = []): number | undefined {
+  const capacity = (capacities ?? []).reduce<number>((max, value) => isNum(value) && value > max ? value : max, 0)
+  if (capacity <= 0) return undefined
+  return readings.reduce<number>((max, value) => isNum(value) && value > max ? value : max, capacity)
 }

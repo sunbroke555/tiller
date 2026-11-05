@@ -21,7 +21,8 @@ import { useClusterResources } from '@/api/queries'
 import { isNode } from '@/api/types'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import type { GuestTabProps } from '@/features/guest/types'
-import { formatBytes, formatPercent } from '@/lib/format'
+import { formatBytes, formatPercent, ratio } from '@/lib/format'
+import { METRIC_TEXT, usageTone } from '@/lib/metric-status'
 import { cn } from '@/lib/utils'
 
 import { useDialog } from './hooks'
@@ -103,7 +104,7 @@ function ResourcesBody({ api, props }: { api: LxcConfigApi; props: GuestTabProps
             icon={MemoryStick}
             label="内存"
             value={formatMiB(cfg.memory ?? 512)}
-            detail={api.running && guest.mem !== undefined ? `已用 ${formatBytes(guest.mem)}` : undefined}
+            detail={api.running && guest.mem !== undefined ? <span className={METRIC_TEXT[usageTone(ratio(guest.mem, guest.maxmem))]}>已用 {formatBytes(guest.mem)}</span> : undefined}
             pending={pending('memory')}
             onEdit={() => memory.show(true)}
             onRevert={revert('memory')}
@@ -125,7 +126,7 @@ function ResourcesBody({ api, props }: { api: LxcConfigApi; props: GuestTabProps
             label="核心数"
             value={cfg.cores ? `${cfg.cores} 核` : '不限'}
             muted={!cfg.cores}
-            detail={api.running && guest.cpu !== undefined ? `当前使用 ${formatPercent(Math.max(0, guest.cpu))}` : undefined}
+            detail={api.running && guest.cpu !== undefined ? <span className={METRIC_TEXT[usageTone(guest.cpu)]}>当前使用 {formatPercent(Math.max(0, guest.cpu))}</span> : undefined}
             pending={pending('cores')}
             onEdit={() => cpu.show(true)}
             onRevert={revert('cores')}

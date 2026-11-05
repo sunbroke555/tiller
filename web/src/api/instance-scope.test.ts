@@ -11,21 +11,18 @@ afterEach(() => {
 })
 
 describe('instance isolation', () => {
-  it('keeps session metadata and markers separate from the default instance', async () => {
-    localStorage.setItem('tiller:session', JSON.stringify({ username: 'root@pam', csrfToken: 'default', ticketIssuedAt: Date.now() }))
-    document.cookie = 'tiller-session=1; Path=/'
-    window.history.replaceState(null, '', scopePath + '/login')
+  it('shares the Tiller admin login across instance pages and clears it globally', async () => {
+    localStorage.setItem('tiller:admin-session', JSON.stringify({ username: 'admin', csrfToken: 'tiller-csrf', ticketIssuedAt: Date.now(), expiresAt: Date.now() + 3600000 }))
+    document.cookie = 'tiller-admin-session=1; Path=/'
+    window.history.replaceState(null, '', scopePath + '/')
     vi.resetModules()
     const session = await import('./session')
-    expect(session.getSession()).toBeNull()
-    session.setSession({ username: 'alice@pve', csrfToken: 'other', ticketIssuedAt: Date.now() })
-    expect(session.getSession()?.username).toBe('alice@pve')
-    expect(localStorage.getItem('tiller:session')).toContain('default')
-    expect(localStorage.getItem(`tiller:session:${id}:${version}`)).toContain('other')
+    expect(session.getSession()?.username).toBe('admin')
+    expect(session.getSession()?.csrfToken).toBe('tiller-csrf')
+    expect(localStorage.getItem(`tiller:admin-session:${id}:${version}`)).toBeNull()
     session.clearSession()
-    expect(localStorage.getItem('tiller:session')).toContain('default')
-    expect(document.cookie).toContain('tiller-session=1')
-    expect(document.cookie).not.toContain(`tiller-session-${id}-${version}=1`)
+    expect(localStorage.getItem('tiller:admin-session')).toBeNull()
+    expect(document.cookie).not.toContain('tiller-admin-session=1')
   })
 
   it('scopes API, download, websocket and OpenID URLs to the same connection', async () => {

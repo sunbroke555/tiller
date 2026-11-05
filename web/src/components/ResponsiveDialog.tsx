@@ -1,4 +1,4 @@
-import { useState, type FocusEvent, type ReactNode } from 'react'
+import { useRef, useState, type FocusEvent, type ReactNode } from 'react'
 
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 
@@ -88,6 +88,24 @@ export function ResponsiveDialog({
   const desktop = useIsDesktop()
   const keyboard = useKeyboardBox(open && !desktop)
   const [askDiscard, setAskDiscard] = useState(false)
+  // These controlled dialogs are usually opened by ordinary settings rows,
+  // so Radix has no DialogTrigger ref to return focus to on close.
+  const opener = useRef<HTMLElement | null>(null)
+  const rememberOpener = (event: Event) => {
+    const active = document.activeElement
+    const content = event.currentTarget as HTMLElement | null
+    if (active instanceof HTMLElement && active !== document.body && !content?.contains(active)) opener.current = active
+  }
+  const restoreOpener = (event: Event) => {
+    const active = document.activeElement
+    const content = event.currentTarget as HTMLElement | null
+    // A different dialog may already own focus while this one exits.
+    if ((!active || active === document.body || content?.contains(active)) && opener.current?.isConnected) {
+      event.preventDefault()
+      opener.current.focus({ preventScroll: true })
+    }
+    opener.current = null
+  }
   const guard = dismissible && confirmDiscard
   if (!open && askDiscard) setAskDiscard(false)
   const change = (o: boolean) => {
@@ -118,6 +136,8 @@ export function ResponsiveDialog({
           showCloseButton={dismissible}
           className={cn('flex max-h-[min(88dvh,56rem)] flex-col gap-0 p-0', DESKTOP_WIDTH[size], className)}
           onInteractOutside={(e) => !dismissible && e.preventDefault()}
+          onOpenAutoFocus={rememberOpener}
+          onCloseAutoFocus={restoreOpener}
         >
           {wrap(
             <>
@@ -173,10 +193,12 @@ export function ResponsiveDialog({
         // focus into the sheet ourselves so the focus trap engages and screen
         // readers announce it. A field with autoFocus keeps its focus.
         onOpenAutoFocus={(e) => {
+          rememberOpener(e)
           e.preventDefault()
           const content = e.currentTarget as HTMLElement | null
           if (content && !content.contains(document.activeElement)) content.focus({ preventScroll: true })
         }}
+        onCloseAutoFocus={restoreOpener}
         onPointerDownOutside={(e) => {
           if (guard) {
             e.preventDefault()

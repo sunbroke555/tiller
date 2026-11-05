@@ -1,5 +1,8 @@
 import { cn } from '@/lib/utils'
 import { formatPercent } from '@/lib/format'
+import { METRIC_TEXT, USAGE_HINT, usageTone } from '@/lib/metric-status'
+
+export { usageTone } from '@/lib/metric-status'
 
 interface UsageBarProps {
   /** 0..1, or null when unknown. */
@@ -9,14 +12,10 @@ interface UsageBarProps {
   detail?: string
   /** Show the percentage next to the detail. */
   showPercent?: boolean
+  /** Let long details wrap instead of truncating on narrow cards. */
+  wrapDetail?: boolean
   size?: 'sm' | 'md'
   className?: string
-}
-
-export function usageTone(value: number): 'normal' | 'high' | 'critical' {
-  if (value >= 0.9) return 'critical'
-  if (value >= 0.75) return 'high'
-  return 'normal'
 }
 
 const FILL: Record<ReturnType<typeof usageTone>, string> = {
@@ -25,16 +24,17 @@ const FILL: Record<ReturnType<typeof usageTone>, string> = {
   critical: 'bg-destructive',
 }
 
-export function UsageBar({ value, label, detail, showPercent = true, size = 'md', className }: UsageBarProps) {
+export function UsageBar({ value, label, detail, showPercent = true, wrapDetail = false, size = 'md', className }: UsageBarProps) {
   const known = typeof value === 'number' && Number.isFinite(value)
   const v = known ? Math.min(Math.max(value, 0), 1) : 0
   const pct = formatPercent(known ? v : null)
+  const tone = usageTone(known ? v : null)
   return (
     <div className={cn('min-w-0', className)}>
       {(label || detail || showPercent) && (
-        <div className="mb-1.5 flex items-baseline justify-between gap-3 text-xs">
-          {label && <span className="text-muted-foreground">{label}</span>}
-          <span className="ml-auto truncate text-foreground/90 tabular">
+        <div className={cn('mb-1.5 flex items-baseline justify-between gap-3 text-xs', wrapDetail && 'flex-wrap gap-y-1')}>
+          {label && <span className={cn('text-muted-foreground', wrapDetail && 'shrink-0')}>{label}</span>}
+          <span title={USAGE_HINT} className={cn('ml-auto text-foreground/90 tabular', METRIC_TEXT[tone], wrapDetail ? 'min-w-0 max-w-full text-right [overflow-wrap:anywhere]' : 'truncate')}>
             {detail}
             {detail && showPercent && <span className="text-muted-foreground"> · </span>}
             {showPercent && pct}
@@ -43,6 +43,7 @@ export function UsageBar({ value, label, detail, showPercent = true, size = 'md'
       )}
       <div
         role="meter"
+        data-metric-tone={tone}
         aria-label={label}
         aria-valuemin={0}
         aria-valuemax={100}
@@ -55,7 +56,7 @@ export function UsageBar({ value, label, detail, showPercent = true, size = 'md'
       >
         {known && (
           <div
-            className={cn('h-full rounded-full transition-[width] duration-700 ease-out', FILL[usageTone(v)])}
+            className={cn('h-full rounded-full transition-[width,background-color] duration-700 ease-out', FILL[tone])}
             style={{ width: `${Math.max(v * 100, v > 0 ? 1.5 : 0)}%` }}
           />
         )}

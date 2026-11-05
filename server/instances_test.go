@@ -8,160 +8,252 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 )
 
-func instanceBackend(t *testing.T, name string) *httptest.Server {
-	t.Helper()
-	ticket := "PVE:root@pam:" + name + "::valid"
-	b := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if r.URL.Path == "/api2/json/access/ticket" || r.URL.Path == openIDLoginPath {
-			_ = r.ParseForm()
-			password := r.Form.Get("password")
-			if password == renewPassword || (strings.HasPrefix(password, "PVE:") && password != ticket) {
-				http.Error(w, "wrong renewal ticket", 401)
-				return
-			}
-			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]string{"ticket": ticket, "username": "root@pam", "CSRFPreventionToken": name}})
-			return
-		}
-		if cookieTicket(r) != ticket {
-			http.Error(w, "not authenticated", 401)
-			return
-		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]string{"instance": name, "cookie": r.Header.Get("Cookie"), "path": r.URL.EscapedPath()}})
-	}))
-	t.Cleanup(b.Close)
-	return b
+type managedTest struct {
+	cfg    *Config
+	front  *httptest.Server
+	client *http.Client
+	csrf   string
 }
 
-func instanceRequest(t *testing.T, client *http.Client, method, address, body string, status int) (*http.Response, []byte) {
+func newManagedTest(t *testing.T, cfg *Config) *managedTest {
 	t.Helper()
-	req, err := http.NewRequest(method, address, strings.NewReader(body))
+	if cfg == nil {
+		dir := t.TempDir()
+		cfg = &Config{PVE: mustURL(t, "https://unused.invalid:8006"), AuthFile: filepath.Join(dir, "auth.json"), InstancesFile: filepath.Join(dir, "instances.json")}
+	}
+	web := fstest.MapFS{"index.html": {Data: []byte("<html>Tiller</html>")}}
+	h, err := newAppHandler(cfg, web, true, quietLogger())
 	if err != nil {
 		t.Fatal(err)
 	}
-	req.Header.Set(ticketModeHeader, ticketModeCookie)
-	if strings.HasPrefix(body, "{") {
-		req.Header.Set("Content-Type", "application/json")
-	} else {
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	front := httptest.NewServer(h)
+	t.Cleanup(front.Close)
+	t.Cleanup(cfg.Auth.close)
+	jar, _ := cookiejar.New(nil)
+	return &managedTest{cfg: cfg, front: front, client: &http.Client{Jar: jar}}
+}
+func (a *managedTest) call(t *testing.T, method, path string, input any, status int) []byte {
+	t.Helper()
+	var body []byte
+	if input != nil {
+		body, _ = json.Marshal(input)
 	}
-	res, err := client.Do(req)
+	r, _ := http.NewRequest(method, a.front.URL+path, strings.NewReader(string(body)))
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("CSRFPreventionToken", a.csrf)
+	res, err := a.client.Do(r)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer res.Body.Close()
 	data, _ := io.ReadAll(res.Body)
 	if res.StatusCode != status {
-		t.Fatalf("%s %s: status %d, want %d: %s", method, address, res.StatusCode, status, data)
+		t.Fatalf("%s %s: status=%d want=%d body=%s", method, path, res.StatusCode, status, data)
 	}
-	return res, data
+	return data
 }
-
-func TestInstancesIsolationAndPersistence(t *testing.T) {
-	primary := instanceBackend(t, "default")
-	other := instanceBackend(t, "other")
-	file := filepath.Join(t.TempDir(), "connections.json")
-	cfg := &Config{PVE: mustURL(t, primary.URL), InstancesFile: file}
-	front := newFront(t, cfg)
-	jar, _ := cookiejar.New(nil)
-	client := &http.Client{Jar: jar}
-	input := `{"name":"Lab B","url":"` + other.URL + `","fingerprint":"","insecureTLS":false}`
-	instanceRequest(t, client, "POST", front.URL+instancesAPI, input, 403)
-	instanceRequest(t, client, "POST", front.URL+ticketPath, "username=root%40pam&password=test", 200)
-	_, body := instanceRequest(t, client, "POST", front.URL+instancesAPI, input, 201)
-	var added InstanceConfig
-	if err := json.Unmarshal(body, &added); err != nil {
+func (a *managedTest) login(t *testing.T, setup bool, password string) {
+	t.Helper()
+	path := "/api/auth/login"
+	if setup {
+		path = "/api/auth/setup"
+	}
+	data := a.call(t, "POST", path, map[string]string{"username": "admin", "password": password}, 200)
+	var out struct {
+		Session adminSession `json:"session"`
+	}
+	if err := json.Unmarshal(data, &out); err != nil {
 		t.Fatal(err)
 	}
-	prefix := "/api/instances/" + added.ID + "/" + added.Version
-	// Default credentials cannot authenticate to the new PVE.
-	instanceRequest(t, client, "GET", front.URL+prefix+"/api2/json/nodes", "", 401)
-	res, body := instanceRequest(t, client, "POST", front.URL+prefix+ticketPath, "username=root%40pam&password=test", 200)
-	if strings.Contains(string(body), "::valid") {
-		t.Fatal("ticket leaked into JSON")
+	a.csrf = out.Session.CSRF
+}
+
+const testAdminPassword = "unit-test-admin-password"
+
+func TestLocalAdminLifecycle(t *testing.T) {
+	a := newManagedTest(t, nil)
+	if !strings.Contains(string(a.call(t, "GET", "/api/auth/session", nil, 200)), `"setupRequired":true`) {
+		t.Fatal("missing initial setup")
 	}
-	if len(res.Cookies()) != 1 || res.Cookies()[0].Path != prefix+"/" || !res.Cookies()[0].HttpOnly || res.Cookies()[0].Name == authCookieName {
-		t.Fatalf("incorrect cookie scope: %+v", res.Cookies())
+	for _, path := range []string{instancesAPI, "/api2/json/nodes", "/api/instances/aaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbb/api2/json/nodes"} {
+		a.call(t, "GET", path, nil, 401)
 	}
-	_, body = instanceRequest(t, client, "GET", front.URL+prefix+"/api2/json/pools/a%2Fb", "", 200)
-	if !strings.Contains(string(body), `"instance":"other"`) || strings.Contains(string(body), "default") || !strings.Contains(string(body), "a%2Fb") {
-		t.Fatalf("wrong target/cookie/path: %s", body)
+	a.call(t, "POST", "/api/auth/setup", map[string]string{"username": "admin", "password": "short"}, 400)
+	a.login(t, true, testAdminPassword)
+	a.call(t, "POST", "/api/auth/setup", map[string]string{"username": "attacker", "password": testAdminPassword}, 409)
+	data, _ := os.ReadFile(a.cfg.AuthFile)
+	if strings.Contains(string(data), testAdminPassword) {
+		t.Fatal("stored plaintext password")
 	}
-	instanceRequest(t, client, "POST", front.URL+prefix+ticketPath, "username=root%40pam&password="+url.QueryEscape(renewPassword), 200)
-	// Logout touches only the selected instance; primary still works.
-	instanceRequest(t, client, "POST", front.URL+prefix+"/api/logout", "", 204)
-	instanceRequest(t, client, "GET", front.URL+prefix+"/api2/json/nodes", "", 401)
-	instanceRequest(t, client, "GET", front.URL+"/api2/json/nodes", "", 200)
-	entries, err := loadInstances(file)
-	if err != nil || len(entries) != 1 || entries[0].ID != added.ID {
-		t.Fatalf("persisted config: %+v, %v", entries, err)
-	}
-	info, _ := os.Stat(file)
+	info, _ := os.Stat(a.cfg.AuthFile)
 	if info.Mode().Perm() != 0600 {
-		t.Fatalf("file permissions %v", info.Mode())
+		t.Fatal("wrong auth file mode")
 	}
-	cfg.Instances = entries
-	restarted := newFront(t, cfg)
-	_, body = instanceRequest(t, client, "GET", restarted.URL+instancesAPI, "", 200)
-	if !strings.Contains(string(body), "Lab B") {
-		t.Fatalf("not loaded after restart: %s", body)
+	cookies := a.client.Jar.Cookies(mustURL(t, a.front.URL))
+	if len(cookies) != 1 || cookies[0].Name != adminCookie {
+		t.Fatal("missing administrator session cookie")
 	}
-	// Changing the target rotates the namespace, and old requests never reach it.
-	added.URL = primary.URL
-	edit, _ := json.Marshal(added)
-	_, body = instanceRequest(t, client, "PUT", front.URL+instancesAPI+"/"+added.ID, string(edit), 200)
-	var updated InstanceConfig
-	_ = json.Unmarshal(body, &updated)
-	if updated.Version == added.Version {
+	saved := a.csrf
+	a.csrf = "wrong"
+	a.call(t, "POST", "/api/auth/logout", map[string]string{}, 403)
+	a.csrf = saved
+	a.call(t, "POST", "/api/auth/password", map[string]string{"currentPassword": "wrong", "password": "new-long-admin-password"}, 401)
+	a.call(t, "POST", "/api/auth/password", map[string]string{"currentPassword": testAdminPassword, "password": "new-long-admin-password"}, 204)
+	a.call(t, "GET", instancesAPI, nil, 401)
+	a.call(t, "POST", "/api/auth/login", map[string]string{"username": "admin", "password": testAdminPassword}, 401)
+	a.login(t, false, "new-long-admin-password")
+	a.call(t, "POST", "/api/auth/logout", map[string]string{}, 204)
+	a.call(t, "GET", instancesAPI, nil, 401)
+	restarted := newManagedTest(t, a.cfg)
+	restarted.login(t, false, "new-long-admin-password")
+	restarted.call(t, "GET", instancesAPI, nil, 200)
+}
+
+func TestManagedInstancesCredentialsAndPersistence(t *testing.T) {
+	backend := func(secret, name string) *httptest.Server {
+		s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get("Authorization") != "PVEAPIToken=service@pve!tiller="+secret {
+				http.Error(w, "bad token", 401)
+				return
+			}
+			if r.Header.Get("Cookie") != "" || r.Header.Get("CSRFPreventionToken") != "" {
+				t.Error("browser credentials reached PVE")
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]string{"name": name, "path": r.URL.EscapedPath()}})
+		}))
+		t.Cleanup(s.Close)
+		return s
+	}
+	one, two := backend("secret-one", "one"), backend("secret-two", "two")
+	a := newManagedTest(t, nil)
+	a.login(t, true, testAdminPassword)
+	add := func(name, address, secret string) InstanceConfig {
+		data := a.call(t, "POST", instancesAPI, map[string]any{"name": name, "url": address, "tokenId": "service@pve!tiller", "tokenSecret": secret}, 201)
+		if strings.Contains(string(data), secret) || strings.Contains(string(data), "encryptedToken") {
+			t.Fatal("secret exposed in response")
+		}
+		var c InstanceConfig
+		_ = json.Unmarshal(data, &c)
+		return c
+	}
+	c1, c2 := add("one", one.URL, "secret-one"), add("two", two.URL, "secret-two")
+	path := func(c InstanceConfig) string {
+		return "/api/instances/" + c.ID + "/" + c.Version + "/api2/json/pools/a%2Fb"
+	}
+	for _, c := range []InstanceConfig{c1, c2} {
+		data := a.call(t, "GET", path(c), nil, 200)
+		if !strings.Contains(string(data), `"name":"`+c.Name+`"`) || !strings.Contains(string(data), "a%2Fb") {
+			t.Fatal("wrong upstream or escaped path")
+		}
+	}
+	// An expired PVE token must not invalidate the independent Tiller session
+	// or prevent other connections from working.
+	bad := add("expired", one.URL, "expired-secret")
+	a.call(t, "GET", path(bad), nil, 502)
+	a.call(t, "GET", instancesAPI, nil, 200)
+	a.call(t, "GET", path(c2), nil, 200)
+	a.call(t, "DELETE", instancesAPI+"/"+bad.ID, nil, 204)
+	file, _ := os.ReadFile(a.cfg.InstancesFile)
+	if strings.Contains(string(file), "secret-one") || strings.Contains(string(file), "secret-two") {
+		t.Fatal("plaintext credentials persisted")
+	}
+	entries, err := loadInstances(a.cfg.InstancesFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.cfg.Instances = entries
+	restarted := newManagedTest(t, a.cfg)
+	restarted.login(t, false, testAdminPassword)
+	restarted.call(t, "GET", path(c2), nil, 200)
+	input := map[string]any{"name": "renamed", "url": c1.URL, "tokenId": c1.TokenID, "version": c1.Version}
+	data := a.call(t, "PUT", instancesAPI+"/"+c1.ID, input, 200)
+	var renamed InstanceConfig
+	_ = json.Unmarshal(data, &renamed)
+	if renamed.Version != c1.Version {
+		t.Fatal("renaming rotated connection")
+	}
+	input["url"] = two.URL
+	a.call(t, "PUT", instancesAPI+"/"+c1.ID, input, 400)
+	input["tokenSecret"] = "secret-two"
+	data = a.call(t, "PUT", instancesAPI+"/"+c1.ID, input, 200)
+	var changed InstanceConfig
+	_ = json.Unmarshal(data, &changed)
+	if changed.Version == c1.Version {
 		t.Fatal("target change reused credential namespace")
 	}
-	instanceRequest(t, client, "GET", front.URL+prefix+"/api2/json/nodes", "", 409)
-	instanceRequest(t, client, "PUT", front.URL+instancesAPI+"/"+added.ID, string(edit), 409)
-	instanceRequest(t, client, "DELETE", front.URL+instancesAPI+"/default", "", 400)
-	instanceRequest(t, client, "DELETE", front.URL+instancesAPI+"/"+added.ID, "", 204)
-	entries, err = loadInstances(file)
-	if err != nil || len(entries) != 0 {
-		t.Fatalf("delete not persisted: %+v, %v", entries, err)
+	a.call(t, "GET", path(c1), nil, 409)
+	a.call(t, "GET", path(changed), nil, 200)
+	a.call(t, "DELETE", instancesAPI+"/"+c2.ID, nil, 204)
+	a.call(t, "GET", path(c2), nil, 409)
+	// A stolen ciphertext cannot be transplanted into another connection.
+	if _, err := a.cfg.Auth.unseal(entries[0].EncryptedToken, entries[1].ID+":"+entries[1].Version); err == nil {
+		t.Fatal("unbound ciphertext")
 	}
 }
 
-func TestInstanceManagementAuthorizationAndFailedSave(t *testing.T) {
-	primary := instanceBackend(t, "default")
-	// A directory cannot be atomically replaced by the config file.
-	cfg := &Config{PVE: mustURL(t, primary.URL), InstancesFile: t.TempDir()}
-	front := newFront(t, cfg)
-	input := `{"name":"new","url":"https://pve.example:8006"}`
-	client := &http.Client{}
-	for _, ticket := range []string{"PVE:root@pam:forged::valid", "PVE:root@pam:other::valid", "PVE:alice@pve:default::valid"} {
-		jar, _ := cookiejar.New(nil)
-		jar.SetCookies(mustURL(t, front.URL), []*http.Cookie{ticketCookie(ticket, false, false)})
-		client.Jar = jar
-		instanceRequest(t, client, "POST", front.URL+instancesAPI, input, 403)
-	}
-	instanceRequest(t, client, "POST", front.URL+ticketPath, "username=root%40pam&password=test", 200)
-	req, _ := http.NewRequest("POST", front.URL+instancesAPI, strings.NewReader(input))
-	req.Header.Set(ticketModeHeader, ticketModeCookie)
-	req.Header.Set("Origin", "https://evil.example")
-	res, err := client.Do(req)
+func TestAdminCrossOriginAndCorruption(t *testing.T) {
+	a := newManagedTest(t, nil)
+	r, _ := http.NewRequest("POST", a.front.URL+"/api/auth/setup", strings.NewReader(`{"username":"admin","password":"long-admin-password"}`))
+	r.Header.Set("Origin", "https://evil.invalid")
+	res, err := a.client.Do(r)
 	if err != nil {
 		t.Fatal(err)
 	}
 	res.Body.Close()
 	if res.StatusCode != 403 {
-		t.Fatalf("cross-origin mutation allowed: %d", res.StatusCode)
+		t.Fatal("cross-origin setup allowed")
 	}
-	instanceRequest(t, client, "POST", front.URL+instancesAPI, input, 500)
-	_, body := instanceRequest(t, client, "GET", front.URL+instancesAPI, "", 200)
-	if strings.Contains(string(body), "pve.example") {
-		t.Fatalf("failed save changed memory: %s", body)
+	a.login(t, true, testAdminPassword)
+	if err := os.WriteFile(a.cfg.AuthFile, []byte("{}"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := newLocalAuth(a.cfg, quietLogger()); err == nil {
+		t.Fatal("corrupt admin file reset setup")
+	}
+}
+
+func TestManagedConsoleAndLogout(t *testing.T) {
+	backend, seen := wsEchoBackend(t)
+	a := newManagedTest(t, nil)
+	a.login(t, true, testAdminPassword)
+	data := a.call(t, "POST", instancesAPI, map[string]any{"name": "console", "url": backend.URL, "fingerprint": FormatFingerprint(fingerprintOf(backend.Certificate())), "tokenId": "service@pve!tiller", "tokenSecret": "test-secret"}, 201)
+	var c InstanceConfig
+	_ = json.Unmarshal(data, &c)
+	host := mustURL(t, a.front.URL).Host
+	conn, err := net.Dial("tcp", host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
+	path := "/api/instances/" + c.ID + "/" + c.Version + "/api2/json/nodes/pve/vncwebsocket?port=5900"
+	upgrade := upgradeRequest(host, path)
+	cookie := a.client.Jar.Cookies(mustURL(t, a.front.URL))[0]
+	upgrade = strings.Replace(upgrade, "\r\n\r\n", "\r\nCookie: "+cookie.Name+"="+cookie.Value+"\r\n\r\n", 1)
+	_, _ = io.WriteString(conn, upgrade)
+	reader := bufio.NewReader(conn)
+	res, err := http.ReadResponse(reader, nil)
+	if err != nil || res.StatusCode != 101 {
+		t.Fatalf("upgrade failed: %v %v", res, err)
+	}
+	_, _ = io.WriteString(conn, "echo")
+	b := make([]byte, 4)
+	if _, err = io.ReadFull(reader, b); err != nil || string(b) != "echo" {
+		t.Fatal("console echo failed")
+	}
+	<-seen
+	a.call(t, "POST", "/api/auth/logout", map[string]string{}, 204)
+	if _, err = reader.ReadByte(); err == nil {
+		t.Fatal("logout left console authenticated")
 	}
 }
 
@@ -176,30 +268,20 @@ func TestInstanceValidation(t *testing.T) {
 	}
 }
 
-func TestScopedInstanceWebsocket(t *testing.T) {
-	backend, seen := wsEchoBackend(t)
-	c := InstanceConfig{ID: strings.Repeat("a", 24), Version: strings.Repeat("b", 24), Name: "console", URL: backend.URL, Fingerprint: FormatFingerprint(fingerprintOf(backend.Certificate()))}
-	front := newFront(t, &Config{PVE: mustURL(t, backend.URL), Instances: []InstanceConfig{c}})
-	host := mustURL(t, front.URL).Host
-	conn, err := net.Dial("tcp", host)
-	if err != nil {
-		t.Fatal(err)
+func TestInstanceFileRejectsCorruption(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "instances.json")
+	if entries, err := loadInstances(file); err != nil || len(entries) != 0 {
+		t.Fatalf("first start without a file: %v, %v", entries, err)
 	}
-	defer conn.Close()
-	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
-	path := "/api/instances/" + c.ID + "/" + c.Version + "/api2/json/nodes/pve/vncwebsocket?port=5900"
-	_, _ = io.WriteString(conn, upgradeRequest(host, path))
-	reader := bufio.NewReader(conn)
-	resp, err := http.ReadResponse(reader, nil)
-	if err != nil || resp.StatusCode != 101 {
-		t.Fatalf("upgrade: %+v, %v", resp, err)
-	}
-	_, _ = io.WriteString(conn, "echo")
-	buf := make([]byte, 4)
-	if _, err := io.ReadFull(reader, buf); err != nil || string(buf) != "echo" {
-		t.Fatalf("scoped socket: %q, %v", buf, err)
-	}
-	if (<-seen).protocol != "binary" {
-		t.Fatal("lost websocket subprotocol")
+	valid := InstanceConfig{ID: strings.Repeat("a", 24), Version: strings.Repeat("b", 24), Name: "lab", URL: "https://pve:8006"}
+	encoded, _ := json.Marshal([]InstanceConfig{valid})
+	duplicate, _ := json.Marshal([]InstanceConfig{valid, valid})
+	for _, body := range []string{"", "[", `[{"id":"default"}]`, string(encoded) + "[]", string(duplicate), `[{"password":"must-not-be-stored"}]`} {
+		if err := os.WriteFile(file, []byte(body), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := loadInstances(file); err == nil {
+			t.Errorf("accepted corrupt instance file %q", body)
+		}
 	}
 }

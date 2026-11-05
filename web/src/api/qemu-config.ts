@@ -157,6 +157,15 @@ export function useQemuPending(node: string, vmid: number) {
   })
 }
 
+export function fetchQemuPending(node: string, vmid: number) {
+  return get<QemuPendingEntry[]>(p`/nodes/${node}/qemu/${vmid}/pending`)
+}
+
+/** Always return a task: the caller must await completion and verify pending. */
+export function retryQemuPending(node: string, vmid: number, params: Params) {
+  return post<string>(p`/nodes/${node}/qemu/${vmid}/config`, params)
+}
+
 export function useCloudinitPending(node: string, vmid: number, enabled = true) {
   return useQuery({
     queryKey: qemuConfigKeys.cloudinit(node, vmid),

@@ -5,7 +5,7 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { del, get, isPveApiError, p, post, put } from './client'
-import { instanceApiBase, instanceBase } from './instance-scope'
+import { getInstanceScope, instanceApiBase, instanceBase, type InstanceScope } from './instance-scope'
 import { POLL } from './queries'
 import type { GuestResource, PveBool, StorageResource } from './types'
 
@@ -29,10 +29,12 @@ export interface ClusterOptions {
 
 export const clusterOptionsKey = () => ['pve', 'cluster', 'options'] as const
 
-export function useClusterOptions() {
+export function useClusterOptions(instance?: InstanceScope) {
+  const scope = getInstanceScope()
+  const other = instance && (instance.id !== scope?.id || instance.version !== scope.version)
   return useQuery({
-    queryKey: clusterOptionsKey(),
-    queryFn: ({ signal }) => get<ClusterOptions>('/cluster/options', undefined, { signal }),
+    queryKey: other ? ['instance-resources', instance.id, instance.version, 'options'] : clusterOptionsKey(),
+    queryFn: ({ signal }) => get<ClusterOptions>('/cluster/options', undefined, { signal, instance, noAuthRedirect: !!other }),
     staleTime: 5 * 60_000,
     // Everyone may log in, not everyone may read /cluster/options (Sys.Audit).
     retry: (n, e) => !(isPveApiError(e) && e.status === 403) && n < 1,

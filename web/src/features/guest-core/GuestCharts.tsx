@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react'
-import { ChartLine } from 'lucide-react'
+import { ChartLine, ChevronDown } from 'lucide-react'
 
 import { useGuestRrd, type GuestRrdPoint, type RrdCf } from '@/api/guest-core'
 import type { GuestType, RrdTimeframe } from '@/api/types'
 import { SectionHeader } from '@/components/PageHeader'
+import { GlassCard } from '@/components/GlassCard'
+import { CAPACITY_HEADROOM, capacityAxisMax } from '@/components/charts/rrd'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { formatBytes, formatRate } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
 import { RrdChart } from './RrdChart'
 import { downsample, field, hasData, TIMEFRAMES, type RrdSeries } from './rrd'
@@ -28,8 +31,27 @@ export function GuestCharts({ node, type, vmid }: GuestChartsProps) {
   const [cf, setCf] = useState<RrdCf>('AVERAGE')
   const { data, isPending } = useGuestRrd(node, type, vmid, timeframe, cf)
 
-  const charts = useMemo(() => buildCharts(downsample(data ?? [], MAX_POINTS), type), [data, type])
+  const charts = useMemo(() => buildCharts(data ?? [], type), [data, type])
   const times = useMemo(() => downsample(data ?? [], MAX_POINTS).map((p) => p.time), [data])
+  const primary = charts.filter((c) => c.key !== 'disk' && c.key !== 'psi')
+  const additional = charts.filter((c) => c.key === 'disk' || c.key === 'psi')
+  const renderChart = (c: ChartSpec, i: number) => (
+    <RrdChart
+      key={c.key}
+      title={c.title}
+      times={times}
+      series={c.series}
+      format={c.format}
+      scale={c.scale}
+      minMax={c.minMax}
+      max={c.max}
+      headroom={c.headroom}
+      timeframe={timeframe}
+      loading={isPending}
+      embedded
+      className={cn('border-border/60', i > 0 && 'border-t', i === 1 && 'md:border-t-0', i % 2 === 1 && 'md:border-l')}
+    />
+  )
 
   return (
     <section aria-labelledby="guest-charts-heading">
@@ -73,11 +95,20 @@ export function GuestCharts({ node, type, vmid }: GuestChartsProps) {
           </ToggleGroup>
         </div>
       </SectionHeader>
-      <div className="grid gap-(--row-gap) xl:grid-cols-2">
-        {charts.map((c) => (
-          <RrdChart key={c.key} title={c.title} times={times} series={c.series} format={c.format} scale={c.scale} minMax={c.minMax} max={c.max} timeframe={timeframe} loading={isPending} />
-        ))}
-      </div>
+      <GlassCard flush>
+        <div className="grid md:grid-cols-2">{primary.map(renderChart)}</div>
+        {additional.length > 0 && (
+          <details className="group border-t border-border/60">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-b-2xl px-4 py-3 text-xs text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:px-5 [&::-webkit-details-marker]:hidden">
+              <span>{additional.map((c) => c.key === 'psi' ? '资源压力（PSI）' : c.title).join(' · ')}</span>
+              <ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180" aria-hidden />
+            </summary>
+            <div className={cn('grid border-t border-border/60', additional.length > 1 && 'md:grid-cols-2')}>
+              {additional.map(renderChart)}
+            </div>
+          </details>
+        )}
+      </GlassCard>
     </section>
   )
 }
@@ -90,10 +121,16 @@ interface ChartSpec {
   scale: 'percent' | 'bytes' | 'number'
   minMax?: number
   max?: number
+  headroom?: number
 }
 
 /** Chart definitions from rrddata samples (exported for tests). */
-export function buildCharts(points: readonly GuestRrdPoint[], type: GuestType): ChartSpec[] {
+export function buildCharts(rawPoints: readonly GuestRrdPoint[], type: GuestType): ChartSpec[] {
+  const points = downsample(rawPoints, MAX_POINTS)
+  // Preserve real capacity changes before averaging long history ranges.
+  const memoryMax = capacityAxisMax(field(rawPoints, 'maxmem'), [
+    ...field(rawPoints, 'mem'), ...(type === 'qemu' ? field(rawPoints, 'memhost') : []),
+  ])
   const charts: ChartSpec[] = [
     {
       key: 'cpu',
@@ -115,6 +152,8 @@ export function buildCharts(points: readonly GuestRrdPoint[], type: GuestType): 
       ],
       format: bytes,
       scale: 'bytes',
+      max: memoryMax,
+      headroom: memoryMax ? CAPACITY_HEADROOM : undefined,
     },
     {
       key: 'net',
@@ -140,6 +179,7 @@ export function buildCharts(points: readonly GuestRrdPoint[], type: GuestType): 
     },
   ]
   if (type === 'lxc') {
+    const diskMax = capacityAxisMax(field(rawPoints, 'maxdisk'), field(rawPoints, 'disk'))
     charts.push({
       key: 'disk',
       title: '根磁盘用量',
@@ -149,6 +189,8 @@ export function buildCharts(points: readonly GuestRrdPoint[], type: GuestType): 
       ],
       format: bytes,
       scale: 'bytes',
+      max: diskMax,
+      headroom: diskMax ? CAPACITY_HEADROOM : undefined,
     })
   }
   const psi: RrdSeries[] = [

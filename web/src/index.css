@@ -4,7 +4,7 @@
 /*
  * Theming
  * -------
- * <html data-theme="dark|light|paper" data-accent="indigo|teal|orange|rose|clay"
+ * <html data-theme="dark|light|paper" data-accent="indigo|blue|violet|teal|forest|orange|rose|slate|clay"
  *       data-glass="on|off" data-density="comfortable|compact" class="dark?">
  * is set before first paint by the inline boot script (src/theme/boot.ts) and
  * kept in sync by ThemeProvider. Every colour below is a CSS variable; the
@@ -174,6 +174,26 @@
   --brand-2: #c084fc;
   --brand-contrast: #2a0610;
 }
+[data-theme="dark"][data-accent="blue"] {
+  --brand: #78b5ff;
+  --brand-2: #38bdf8;
+  --brand-contrast: #071b33;
+}
+[data-theme="dark"][data-accent="violet"] {
+  --brand: #b59aff;
+  --brand-2: #e2a0dc;
+  --brand-contrast: #1e1038;
+}
+[data-theme="dark"][data-accent="forest"] {
+  --brand: #7bc9a4;
+  --brand-2: #a4c882;
+  --brand-contrast: #09261a;
+}
+[data-theme="dark"][data-accent="slate"] {
+  --brand: #a8b4c4;
+  --brand-2: #7da1ba;
+  --brand-contrast: #101924;
+}
 
 /* --------------------------------------------------------------- light glass */
 [data-theme="light"] {
@@ -245,6 +265,22 @@
 [data-theme="light"][data-accent="rose"] {
   --brand: #e11d48;
   --brand-2: #7c3aed;
+}
+[data-theme="light"][data-accent="blue"] {
+  --brand: #2563eb;
+  --brand-2: #0891b2;
+}
+[data-theme="light"][data-accent="violet"] {
+  --brand: #7c3aed;
+  --brand-2: #c026d3;
+}
+[data-theme="light"][data-accent="forest"] {
+  --brand: #2f6b4f;
+  --brand-2: #65883b;
+}
+[data-theme="light"][data-accent="slate"] {
+  --brand: #475569;
+  --brand-2: #5e7e93;
 }
 
 /* ----------------------------------------------------- paper (Claude palette) */
@@ -355,15 +391,14 @@
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tag-tone) 20%, transparent);
 }
 
-/* Translucent card with a 1px inner highlight along the top edge. */
+/* In-flow cards sit over an already soft gradient. Sampling that backdrop
+   again creates oversized filter layers on long, scrolling resource lists. */
 @utility surface {
   background-color: var(--glass);
   border: 1px solid var(--glass-border);
   box-shadow:
     inset 0 1px 0 0 var(--glass-edge),
     var(--shadow);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
 }
 
 /* Floating layers: dialogs, menus, bottom nav. */
@@ -375,6 +410,74 @@
     var(--shadow-lg);
   -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.4)) saturate(var(--glass-saturate));
   backdrop-filter: blur(calc(var(--glass-blur) * 1.4)) saturate(var(--glass-saturate));
+}
+
+/* Moving overlays use an opaque theme surface. Live backdrop blur makes
+   every frame sample the page (and its other glass layers) again. */
+@utility surface-popup {
+  background-color: var(--glass-solid-strong);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-edge),
+    var(--shadow-lg);
+}
+
+/* Only opacity and transform animate. Keep Radix exit animations so focus
+   restoration and presence/unmount still follow the visible transition. */
+.popup-panel[data-state="open"] {
+  animation: popup-enter 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.popup-panel[data-state="closed"] {
+  animation: popup-exit 120ms ease-in;
+}
+@keyframes popup-enter {
+  from { opacity: 0; transform: translateY(4px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes popup-exit {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.985); }
+}
+.popup-overlay[data-state="open"],
+.popup-menu[data-state="open"] {
+  animation-duration: 160ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+.popup-overlay[data-state="closed"],
+.popup-menu[data-state="closed"] {
+  animation-duration: 100ms;
+  animation-timing-function: ease-in;
+}
+.popup-sheet[data-state="open"] {
+  animation-duration: 240ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+.popup-sheet[data-state="closed"] {
+  animation-duration: 160ms;
+  animation-timing-function: ease-in;
+}
+/* Vaul owns directional/drag keyframes. Do not add a second animation to
+   its overlay, or override its inline transition:none while dragging. */
+[data-slot="drawer-content"][data-vaul-drawer][data-state],
+[data-slot="drawer-overlay"][data-vaul-overlay][data-state] {
+  animation-duration: 240ms;
+}
+[data-slot="drawer-content"][data-vaul-drawer][data-state="closed"],
+[data-slot="drawer-overlay"][data-vaul-overlay][data-state="closed"] {
+  animation-duration: 160ms;
+}
+
+body:has([data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"], [data-slot="sheet-overlay"], [data-slot="drawer-overlay"]) .ambient > span {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popup-panel, .popup-overlay, .popup-menu, .popup-sheet,
+  [data-slot="drawer-content"][data-vaul-drawer],
+  [data-slot="drawer-overlay"][data-vaul-overlay] {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
 }
 
 @utility tabular {
@@ -397,6 +500,54 @@
   scrollbar-width: none;
   &::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/* Keep the overflowing scrollbar mounted so fades reverse smoothly on re-entry. */
+.resource-tree-scroll [data-slot="scroll-area-scrollbar"][data-orientation="vertical"] {
+  width: 12px;
+  border: 0;
+  padding: 2px 4px;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 260ms cubic-bezier(0.4, 0, 0.2, 1) 180ms;
+}
+.resource-tree-scroll:hover [data-slot="scroll-area-scrollbar"],
+.resource-tree-scroll:has(:focus-visible) [data-slot="scroll-area-scrollbar"],
+.resource-tree-scroll:has([data-slot="scroll-area-scrollbar"]:active) [data-slot="scroll-area-scrollbar"] {
+  opacity: 1;
+  pointer-events: auto;
+  transition-duration: 160ms;
+  transition-delay: 0ms;
+}
+.resource-tree-scroll [data-slot="scroll-area-thumb"] {
+  background: color-mix(in oklab, var(--foreground) 14%, transparent);
+  transition: background-color 160ms ease;
+}
+.resource-tree-scroll:hover [data-slot="scroll-area-thumb"],
+.resource-tree-scroll:focus-within [data-slot="scroll-area-thumb"] {
+  background: color-mix(in oklab, var(--foreground) 22%, transparent);
+}
+.resource-tree-scroll [data-slot="scroll-area-scrollbar"]:hover [data-slot="scroll-area-thumb"],
+.resource-tree-scroll [data-slot="scroll-area-thumb"]:active {
+  background: color-mix(in oklab, var(--foreground) 40%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .resource-tree-scroll [data-slot="scroll-area-scrollbar"][data-orientation="vertical"],
+  .resource-tree-scroll [data-slot="scroll-area-thumb"] {
+    transition: none;
+  }
+}
+@media (hover: none), (forced-colors: active) {
+  .resource-tree-scroll [data-slot="scroll-area-scrollbar"][data-orientation="vertical"] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+@media (forced-colors: active) {
+  .resource-tree-scroll [data-slot="scroll-area-thumb"] {
+    background: ButtonText;
   }
 }
 
@@ -449,7 +600,8 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .40 0 0 0 0 .32 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* --------------------------------------------------------- ambient glows */
+/* Static gradients keep the glass palette without continuously invalidating
+   the backdrop of every card, including while the dashboard is idle. */
 .ambient {
   position: fixed;
   inset: 0;
@@ -460,8 +612,6 @@
 .ambient > span {
   position: absolute;
   border-radius: 9999px;
-  filter: blur(10px);
-  will-change: transform;
 }
 .ambient > .glow-a {
   width: 70vmax;
@@ -469,7 +619,6 @@
   left: -25vmax;
   top: -35vmax;
   background: radial-gradient(closest-side, var(--glow-a), transparent);
-  animation: ambient-drift 38s ease-in-out infinite alternate;
 }
 .ambient > .glow-b {
   width: 60vmax;
@@ -477,7 +626,6 @@
   right: -28vmax;
   top: -10vmax;
   background: radial-gradient(closest-side, var(--glow-b), transparent);
-  animation: ambient-drift 46s ease-in-out infinite alternate-reverse;
 }
 .ambient > .glow-c {
   width: 55vmax;
@@ -485,7 +633,6 @@
   left: 15vw;
   bottom: -38vmax;
   background: radial-gradient(closest-side, var(--glow-c), transparent);
-  animation: ambient-drift 52s ease-in-out infinite alternate;
 }
 /* fine grain so large gradients do not band */
 .ambient::after {
@@ -498,20 +645,6 @@
 [data-theme="paper"] .ambient {
   display: none;
 }
-@keyframes ambient-drift {
-  from {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  to {
-    transform: translate3d(4vmax, 3vmax, 0) scale(1.08);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ambient > span {
-    animation: none;
-  }
-}
-
 /* Status dot pulse for running guests. */
 @keyframes status-pulse {
   0% {

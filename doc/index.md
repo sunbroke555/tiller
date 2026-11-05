@@ -2,19 +2,19 @@
 
 手机上也能稳稳掌舵你的 Proxmox VE。
 
-Tiller 是基于 Proxmox VE 官方 API 的管理界面。用现有 PVE 账号登录，即可查看集群资源、管理虚拟机和容器、打开控制台、跟踪备份与任务。
+Tiller 是基于 Proxmox VE 官方 API 的管理界面。设置独立的 Tiller 管理员账户，再通过 PVE 账号密码或 API Token 添加实例，即可查看集群资源、管理虚拟机和容器、打开控制台、跟踪备份与任务。
 
 这份手册提供在线版本，也随 Tiller 一起打包，无需登录。电脑左侧是章节目录，手机点击「文档目录」展开；顶部搜索可以直接查找按钮名称、问题或配置项。
 
 ## 第一次使用
 
-1. **[安装与运行](guide/install.md)**：构建 Tiller，连接已有的 PVE，打开登录页面。
+1. **[安装与运行](guide/install.md)**：选择 [Docker 部署](guide/docker.md)或从源码构建，连接已有的 PVE。
 2. **[连接与安全配置](guide/configuration.md)**：设置证书、监听地址和反向代理。
-3. **[首次登录](guide/first-run.md)**：选择认证域，用 PVE 账号完成登录和两步验证。
+3. **[首次登录](guide/first-run.md)**：首次设置管理员，登录并修改密码。
 4. **[导航与资源概览](manual/navigation.md)**：找到节点、虚拟机、容器和存储，开始日常管理。
 
 ::: tip 已经能打开管理界面？
-可以直接从[虚拟机与容器](manual/guests.md)开始。在 Tiller 内打开文档时，顶部的「返回 Tiller」会回到当前实例；在线文档则提供「项目主页」入口。
+可以直接从[虚拟机与容器](manual/guests.md)开始。连接更多 PVE 见[多实例连接](guide/configuration.md#多实例连接)。内嵌文档顶部的「返回 Tiller」回到上次使用的实例；在线文档则提供「项目主页」入口。
 :::
 
 ## 按要做的事查找

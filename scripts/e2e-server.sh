@@ -24,6 +24,7 @@ PORT=${1:-${PORT:-}}
 
 PID_FILE=$RUN_DIR/server-$PORT.pid
 LOG_FILE=$RUN_DIR/server-$PORT.log
+DATA_DIR=$RUN_DIR/server-$PORT-data
 mkdir -p "$RUN_DIR"
 
 running_pid() {
@@ -42,6 +43,7 @@ stop() {
     echo "e2e-server: stopped :$PORT (pid $pid)"
   fi
   rm -f "$PID_FILE"
+  node "$ROOT/scripts/e2e-connection.mjs" stop "$PORT"
 }
 
 needs_build() {
@@ -80,12 +82,15 @@ start() {
 
   # rt holds its project lock on fd 9. A persistent preview must not inherit
   # that descriptor, otherwise all later rt commands wait until it stops.
-  LISTEN=":$PORT" PVE_URL="$PVE_LAB_URL" PVE_TLS_FINGERPRINT="$PVE_LAB_FINGERPRINT" \
+  rm -rf "$DATA_DIR"
+  mkdir -m 700 "$DATA_DIR"
+  LISTEN=":$PORT" PVE_URL='' TILLER_AUTH_FILE="$DATA_DIR/auth.json" TILLER_INSTANCES_FILE="$DATA_DIR/instances.json" \
     setsid nohup "$BIN" >"$LOG_FILE" 2>&1 </dev/null 9>&- &
   echo $! >"$PID_FILE"
 
   for _ in $(seq 100); do
     if curl -fsS -o /dev/null "http://127.0.0.1:$PORT/"; then
+      if ! node "$ROOT/scripts/e2e-connection.mjs" start "$PORT"; then stop >/dev/null; return 1; fi
       echo "e2e-server: http://127.0.0.1:$PORT -> $PVE_LAB_URL (pid $(<"$PID_FILE"))"
       return 0
     fi

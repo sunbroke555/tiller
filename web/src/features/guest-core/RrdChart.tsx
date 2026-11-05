@@ -18,12 +18,16 @@ interface RrdChartProps {
   scale?: ChartScale
   /** Fixed axis maximum (e.g. 1 for CPU fraction of all cores). */
   max?: number
+  /** Extra fraction above the maximum; capacity ticks stay at their real values. */
+  headroom?: number
   /** Minimum axis maximum, so an idle guest is not a magnified flat line. */
   minMax?: number
   timeframe: RrdTimeframe
   loading?: boolean
   /** Right side of the header; defaults to the latest values. */
   headerExtra?: ReactNode
+  /** Use the surrounding chart group's surface instead of another card. */
+  embedded?: boolean
   className?: string
 }
 
@@ -42,10 +46,12 @@ export function RrdChart({
   format,
   scale = 'number',
   max,
+  headroom = 0,
   minMax,
   timeframe,
   loading,
   headerExtra,
+  embedded = false,
   className,
 }: RrdChartProps) {
   const id = useId()
@@ -76,8 +82,9 @@ export function RrdChart({
 
   const plotW = Math.max(width - PAD.left - PAD.right, 10)
   const plotH = H - PAD.top - PAD.bottom
+  const plotMax = yMax * (1 + headroom)
   const x = (i: number) => PAD.left + (n <= 1 ? 0 : (i / (n - 1)) * plotW)
-  const y = (v: number) => PAD.top + plotH - (Math.min(Math.max(v, 0), yMax) / yMax) * plotH
+  const y = (v: number) => PAD.top + plotH - (Math.min(Math.max(v, 0), plotMax) / plotMax) * plotH
 
   const paths = useMemo(
     () =>
@@ -108,7 +115,7 @@ export function RrdChart({
         return { s, line, area }
       }),
     // x/y depend on these:
-    [visible, plotW, plotH, yMax, n],
+    [visible, plotW, plotH, plotMax, n],
   )
 
   const ticks = useMemo(() => {
@@ -126,17 +133,18 @@ export function RrdChart({
 
   const empty = !loading && visible.length === 0
   const hoverIdx = hover !== null && hover < n ? hover : null
+  const Container = embedded ? 'div' : GlassCard
 
   return (
-    <GlassCard className={cn('min-w-0', className)}>
-      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+    <Container className={cn('min-w-0', embedded && 'p-4 sm:p-5', className)}>
+      <div className="mb-3 grid min-h-16 content-start gap-2">
         <h3 className="text-sm font-medium text-foreground">{title}</h3>
         {headerExtra ?? (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             {series.map((s) => {
               const v = hoverIdx !== null ? s.values[hoverIdx] : lastValue(s.values)
               return (
-                <span key={s.key} className="inline-flex items-center gap-1.5">
+                <span key={s.key} className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <span
                     aria-hidden
                     className={cn('inline-block h-0.5 w-3 rounded-full', s.dashed && 'h-0 border-t border-dashed')}
@@ -177,7 +185,7 @@ export function RrdChart({
               ))}
             </defs>
             {[0, 0.5, 1].map((f) => {
-              const gy = PAD.top + plotH - f * plotH
+              const gy = y(yMax * f)
               return (
                 <g key={f}>
                   <line
@@ -215,13 +223,14 @@ export function RrdChart({
             {[...paths].reverse().map(({ s, area }) =>
               s.dashed ? null : <path key={`a-${s.key}`} d={area} fill={`url(#${id}-${s.key})`} />,
             )}
-            {[...paths].reverse().map(({ s, line }) => (
+            {/* Capacity lines remain visible even when usage reaches 100%. */}
+            {[...paths.filter(({ s }) => !s.dashed).reverse(), ...paths.filter(({ s }) => s.dashed)].map(({ s, line }) => (
               <path
                 key={`l-${s.key}`}
                 d={line}
                 fill="none"
                 stroke={s.color}
-                strokeWidth={s.dashed ? 1 : 1.5}
+                strokeWidth={1.5}
                 strokeDasharray={s.dashed ? '4 4' : undefined}
                 strokeLinejoin="round"
                 strokeLinecap="round"
@@ -261,6 +270,6 @@ export function RrdChart({
           </div>
         )}
       </div>
-    </GlassCard>
+    </Container>
   )
 }

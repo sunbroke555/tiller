@@ -1,6 +1,7 @@
 // Form primitives for dialogs and wizards. See docs/CONTRIBUTING-AREAS.md.
 export { FormDialog, type FormDialogProps } from './FormDialog'
 export {
+  FieldCodeTextarea,
   FieldInput,
   FieldTextarea,
   FormError,

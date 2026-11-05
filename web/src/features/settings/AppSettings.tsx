@@ -4,6 +4,8 @@ import { toast } from 'sonner'
 
 import { useClusterOptions } from '@/api/shell'
 import { instanceStorageKey } from '@/api/instance-scope'
+import { LAST_INSTANCE_KEY } from '@/api/instances'
+import { TREE_PREFS_KEY } from '@/components/layout/resourceTree'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { GlassCard } from '@/components/GlassCard'
 import { openShortcutsHelp } from '@/components/layout/KeyboardShortcuts'
@@ -31,6 +33,8 @@ const LANGUAGE_NAMES: Record<string, string> = {
 /** Local data the "清除本地设置" button removes (never the login session). */
 export const LOCAL_SETTING_KEYS = [
   'tiller:appearance',
+  TREE_PREFS_KEY,
+  LAST_INSTANCE_KEY,
   instanceStorageKey('tiller:resource-tree'),
   instanceStorageKey('tiller:last-login'),
   instanceStorageKey('tiller:last-tfa-method'),

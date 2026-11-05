@@ -17,7 +17,7 @@ export interface TabDef<P> {
   /** Sort key; gaps of 10 leave room for later tabs. */
   order: number
   /** Usually `lazy(() => import('@/features/<area>/XTab'))` so each area is its own chunk. */
-  component: ComponentType<P>
+  component: ComponentType<P> & { preload?: () => Promise<unknown> }
   /** Hide the tab in some contexts (e.g. no backup tab for templates). */
   visible?: (props: P) => boolean
   /** Hide the tab without these privileges on the page's object (e.g. Sys.Console for a shell). */
@@ -26,6 +26,12 @@ export interface TabDef<P> {
 
 export function sortByOrder<T extends { order: number }>(items: readonly T[]): T[] {
   return [...items].sort((a, b) => a.order - b.order)
+}
+
+/** Load only the requested tab's code, alongside the initial session/instance checks. */
+export async function preloadTab<P>(tabs: readonly TabDef<P>[], id: string): Promise<null> {
+  await tabs.find((tab) => tab.id === id)?.component.preload?.()
+  return null
 }
 
 // ---------------------------------------------------------------- actions

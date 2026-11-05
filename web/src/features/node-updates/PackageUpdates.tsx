@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 
 import { nodeKeys } from '@/api/node-summary'
 import { refreshPackageIndex, updateKeys, useAptUpdates, type AptUpdate } from '@/api/node-updates'
-import { useSession } from '@/api/useSession'
+import { usePveIdentity } from '@/api/instances'
 import { EmptyState } from '@/components/EmptyState'
 import { GlassCard } from '@/components/GlassCard'
 import { ErrorCard, LoadingRows } from '@/components/QueryState'
@@ -34,7 +34,7 @@ export function PackageUpdates({ node, canModify }: { node: string; canModify: b
   const groups = useMemo(() => groupUpdates(filterUpdates(all ?? [], query, { description: details })), [all, query, details])
   const shown = groups.reduce((n, g) => n + g.items.length, 0)
   const kernel = (all ?? []).some((u) => isKernelPackage(u.Package))
-  const root = useSession()?.username === UPGRADE_USER
+  const root = usePveIdentity() === UPGRADE_USER
 
   if (!canModify) {
     return (

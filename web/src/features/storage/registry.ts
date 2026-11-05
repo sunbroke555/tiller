@@ -1,7 +1,7 @@
 // Tabs and actions of the storage page. Content tabs all render the
 // storage-browser area's ContentTab with a different `content`.
 
-import { lazy } from 'react'
+import { lazyComponent as lazy } from '@/lib/lazyComponent'
 import { Archive, Box, Disc3, FileCode, FileInput, HardDrive, LayoutDashboard, Package, Users } from 'lucide-react'
 
 import { storageBrowserActions } from '@/features/storage-browser/actions'

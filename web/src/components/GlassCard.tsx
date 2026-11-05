@@ -15,8 +15,9 @@ interface GlassCardProps extends ComponentProps<'div'> {
 }
 
 /**
- * The basic surface. Glass themes get a translucent blurred card with a 1px
- * highlight on the top edge; paper and "glass off" get solid cards.
+ * The basic surface. Glass themes get a translucent card with a 1px highlight
+ * on the top edge; paper and "glass off" get solid cards. Only floating,
+ * strong surfaces blur the content behind them.
  */
 export function GlassCard({ strong, interactive, flush, asChild, className, ...props }: GlassCardProps) {
   const Comp = asChild ? Slot.Root : 'div'

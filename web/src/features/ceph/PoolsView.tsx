@@ -27,6 +27,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Skeleton } from '@/components/ui/skeleton'
 import { DASH, formatBytes, formatPercent } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { cephUsageTone, CEPH_USAGE_HINT, METRIC_FILL, METRIC_TEXT } from '@/lib/metric-status'
 
 import {
   defaultPoolForm,
@@ -146,9 +147,9 @@ function PoolItem({ pool, canModify, onEdit, onDestroy }: { pool: CephPool; canM
         <span className="hidden truncate text-sm lg:block">{pool.crush_rule_name ?? DASH}</span>
         <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
           <span className="h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-secondary" aria-hidden>
-            <span className={cn('block h-full rounded-full bg-brand', (usage ?? 0) >= 0.85 && 'bg-destructive')} style={{ width: `${Math.min((usage ?? 0) * 100, 100)}%` }} />
+            <span className={cn('block h-full rounded-full', METRIC_FILL[cephUsageTone(usage)])} style={{ width: `${Math.min((usage ?? 0) * 100, 100)}%` }} />
           </span>
-          <span className="tabular">
+          <span title={CEPH_USAGE_HINT} className={cn('tabular', METRIC_TEXT[cephUsageTone(usage)])}>
             {formatPercent(usage)} · {formatBytes(pool.bytes_used ?? 0)}
           </span>
           <span className="lg:hidden">

@@ -127,6 +127,11 @@ export function FieldTextarea({ className, ...props }: ComponentProps<typeof Tex
   return <Textarea className={cn('min-h-24', className)} {...control} {...props} />
 }
 
+/** Numbered file editor wired to the surrounding FormField. */
+export function FieldCodeTextarea(props: ComponentProps<typeof Textarea>) {
+  return <FieldTextarea wrap="off" {...props} />
+}
+
 // ----------------------------------------------------------------- layout
 
 /** Fields side by side from `sm` up; stacked on phones. */

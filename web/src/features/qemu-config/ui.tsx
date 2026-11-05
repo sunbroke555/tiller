@@ -238,7 +238,7 @@ export function PendingBanner({
       <p className="min-w-0 flex-1 text-foreground">
         <span className="font-medium">{count} 项更改尚未生效</span>
         <span className="text-muted-foreground">
-          {running ? '，需要关机后重新启动（或热插拔）才会应用。' : '，下次启动时应用。'}
+          {running ? '，可在关机后重新启动时应用。' : '，下次启动时应用。'}
         </span>
       </p>
       {onRevertAll && (

@@ -1,9 +1,10 @@
-import { Outlet } from 'react-router'
+import { Outlet, useNavigation } from 'react-router'
 
 import { AmbientBackground } from '@/components/AmbientBackground'
 import { TaskLogHost } from '@/components/tasks/TaskLogSheet'
 import { TaskFooterBar } from '@/features/tasks/TaskShell'
 import { InstanceSwitcher } from '@/features/instances/InstanceSwitcher'
+import { useIsDesktop } from '@/hooks/useMediaQuery'
 
 import { BottomDock } from './BottomDock'
 import { CommandPaletteProvider } from './CommandPalette'
@@ -18,15 +19,18 @@ import { Sidebar } from './Sidebar'
  * footer bar.
  */
 export function AppShell() {
+  const navigation = useNavigation()
+  const desktop = useIsDesktop()
   return (
     <CommandPaletteProvider>
       <BottomDock>
         <AmbientBackground />
+        {navigation.state === 'loading' && <div role="status" aria-label="正在打开页面" className="pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 animate-pulse bg-brand" />}
         <div className="relative z-10 min-h-dvh lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
-          <Sidebar className="hidden lg:flex" />
-          <main className="min-w-0 pt-[max(1.25rem,env(safe-area-inset-top))] pr-[max(1rem,env(safe-area-inset-right))] pb-[calc(var(--dock-h,4.5rem)+max(0.75rem,env(safe-area-inset-bottom))+1.75rem)] pl-[max(1rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] lg:px-10 lg:pt-8 lg:pb-[calc(var(--task-footer-h,0px)+3rem)]">
-            <div className="mx-auto w-full max-w-6xl">
-              <div className="mb-5 lg:hidden"><InstanceSwitcher /></div>
+          {desktop && <Sidebar className="flex" />}
+          <main className="min-w-0 pt-[max(1.25rem,env(safe-area-inset-top))] pr-[max(1rem,env(safe-area-inset-right))] pb-[calc(var(--dock-h,4.5rem)+max(0.75rem,env(safe-area-inset-bottom))+1.75rem)] pl-[max(1rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] lg:px-6 lg:pt-8 lg:pb-[calc(var(--task-footer-h,0px)+3rem)]">
+            <div className="mx-auto w-full max-w-[90rem]">
+              {!desktop && <div className="mb-5"><InstanceSwitcher /></div>}
               <Outlet />
             </div>
           </main>

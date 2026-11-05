@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useIsDesktop } from '@/hooks/useMediaQuery'
 import { cn } from '@/lib/utils'
 
-import { DEFAULT_QUERY, SORTS, TYPE_FILTERS, activeFilterCount, type GuestQuery } from './filter'
+import { DEFAULT_QUERY, SORTS, TYPE_FILTERS, activeFilterCount, defaultGuestSortDirection, guestSortDirection, type GuestQuery } from './filter'
 
 interface GuestFilterBarProps {
   query: GuestQuery
@@ -102,7 +102,7 @@ export function GuestFilterBar({ query, onChange, tags, nodes, pools }: GuestFil
         )}
       </div>
       {tags.length > 0 && (
-        <div role="group" aria-label="按标签筛选" className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5 scrollbar-none sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+        <div role="group" aria-label="按标签筛选" className="flex min-w-0 gap-1 overflow-x-auto px-0.5 scrollbar-none lg:flex-wrap lg:gap-1.5 lg:overflow-visible">
           {tags.map(({ tag, count: n }) => (
             <TagFilterChip key={tag} tag={tag} count={n} selected={query.tags.includes(tag)} onToggle={() => toggleTag(tag)} />
           ))}
@@ -160,10 +160,14 @@ function FilterPanel({
       )}
       <Group label="排序">
         {SORTS.map((s) => (
-          <Choice key={s.value} selected={query.sort === s.value} onClick={() => set({ sort: s.value })}>
+          <Choice key={s.value} selected={query.sort === s.value} onClick={() => query.sort !== s.value && set({ sort: s.value, direction: defaultGuestSortDirection(s.value) })}>
             {s.label}
           </Choice>
         ))}
+      </Group>
+      <Group label="排序方向">
+        <Choice selected={guestSortDirection(query) === 'asc'} onClick={() => set({ direction: 'asc' })}>升序</Choice>
+        <Choice selected={guestSortDirection(query) === 'desc'} onClick={() => set({ direction: 'desc' })}>降序</Choice>
       </Group>
       <div className="flex justify-end">
         <Button variant="ghost" size="sm" onClick={onReset} disabled={activeFilterCount(query) === 0} className="pointer-coarse:h-11">

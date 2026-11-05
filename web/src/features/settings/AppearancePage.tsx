@@ -11,31 +11,31 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 import { DENSITY_LABEL, THEME_MODE_META } from '@/theme/meta'
 import { ACCENT_SWATCHES, swatchColor } from '@/theme/palette'
-import { ACCENTS, DENSITIES, THEME_MODES, type Density, type ThemeMode } from '@/theme/prefs'
+import { ACCENTS, DENSITIES, THEME_MODES, type Accent, type Density, type ThemeMode } from '@/theme/prefs'
 import { useTheme } from '@/theme/ThemeProvider'
 
 import { AppSettings } from './AppSettings'
 
 /** Static colours for the mini previews (independent of the active theme). */
-const PREVIEW: Record<Exclude<ThemeMode, 'system'>, { bg: string; card: string; text: string; line: string; glow?: string }> = {
-  dark: { bg: '#07080a', card: 'rgba(255,255,255,.07)', text: '#ececef', line: 'rgba(255,255,255,.14)', glow: 'rgba(139,147,255,.45)' },
-  light: { bg: '#eceef3', card: 'rgba(255,255,255,.85)', text: '#111318', line: 'rgba(17,24,39,.12)', glow: 'rgba(79,70,229,.25)' },
+const PREVIEW: Record<Exclude<ThemeMode, 'system'>, { bg: string; card: string; text: string; line: string }> = {
+  dark: { bg: '#07080a', card: 'rgba(255,255,255,.07)', text: '#ececef', line: 'rgba(255,255,255,.14)' },
+  light: { bg: '#eceef3', card: 'rgba(255,255,255,.85)', text: '#111318', line: 'rgba(17,24,39,.12)' },
   paper: { bg: '#faf9f5', card: '#fffefb', text: '#141413', line: '#e6e2d6' },
 }
 
-function MiniPreview({ mode }: { mode: Exclude<ThemeMode, 'system'> }) {
+function MiniPreview({ mode, accent }: { mode: Exclude<ThemeMode, 'system'>; accent: Accent }) {
   const c = PREVIEW[mode]
+  const brand = swatchColor(accent, mode)
   return (
-    <div className="relative h-full w-full overflow-hidden" style={{ background: c.bg }}>
-      {c.glow && (
-        <div
-          className="absolute -top-6 -left-6 size-20 rounded-full blur-xl"
-          style={{ background: c.glow }}
-          aria-hidden
-        />
-      )}
+    <div
+      className="relative h-full w-full overflow-hidden"
+      style={{
+        backgroundColor: c.bg,
+        backgroundImage: mode === 'paper' ? undefined : `radial-gradient(ellipse at top left, color-mix(in srgb, ${brand} 28%, transparent), transparent 75%)`,
+      }}
+    >
       <div
-        className="absolute inset-x-3 top-3 rounded-md p-2"
+        className="absolute inset-x-3 top-1/2 -translate-y-1/2 rounded-md p-2"
         style={{ background: c.card, border: `1px solid ${c.line}` }}
       >
         <div
@@ -44,14 +44,14 @@ function MiniPreview({ mode }: { mode: Exclude<ThemeMode, 'system'> }) {
         />
         <div className="mt-1.5 h-1 w-3/5 rounded-full" style={{ background: c.text, opacity: 0.25 }} />
         <div className="mt-2 h-1 rounded-full" style={{ background: c.line }}>
-          <div className="h-1 w-3/5 rounded-full" style={{ background: mode === 'paper' ? '#d97757' : mode === 'dark' ? '#8b93ff' : '#4f46e5' }} />
+          <div className="h-1 w-3/5 rounded-full" style={{ background: brand }} />
         </div>
       </div>
     </div>
   )
 }
 
-function ThemeOption({ mode, selected, onSelect }: { mode: ThemeMode; selected: boolean; onSelect: () => void }) {
+function ThemeOption({ mode, accent, selected, onSelect }: { mode: ThemeMode; accent: Accent; selected: boolean; onSelect: () => void }) {
   const meta = THEME_MODE_META[mode]
   return (
     <button
@@ -60,18 +60,18 @@ function ThemeOption({ mode, selected, onSelect }: { mode: ThemeMode; selected: 
       aria-checked={selected}
       onClick={onSelect}
       className={cn(
-        'group relative flex flex-col overflow-hidden rounded-2xl border text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'group relative flex flex-col overflow-hidden rounded-2xl border text-left transition-[border-color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring',
         selected ? 'border-brand ring-1 ring-brand' : 'border-border hover:border-foreground/20',
       )}
     >
-      <div className="aspect-[16/9] w-full border-b border-border">
+      <div aria-hidden data-slot="theme-preview" className="h-24 w-full shrink-0 border-b border-border">
         {mode === 'system' ? (
           <div className="grid h-full grid-cols-2">
-            <MiniPreview mode="dark" />
-            <MiniPreview mode="light" />
+            <MiniPreview mode="dark" accent={accent} />
+            <MiniPreview mode="light" accent={accent} />
           </div>
         ) : (
-          <MiniPreview mode={mode} />
+          <MiniPreview mode={mode} accent={accent} />
         )}
       </div>
       <div className="flex items-start gap-2 p-3">
@@ -130,7 +130,7 @@ export function AppearancePage() {
           <SectionHeader title="主题" />
           <div role="radiogroup" aria-label="主题" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {THEME_MODES.map((m) => (
-              <ThemeOption key={m} mode={m} selected={prefs.mode === m} onSelect={() => setPrefs({ mode: m })} />
+              <ThemeOption key={m} mode={m} accent={prefs.accent} selected={prefs.mode === m} onSelect={() => setPrefs({ mode: m })} />
             ))}
           </div>
         </section>

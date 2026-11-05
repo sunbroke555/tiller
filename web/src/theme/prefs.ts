@@ -9,7 +9,7 @@ export type ThemeMode = (typeof THEME_MODES)[number]
 /** What is actually applied: `system` resolves to dark or light. */
 export type ResolvedTheme = Exclude<ThemeMode, 'system'>
 
-export const ACCENTS = ['indigo', 'teal', 'orange', 'rose'] as const
+export const ACCENTS = ['indigo', 'blue', 'violet', 'teal', 'forest', 'orange', 'rose', 'slate'] as const
 export type Accent = (typeof ACCENTS)[number]
 
 export const DENSITIES = ['comfortable', 'compact'] as const

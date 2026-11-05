@@ -1,18 +1,13 @@
-// Login state. The ticket lives only in an instance-scoped HttpOnly session
-// cookie (PVEAuthCookie for the default instance). The browser sends it with
-// that instance's API calls; JavaScript never sees it. The CSRF token and user name
-// are kept in localStorage so a reload keeps the user logged in; a session
-// marker cookie tells whether the browser still has the ticket cookie (both
-// end when the browser closes).
+// Shared Tiller administrator session metadata. The actual session ID lives
+// only in the server's HttpOnly TillerSession cookie. PVE credentials never
+// enter this store; each instance is selected by its immutable URL namespace.
 
 import type { Capabilities } from './types'
-import { getInstanceScope, instanceStorageKey } from './instance-scope'
 
 export const AUTH_COOKIE = 'PVEAuthCookie'
 /** Not secret: only says "the HttpOnly ticket cookie was set in this browser session". */
-const scope = getInstanceScope()
-export const SESSION_MARKER_COOKIE = scope ? `tiller-session-${scope.id}-${scope.version}` : 'tiller-session'
-const SESSION_KEY = instanceStorageKey('tiller:session')
+export const SESSION_MARKER_COOKIE = 'tiller-admin-session'
+const SESSION_KEY = 'tiller:admin-session'
 
 /**
  * Sent with login, two-factor, OpenID and renewal requests: the Go server
@@ -26,6 +21,7 @@ export const RENEW_FROM_COOKIE = 'tiller:cookie-ticket'
 export const TICKET_LIFETIME_MS = 2 * 60 * 60 * 1000
 
 export interface Session {
+  expiresAt?: number
   username: string
   csrfToken: string
   /** Client clock time (ms) when the current ticket was issued or renewed. */
@@ -87,7 +83,7 @@ export function getSession(): Session | null {
 }
 
 export function isExpired(s: Session, now = Date.now()): boolean {
-  return now - s.ticketIssuedAt >= TICKET_LIFETIME_MS
+  return s.expiresAt !== undefined ? now >= s.expiresAt : now - s.ticketIssuedAt >= TICKET_LIFETIME_MS
 }
 
 /** True while this browser session holds the (HttpOnly) ticket cookie. */

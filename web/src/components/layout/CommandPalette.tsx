@@ -3,7 +3,7 @@ import { useMatch, useNavigate } from 'react-router'
 import { Keyboard, LogOut, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { logout } from '@/api/auth'
+import { logoutLocal } from '@/api/local-auth'
 import { usePermissions } from '@/api/permissions'
 import { useClusterResources } from '@/api/queries'
 import { isGuest, isNode, isStorage, type ClusterResource, type GuestResource, type NodeResource } from '@/api/types'
@@ -304,7 +304,7 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (
             value="退出登录 logout sign out"
             onSelect={() => {
               onOpenChange(false)
-              logout()
+              void logoutLocal().catch((error: unknown) => toast.error(errorMessage(error)))
             }}
           >
             <LogOut className="text-muted-foreground" />

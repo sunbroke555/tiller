@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Search, ShieldCheck } from 'lucide-react'
 
 import { useOwnPermissions } from '@/api/permissions'
-import { useSession } from '@/api/useSession'
+import { usePveIdentity } from '@/api/instances'
 import { EmptyState } from '@/components/EmptyState'
 import { GlassCard } from '@/components/GlassCard'
 import { PageHeader } from '@/components/PageHeader'
@@ -35,7 +35,7 @@ const PATH_HINT: Record<string, string> = {
 
 /** /account/permissions — GET /access/permissions as a searchable list. */
 export default function PermissionsPage() {
-  const session = useSession()
+  const pveUser = usePveIdentity()
   const perms = useOwnPermissions()
   const [q, setQ] = useState('')
 
@@ -62,7 +62,7 @@ export default function PermissionsPage() {
 
   return (
     <>
-      <PageHeader title="我的权限" description={session?.username} backTo="/account" eyebrow="账户与安全" />
+      <PageHeader title="我的权限" description={pveUser} backTo="/account" eyebrow="账户与安全" />
       <div className="mb-3 relative">
         <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
         <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="按路径或权限名过滤，如 /vms 或 PowerMgmt" className="pl-9" aria-label="过滤权限" />

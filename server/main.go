@@ -1,6 +1,6 @@
 // Command tiller serves the Tiller single page app and reverse-proxies the
-// Proxmox VE API to the selected instance. It stores connection metadata only,
-// and forwards each instance's browser ticket and CSRF header independently.
+// Proxmox VE API to the selected instance. It authenticates a local administrator and
+// connects to each PVE with its own encrypted password or API Token.
 package main
 
 import (
@@ -30,8 +30,14 @@ func run(logger *slog.Logger) error {
 	}
 
 	web, immutable := selectWebFS(cfg, logger)
-	transport := NewUpstreamTransport(cfg)
-	handler := NewHandler(cfg, web, immutable, transport, logger)
+	handler, err := newAppHandler(cfg, web, immutable, logger)
+	if err != nil {
+		return err
+	}
+	defer cfg.Auth.close()
+	if closer, ok := handler.(interface{ Close() error }); ok {
+		defer closer.Close()
+	}
 
 	srv := &http.Server{
 		Addr:    cfg.Listen,
@@ -46,10 +52,9 @@ func run(logger *slog.Logger) error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	go CheckUpstream(ctx, cfg, transport, logger)
 
 	if cfg.PlainHTTPExposed() {
-		logger.Warn("SERVING PLAIN HTTP ON A NETWORK ADDRESS: PVE passwords, two-factor codes and tickets cross the network unencrypted. "+
+		logger.Warn("SERVING PLAIN HTTP ON A NETWORK ADDRESS: Administrator/PVE passwords and API Tokens cross the network unencrypted. "+
 			"Set TLS_CERT_FILE/TLS_KEY_FILE, put a TLS reverse proxy in front, or listen on 127.0.0.1 only.",
 			"listen", cfg.Listen)
 	}
@@ -102,14 +107,10 @@ type emptyFS struct{}
 
 func (emptyFS) Open(string) (fs.File, error) { return nil, fs.ErrNotExist }
 
-// NewHandler assembles the complete HTTP handler.
+// NewHandler assembles low-level proxy handlers for transport tests.
+// Production uses newAppHandler, which always enforces Tiller authentication.
 func NewHandler(cfg *Config, web fs.FS, immutable bool, transport http.RoundTripper, logger *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
-	instances := newInstanceRegistry(cfg, transport, logger)
-	manageInstances := sameOrigin(cfg.TrustedProxies, logger, http.HandlerFunc(instances.Manage))
-	mux.Handle(instancesAPI, manageInstances)
-	mux.Handle(instancesAPI+"/", manageInstances)
-	mux.Handle("/api/instances/", sameOrigin(cfg.TrustedProxies, logger, http.HandlerFunc(instances.ServeInstance)))
 	// Only the JSON API (websockets included). PVE's other formatters
 	// (/api2/html with its own login form, /api2/extjs, /api2/png,
 	// /api2/spiceconfig) are not used by the SPA and stay off this origin.

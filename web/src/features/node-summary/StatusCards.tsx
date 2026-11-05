@@ -21,16 +21,17 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DASH, formatBytes, formatCores, formatPercent, formatUptime, formatUsage, ratio } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { highValueTone, METRIC_TEXT, USAGE_HINT, usageTone, type MetricTone } from '@/lib/metric-status'
 
-function Stat({ label, value, detail, tone }: { label: string; value: ReactNode; detail?: ReactNode; tone?: 'warn' | 'bad' }) {
+function Stat({ label, value, detail, tone, hint }: { label: string; value: ReactNode; detail?: ReactNode; tone?: MetricTone; hint?: string }) {
   return (
     <div className="min-w-0 rounded-xl bg-foreground/[0.03] px-3 py-2.5 ring-1 ring-border/60 ring-inset paper:bg-secondary/50">
       <div className="truncate text-xs text-muted-foreground">{label}</div>
       <div
+        title={hint}
         className={cn(
           'mt-0.5 truncate text-xl leading-tight font-medium tabular',
-          tone === 'warn' && 'text-warning-strong',
-          tone === 'bad' && 'text-destructive',
+          tone && METRIC_TEXT[tone],
         )}
       >
         {value}
@@ -57,15 +58,17 @@ export function ResourceCard({ status, loading, className }: { status: NodeStatu
           label="CPU"
           value={formatPercent(s.cpu)}
           detail={cpus ? `${formatCores(cpus)}${s.cpuinfo?.sockets ? ` · ${s.cpuinfo.sockets} 插槽` : ''}` : undefined}
-          tone={(s.cpu ?? 0) >= 0.9 ? 'bad' : (s.cpu ?? 0) >= 0.75 ? 'warn' : undefined}
+          tone={usageTone(s.cpu)}
+          hint={USAGE_HINT}
         />
         <Stat
           label="负载（1 分钟）"
           value={load ? load[0].toFixed(2) : DASH}
           detail={load ? `5/15分 ${load[1].toFixed(2)} · ${load[2].toFixed(2)}` : undefined}
-          tone={loadPerCpu !== null && loadPerCpu >= 1.5 ? 'bad' : loadPerCpu !== null && loadPerCpu >= 1 ? 'warn' : undefined}
+          tone={highValueTone(loadPerCpu, 1, 1.5)}
+          hint="每核平均负载 ≥ 1 为警告，≥ 1.5 为严重"
         />
-        <Stat label="IO 延迟" value={formatPercent(s.wait)} tone={(s.wait ?? 0) >= 0.1 ? 'warn' : undefined} />
+        <Stat label="IO 延迟" value={formatPercent(s.wait)} tone={highValueTone(s.wait, 0.1, 0.2)} hint="IO 等待 ≥ 10% 为警告，≥ 20% 为严重" />
         <Stat label="运行时间" value={formatUptime(s.uptime)} />
       </div>
       <div className="grid gap-3.5">
@@ -75,12 +78,14 @@ export function ResourceCard({ status, loading, className }: { status: NodeStatu
           detail={`${formatUsage(mem?.used, mem?.total)}${mem?.available !== undefined ? ` · 可用 ${formatBytes(mem.available)}` : ''}`}
         />
         <UsageBar label="根分区 /" value={ratio(s.rootfs?.used, s.rootfs?.total)} detail={formatUsage(s.rootfs?.used, s.rootfs?.total)} />
-        <UsageBar
-          label="交换分区"
-          value={s.swap?.total ? ratio(s.swap.used, s.swap.total) : null}
-          detail={s.swap?.total ? formatUsage(s.swap.used, s.swap.total) : '未启用'}
-          showPercent={!!s.swap?.total}
-        />
+        {s.swap?.total !== 0 && (
+          <UsageBar
+            label="交换分区"
+            value={ratio(s.swap?.used, s.swap?.total)}
+            detail={formatUsage(s.swap?.used, s.swap?.total)}
+            showPercent={!!s.swap?.total}
+          />
+        )}
         <div className="flex items-baseline justify-between gap-3 text-xs">
           <span className="text-muted-foreground">KSM 共享</span>
           <span className="text-foreground/90 tabular">{formatBytes(s.ksm?.shared ?? 0)}</span>

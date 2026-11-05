@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { formatBytes, formatPercent } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { cephUsageTone, CEPH_USAGE_HINT, METRIC_FILL, METRIC_TEXT } from '@/lib/metric-status'
 
 import { FLAG_LABEL, activeOsdFlags, osdDestroyBlocker, osdHosts, type OsdHost, type OsdRow } from './model'
 import { CreateOsdDialog, DestroyOsdDialog, FlagsDialog, OsdDetailsDialog, StopOsdDialog } from './OsdDialogs'
@@ -181,11 +182,11 @@ function OsdItem({ osd, actions, canModify }: { osd: OsdRow; actions: OsdActions
         <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
           <span className="h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-secondary" aria-hidden>
             <span
-              className={cn('block h-full rounded-full', (osd.usage ?? 0) >= 0.85 ? 'bg-destructive' : (osd.usage ?? 0) >= 0.75 ? 'bg-warning' : 'bg-brand')}
+              className={cn('block h-full rounded-full', METRIC_FILL[cephUsageTone(osd.usage)])}
               style={{ width: `${Math.min((osd.usage ?? 0) * 100, 100)}%` }}
             />
           </span>
-          <span className="tabular">
+          <span title={CEPH_USAGE_HINT} className={cn('tabular', METRIC_TEXT[cephUsageTone(osd.usage)])}>
             {formatPercent(osd.usage)} · {formatBytes(osd.total)}
           </span>
         </span>

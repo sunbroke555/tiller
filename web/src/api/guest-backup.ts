@@ -206,6 +206,9 @@ export interface GuestBackups {
   storages: NodeStorage[]
   /** Storages that failed to list, with the error. */
   errors: { storage: string; error: Error }[]
+  /** An unfinished storage must not hide rows already loaded from another one. */
+  pendingStorages: string[]
+  storageError: Error | null
   isPending: boolean
   isFetching: boolean
   refetch: () => void
@@ -242,7 +245,9 @@ export function useGuestBackups(node: string, type: GuestType, vmid: number): Gu
     backups,
     storages,
     errors,
-    isPending: storagesQuery.isPending || results.some((r) => r.isPending),
+    pendingStorages: storages.filter((_, i) => results[i]?.isPending).map((s) => s.storage),
+    storageError: storagesQuery.error,
+    isPending: storagesQuery.isPending || (results.length > 0 && results.every((r) => r.isPending)),
     isFetching: storagesQuery.isFetching || results.some((r) => r.isFetching),
     refetch: () => {
       void storagesQuery.refetch()

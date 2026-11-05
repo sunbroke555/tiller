@@ -25,6 +25,13 @@ const web: GuestResource = {
 const row = (guest: GuestResource) => ({ guest, showNode: false, showPool: false })
 
 describe('guest rows on a resource poll', () => {
+  it('refreshes threshold colours even when rounded text is unchanged', () => {
+    expect(sameGuestRow(row({ ...web, cpu: 0.7499 }), row({ ...web, cpu: 0.75 }))).toBe(false)
+    expect(sameGuestRow(row({ ...web, cpu: 0.8999 }), row({ ...web, cpu: 0.9 }))).toBe(false)
+    expect(sameGuestRow(row({ ...web, maxmem: web.mem! * 2 }), row({ ...web, maxmem: web.mem! }))).toBe(false)
+    // Capacity changes must refresh the memory meter even within one colour band.
+    expect(sameGuestRow(row({ ...web, maxmem: web.mem! * 4 }), row({ ...web, maxmem: web.mem! * 8 }))).toBe(false)
+  })
   it('skip re-rendering when nothing they show changed', () => {
     // A poll hands out a new object: netin and the unshown digits of cpu moved.
     const polled = { ...web, cpu: 0.2309, netin: 5000, mem: web.mem! + 1000 }
@@ -50,9 +57,9 @@ describe('guest rows on a resource poll', () => {
       </QueryClientProvider>
     )
     const { rerender } = render(<GuestList guests={[web]} showNode={false} />, { wrapper })
-    expect(screen.getByText('23%')).toBeInTheDocument()
+    expect(screen.getByLabelText('CPU 使用率')).toHaveTextContent('23%')
     rerender(<GuestList guests={[{ ...web, cpu: 0.5 }]} showNode={false} />)
-    expect(screen.getByText('50%')).toBeInTheDocument()
+    expect(screen.getByLabelText('CPU 使用率')).toHaveTextContent('50%')
     vi.unstubAllGlobals()
   })
 })

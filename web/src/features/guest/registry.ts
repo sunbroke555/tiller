@@ -9,7 +9,7 @@
 // Actions: guest-core 100–199 (power), console 200–249, guest-backup 300–349,
 // guest-lifecycle 400–499.
 
-import { lazy } from 'react'
+import { lazyComponent as lazy } from '@/lib/lazyComponent'
 import {
   Archive,
   Camera,

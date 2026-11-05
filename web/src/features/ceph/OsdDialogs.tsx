@@ -28,6 +28,7 @@ import { runTask } from '@/components/tasks/tracker'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DASH, formatBytes, formatPercent } from '@/lib/format'
+import { cephUsageTone, CEPH_USAGE_HINT, METRIC_TEXT } from '@/lib/metric-status'
 
 import {
   FLAG_LABEL,
@@ -276,7 +277,7 @@ export function OsdDetailsDialog({
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Fact label="状态">{osdStateLabel(osd)}</Fact>
           <Fact label="使用率">
-            {formatPercent(osd.usage)} / {formatBytes(osd.total)}
+            <span title={CEPH_USAGE_HINT} className={METRIC_TEXT[cephUsageTone(osd.usage)]}>{formatPercent(osd.usage)} / {formatBytes(osd.total)}</span>
           </Fact>
           <Fact label="PG">{osd.pgs ?? DASH}</Fact>
           <Fact label="设备类">{osd.deviceClass ?? DASH}</Fact>

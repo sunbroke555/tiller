@@ -63,7 +63,10 @@ export default function BackupTab({ node, type, vmid, guest }: GuestTabProps) {
   const shown = filter === ALL ? data.backups : data.backups.filter((b) => b.storage === filter)
   const total = shown.reduce((sum, b) => sum + (b.size ?? 0), 0)
   const latest = data.backups[0]
-  const noStorage = !data.isPending && data.storages.length === 0
+  const noStorage = !data.isPending && !data.storageError && data.storages.length === 0
+  const waiting = filter === ALL ? data.pendingStorages : data.pendingStorages.filter((s) => s === filter)
+  const incomplete = !!data.storageError || data.errors.some((e) => filter === ALL || e.storage === filter)
+  const loading = shown.length === 0 && (data.isPending || waiting.length > 0)
 
   return (
     <div className="grid gap-(--section-gap)">
@@ -72,13 +75,15 @@ export default function BackupTab({ node, type, vmid, guest }: GuestTabProps) {
           <div className="min-w-0 flex-1">
             <h2 className="heading text-base font-medium text-foreground">备份</h2>
             <p className="truncate text-xs text-muted-foreground">
-              {data.isPending
+              {loading
                 ? '正在读取…'
+                : incomplete && data.backups.length === 0
+                  ? '备份列表读取失败'
                 : data.backups.length === 0
                   ? '还没有备份'
                   : (
                     <>
-                      {shown.length} 个备份 · 共 {formatBytes(total)}
+                      {data.pendingStorages.length > 0 && '已读取 '}{shown.length} 个备份 · 共 {formatBytes(total)}
                       {latest && <span className="hidden sm:inline"> · 最近 {formatRelativeTime(latest.ctime)}</span>}
                     </>
                   )}
@@ -114,8 +119,15 @@ export default function BackupTab({ node, type, vmid, guest }: GuestTabProps) {
           </div>
         )}
 
-        {data.errors.length > 0 && (
+        {data.pendingStorages.length > 0 && (
+          <p role="status" className="px-(--card-p) pt-3 text-xs break-words text-muted-foreground">
+            正在读取 {data.pendingStorages.join('、')} 上的备份{data.backups.length > 0 ? '，已返回的备份可先查看。' : '…'}
+          </p>
+        )}
+
+        {(data.storageError || data.errors.length > 0) && (
           <div className="grid gap-2 px-(--card-p) pt-3">
+            {data.storageError && <Notice tone="error">无法读取备份存储列表：{errorMessage(data.storageError)}</Notice>}
             {data.errors.map((e) => (
               <Notice key={e.storage} tone="error">
                 无法读取存储 {e.storage} 上的备份：{errorMessage(e.error)}
@@ -124,10 +136,12 @@ export default function BackupTab({ node, type, vmid, guest }: GuestTabProps) {
           </div>
         )}
 
-        {data.isPending ? (
+        {loading ? (
           <ListSkeleton />
         ) : noStorage ? (
           <EmptyState icon={Archive} title="没有备份存储" description="这个节点上没有允许存放备份（内容类型含“备份”）的存储。先在存储设置里添加一个。" />
+        ) : shown.length === 0 && incomplete ? (
+          <EmptyState icon={Archive} title="暂时无法确认备份列表" description="部分存储读取失败，请查看上方错误并重试。" />
         ) : shown.length === 0 ? (
           <EmptyState
             icon={Archive}

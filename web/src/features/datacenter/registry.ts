@@ -6,7 +6,7 @@
 // A section component owns everything below /datacenter/<id>/ — use nested
 // <Routes> or the `*` splat for sub-pages (e.g. firewall/rules, firewall/ipset).
 
-import { lazy } from 'react'
+import { lazyComponent as lazy } from '@/lib/lazyComponent'
 import {
   Archive,
   Bell,

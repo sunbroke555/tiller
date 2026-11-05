@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { Activity, ShieldCheck } from 'lucide-react'
 
@@ -8,8 +9,9 @@ import { StatusDot } from '@/components/StatusDot'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DASH, formatBytes, formatUptime, formatUsage } from '@/lib/format'
 import { nodePath } from '@/lib/resources'
+import { cn } from '@/lib/utils'
 
-import { CardTitle, InfoList, InfoRow } from './parts'
+import { CardTitle } from './parts'
 import { powerState } from './power'
 import { haStateLabel, osTypeLabel, qmpStatusLabel } from './labels'
 
@@ -35,13 +37,13 @@ export function StatusCard({ guest, status, config, agentResponds }: StatusCardP
     <GlassCard>
       <CardTitle title="状态" icon={Activity} />
       {!status && !config ? (
-        <div className="grid gap-3">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
           {Array.from({ length: 5 }, (_, i) => (
             <Skeleton key={i} className="h-5 w-full" />
           ))}
         </div>
       ) : (
-        <InfoList>
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border/60 pt-4 lg:grid-cols-3">
           <InfoRow label="状态">
             <span className="inline-flex items-center gap-2">
               <StatusDot status={ps.hibernated ? 'suspended' : guest.status} decorative />
@@ -100,9 +102,18 @@ export function StatusCard({ guest, status, config, agentResponds }: StatusCardP
               </span>
             </InfoRow>
           )}
-        </InfoList>
+        </dl>
       )}
     </GlassCard>
+  )
+}
+
+function InfoRow({ label, children, mono }: { label: string; children: ReactNode; mono?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <dt className="mb-1 text-xs text-muted-foreground">{label}</dt>
+      <dd className={cn('text-sm break-words text-foreground', mono && 'font-mono text-[13px] tabular')}>{children}</dd>
+    </div>
   )
 }
 

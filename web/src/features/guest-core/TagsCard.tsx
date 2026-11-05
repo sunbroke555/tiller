@@ -5,7 +5,7 @@ import { updateGuestConfig, useClusterOptions, type GuestConfig } from '@/api/gu
 import { useClusterResources } from '@/api/queries'
 import { isGuest, type GuestType } from '@/api/types'
 import { usePermissions } from '@/api/permissions'
-import { useSession } from '@/api/useSession'
+import { usePveIdentity } from '@/api/instances'
 import { FieldInput, FormDialog, FormField } from '@/components/form'
 import { GlassCard } from '@/components/GlassCard'
 import { runTask } from '@/components/tasks/tracker'
@@ -74,7 +74,7 @@ function TagsDialog({
   const config = useOpenSnapshot(open, liveConfig)
   const style = useTagStyle()
   const { data: options } = useClusterOptions()
-  const session = useSession()
+  const pveUser = usePveIdentity()
   const perms = usePermissions()
   const { data: clusterTags } = useClusterResources({
     enabled: open,
@@ -94,7 +94,7 @@ function TagsDialog({
 
   // Users without Sys.Modify are limited by the datacenter's user-tag-access.
   const access = parseUserTagAccess(options)
-  const privileged = bypassesTagAccess(perms, session?.username)
+  const privileged = bypassesTagAccess(perms, pveUser)
   const allowed = useMemo(() => {
     const listed = [...access.list, ...(options?.['allowed-tags'] ?? [])]
     if (privileged || access.mode === 'free') return null

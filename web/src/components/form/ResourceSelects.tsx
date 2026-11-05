@@ -4,6 +4,7 @@ import { useClusterResources, useClusterStatus, useNodeNetworks, useNodeStorages
 import { isNode, type NodeStorage, type StorageContent } from '@/api/types'
 import { StatusDot } from '@/components/StatusDot'
 import { formatBytes, formatPercent, ratio } from '@/lib/format'
+import { METRIC_TEXT, usageTone } from '@/lib/metric-status'
 
 import { SelectField, type SelectOption } from './SelectField'
 
@@ -174,7 +175,7 @@ export function NodeSelect({
     icon: <StatusDot status={n.status} pulse={false} decorative />,
     description:
       n.status === 'online'
-        ? `CPU ${formatPercent(n.cpu)} · 内存 ${formatPercent(ratio(n.mem, n.maxmem))}`
+        ? <><span className={METRIC_TEXT[usageTone(n.cpu)]}>CPU {formatPercent(n.cpu)}</span> · <span className={METRIC_TEXT[usageTone(ratio(n.mem, n.maxmem))]}>内存 {formatPercent(ratio(n.mem, n.maxmem))}</span></>
         : '离线',
     disabled: n.status !== 'online',
   }))

@@ -158,7 +158,7 @@ describe('errors', () => {
     await expect(get('/cluster/resources')).rejects.toMatchObject({ status: 401, isUnauthorized: true })
     expect(handler).toHaveBeenCalledOnce()
     expect(getSession()).toBeNull()
-    expect(document.cookie).not.toContain('tiller-session=1')
+    expect(document.cookie).not.toContain('tiller-admin-session=1')
   })
 
   it('keeps the session on 401 when noAuthRedirect is set (login form)', async () => {

@@ -7,7 +7,7 @@ import { AppWindow, CircleHelp, Disc, Disc3, HardDrive, Plus, Sun, Terminal, Tra
 
 import { useClusterResources, useClusterStatus } from '@/api/queries'
 import { isNode } from '@/api/types'
-import { useSession } from '@/api/useSession'
+import { usePveIdentity } from '@/api/instances'
 import { useCpuFlags, useCpuModels, useMachineVersions, useStoragesWithFormats, type CpuModel } from '@/api/guest-create'
 import {
   BridgeSelect,
@@ -638,7 +638,7 @@ export function QemuCpuStep(props: QemuStepProps) {
   const node = useNodeInfo(form.node)
   const { data: models, isPending } = useCpuModels(form.node || undefined)
   const options = useMemo(() => cpuOptions(models ? [...models] : undefined), [models])
-  const isRoot = useSession()?.username === 'root@pam'
+  const isRoot = usePveIdentity() === 'root@pam'
   const total = (form.sockets ?? 1) * (form.cores ?? 1)
   const over = node?.maxcpu !== undefined && total > node.maxcpu
   return (

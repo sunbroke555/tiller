@@ -21,3 +21,7 @@ docs/screenshots/
 .claude/
 tiller-instances.json
 .tiller-instances-*
+tiller-auth.json*
+.tiller-private-*
+*.hardware.json
+__pycache__/

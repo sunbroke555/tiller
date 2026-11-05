@@ -10,7 +10,7 @@ import { toast } from 'sonner'
 import { revertLxcPending, updateLxcConfig, useLxcPending } from '@/api/lxc-config'
 import { usePermissions } from '@/api/permissions'
 import { queryKeys } from '@/api/queries'
-import { useSession } from '@/api/useSession'
+import { usePveIdentity } from '@/api/instances'
 import { useOpenSnapshot } from '@/hooks/useOpenSnapshot'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { EmptyState } from '@/components/EmptyState'
@@ -86,7 +86,7 @@ export function useDialogConfig(api: LxcConfigApi, open: boolean): LxcConfigApi 
 
 export function useLxcConfig({ node, vmid, guest }: GuestTabProps): LxcConfigApi {
   const query = useLxcPending(node, vmid)
-  const session = useSession()
+  const pveUser = usePveIdentity()
   const perms = usePermissions()
   const readOnly = !perms.can({ privs: CONFIG_PRIVS, any: true }, { kind: 'guest', vmid, pool: guest.pool })
   const config = useMemo(() => (query.data ? parsePending(query.data) : undefined), [query.data])
@@ -109,7 +109,7 @@ export function useLxcConfig({ node, vmid, guest }: GuestTabProps): LxcConfigApi
     vmid,
     name,
     running: guest.status === 'running',
-    isRoot: session?.username === 'root@pam',
+    isRoot: pveUser === 'root@pam',
     readOnly,
     config,
     cfg,

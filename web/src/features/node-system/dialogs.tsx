@@ -2,8 +2,8 @@
 // (useOpenSnapshot) and diffs against it, so a change saved elsewhere in the
 // meantime is rejected by PVE (digest) instead of silently undone.
 
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
-import { Check, ExternalLink, Search, TriangleAlert } from 'lucide-react'
+import { useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { ExternalLink, Search, TriangleAlert } from 'lucide-react'
 
 import {
   setNodeTimezone,
@@ -18,8 +18,8 @@ import {
 } from '@/api/node-system'
 import {
   CheckboxField,
+  FieldCodeTextarea,
   FieldInput,
-  FieldTextarea,
   FormDialog,
   FormField,
   FormRow,
@@ -32,7 +32,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useOpenSnapshot } from '@/hooks/useOpenSnapshot'
 import { propNumber } from '@/lib/propstring'
-import { cn } from '@/lib/utils'
 
 import {
   BALLOON_TARGET_DEFAULT,
@@ -47,7 +46,6 @@ import {
   parseLocation,
   parseWakeOnLan,
   searchTimezones,
-  splitZone,
   validateDnsForm,
   validateLocation,
   validateWol,
@@ -56,7 +54,7 @@ import {
   type LocationForm,
   type WolForm,
 } from './model'
-import { TIMEZONES } from './timezones'
+import { TimezoneList } from './TimezoneList'
 
 interface DialogProps {
   node: string
@@ -175,15 +173,11 @@ export function HostsDialog({ node, open, onOpenChange, hosts }: DialogProps & {
       }
     >
       <FormField label="文件内容" name="data">
-        <FieldTextarea
+        <FieldCodeTextarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={16}
-          wrap="off"
-          spellCheck={false}
-          autoCapitalize="off"
-          autoCorrect="off"
-          className="min-h-72 overflow-x-auto font-mono text-base leading-relaxed whitespace-pre md:text-[13px]"
+          className="min-h-72"
         />
       </FormField>
       {check.invalidLines.length > 0 && (
@@ -213,21 +207,7 @@ export function TimezoneDialog({ node, open, onOpenChange, timezone }: DialogPro
   const [value, setValue] = useFormState(open, () => initial ?? '')
   const [query, setQuery] = useFormState(open, () => '')
   const zones = useMemo(() => searchTimezones(query), [query])
-  // Offsets once per opening (Intl formatters are not free).
-  const offsets = useMemo(() => {
-    if (!open) return new Map<string, string | null>()
-    const now = new Date()
-    return new Map(TIMEZONES.map((z) => [z, zoneOffset(z, now)]))
-  }, [open])
-  const listRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const id = window.setTimeout(() => {
-      listRef.current?.querySelector('[aria-checked="true"]')?.scrollIntoView({ block: 'center' })
-    }, 50)
-    return () => window.clearTimeout(id)
-  }, [open])
+  const selectedOffset = useMemo(() => open && value ? zoneOffset(value, new Date()) : null, [open, value])
 
   return (
     <FormDialog
@@ -249,7 +229,7 @@ export function TimezoneDialog({ node, open, onOpenChange, timezone }: DialogPro
           <span className="font-medium">已选</span>
           <span className="min-w-0 truncate text-muted-foreground tabular">
             {value || '—'}
-            {value && offsets.get(value) ? ` · ${offsets.get(value)}` : ''}
+            {selectedOffset ? ` · ${selectedOffset}` : ''}
           </span>
         </div>
         <div className="relative">
@@ -264,43 +244,7 @@ export function TimezoneDialog({ node, open, onOpenChange, timezone }: DialogPro
             className="pl-9"
           />
         </div>
-        <div
-          ref={listRef}
-          role="radiogroup"
-          aria-label="时区"
-          className="max-h-[min(22rem,50dvh)] overflow-y-auto overscroll-contain rounded-xl border border-border/70"
-        >
-          {zones.length === 0 ? (
-            <p className="px-3 py-6 text-center text-sm text-muted-foreground">没有匹配的时区</p>
-          ) : (
-            zones.map((z) => {
-              const { region, city } = splitZone(z)
-              const selected = z === value
-              return (
-                <button
-                  key={z}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  aria-label={z}
-                  onClick={() => setValue(z)}
-                  className={cn(
-                    'flex min-h-11 w-full items-center gap-3 border-b border-border/50 px-3 py-2 text-left text-sm last:border-b-0',
-                    'transition-colors outline-none hover:bg-foreground/[0.04] focus-visible:bg-foreground/[0.06]',
-                    selected && 'bg-brand/10 paper:bg-secondary',
-                  )}
-                >
-                  <span className="grid min-w-0 flex-1">
-                    <span className="truncate font-medium">{city}</span>
-                    {region && <span className="truncate text-xs text-muted-foreground">{region}</span>}
-                  </span>
-                  <span className="shrink-0 text-xs text-muted-foreground tabular">{offsets.get(z) ?? ''}</span>
-                  <Check className={cn('size-4 shrink-0 text-brand-strong', !selected && 'invisible')} aria-hidden />
-                </button>
-              )
-            })
-          )}
-        </div>
+        <TimezoneList zones={zones} value={value} onValueChange={setValue} />
       </div>
     </FormDialog>
   )

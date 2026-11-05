@@ -7,7 +7,7 @@ import type { Params } from '@/api/client'
 import { revertQemuPending, writeQemuConfig } from '@/api/qemu-config'
 import { usePermissions } from '@/api/permissions'
 import { queryKeys } from '@/api/queries'
-import { useSession } from '@/api/useSession'
+import { usePveIdentity } from '@/api/instances'
 import { ConfigChangedContext } from '@/components/form/FormDialog'
 import { runTask } from '@/components/tasks/tracker'
 import type { GuestResource } from '@/api/types'
@@ -53,7 +53,7 @@ export function useQemuConfigValue(
   guest: GuestResource,
   state: PendingState,
 ): QemuConfigContextValue {
-  const session = useSession()
+  const pveUser = usePveIdentity()
   const perms = usePermissions()
   return useMemo(() => {
     return {
@@ -65,7 +65,7 @@ export function useQemuConfigValue(
       state,
       arch: guestArch(state.next),
       running: guest.status === 'running',
-      isRoot: session?.username === 'root@pam',
+      isRoot: pveUser === 'root@pam',
       can: (priv, scope = 'vms') => {
         switch (scope) {
           case 'vms':
@@ -77,7 +77,7 @@ export function useQemuConfigValue(
         }
       },
     }
-  }, [node, vmid, guest, state, session, perms])
+  }, [node, vmid, guest, state, pveUser, perms])
 }
 
 export function guestInvalidation(node: string, vmid: number) {

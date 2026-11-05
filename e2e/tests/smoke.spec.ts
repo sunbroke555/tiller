@@ -1,4 +1,4 @@
-import { env, expect, splitUser, test } from '../fixtures'
+import { expect, test, testConnection } from '../fixtures'
 
 // Smoke subset (`make e2e-smoke`, a couple of minutes): login, overview, guest
 // summary, console, storage list and tasks, in both layouts. Read-only against
@@ -11,18 +11,11 @@ test.describe('smoke', { tag: '@smoke' }, () => {
     test.use({ storageState: { cookies: [], origins: [] } })
 
     test('logs in through the login page', async ({ page }) => {
-      const { username, realm } = splitUser(env.user)
+      const { username, password } = testConnection()
       await page.goto('/')
-      await expect(page).toHaveURL(/\/login/)
-      await expect(page.getByRole('heading', { name: 'Tiller', exact: true })).toBeVisible()
+      await expect(page.getByRole('heading', { name: '登录 Tiller', exact: true })).toBeVisible()
       await page.getByLabel('用户名').fill(username)
-      await page.getByLabel('密码', { exact: true }).fill(env.password)
-      const realmBox = page.getByRole('combobox', { name: '认证域' })
-      await expect(realmBox).toBeEnabled()
-      if (!(await realmBox.textContent())?.includes(`@${realm}`)) {
-        await realmBox.click()
-        await page.getByRole('option', { name: new RegExp(`@${realm}$`) }).click()
-      }
+      await page.getByLabel('密码', { exact: true }).fill(password)
       await page.getByRole('button', { name: '登录', exact: true }).click()
       await expect(page.getByRole('heading', { level: 1 })).toHaveText('概览', { timeout: 20_000 })
     })
@@ -76,5 +69,14 @@ test.describe('smoke', { tag: '@smoke' }, () => {
     await expect(log.getByTestId('task-log')).not.toBeEmpty({ timeout: 15_000 })
     await log.getByRole('button', { name: '关闭' }).last().click()
     await expect(log).toBeHidden()
+  })
+
+  test('command palette logout revokes the server session @desktop', async ({ page, context }) => {
+    await page.goto('/')
+    await expect(page.getByRole('heading', { name: '概览', exact: true })).toBeVisible()
+    await page.keyboard.press('Control+k')
+    await page.getByRole('option', { name: '退出登录', exact: true }).click()
+    await expect(page.getByRole('heading', { name: '登录 Tiller', exact: true })).toBeVisible()
+    expect((await context.request.get('/api2/tiller/instances')).status()).toBe(401)
   })
 })

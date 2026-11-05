@@ -26,6 +26,7 @@ export default defineConfig({
       { text: '开始使用', items: [
         { text: '文档概览', link: '/' },
         { text: '安装与运行', link: '/guide/install' },
+        { text: 'Docker 部署', link: '/guide/docker' },
         { text: '连接与安全配置', link: '/guide/configuration' },
         { text: '首次登录', link: '/guide/first-run' },
       ] },

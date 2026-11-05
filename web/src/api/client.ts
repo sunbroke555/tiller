@@ -8,7 +8,7 @@
 // Failures throw PveApiError.
 
 import { clearSession, getSession } from './session'
-import { instanceApiBase } from './instance-scope'
+import { instanceApiBase, type InstanceScope } from './instance-scope'
 
 export const API_PREFIX = '/api2/json'
 export const CSRF_HEADER = 'CSRFPreventionToken'
@@ -96,14 +96,16 @@ export function encodeParams(params?: Params): URLSearchParams {
   return out
 }
 
-export function apiUrl(path: string, query?: URLSearchParams): string {
+export function apiUrl(path: string, query?: URLSearchParams, instance?: InstanceScope | null): string {
   if (!path.startsWith('/')) throw new Error(`API path must start with "/": ${path}`)
-  const base = instanceApiBase() + (path.startsWith('/api2/') ? path : API_PREFIX + path)
+  const base = instanceApiBase(instance) + (path.startsWith('/api2/') ? path : API_PREFIX + path)
   const qs = query?.toString()
   return qs ? `${base}${base.includes('?') ? '&' : '?'}${qs}` : base
 }
 
 export interface RequestOptions {
+  /** Explicit immutable target for multi-instance reads; normal pages use their URL scope. */
+  instance?: InstanceScope | null
   signal?: AbortSignal | undefined
   /**
    * Do not log the user out on 401 (login and ticket renewal handle 401
@@ -164,7 +166,7 @@ export async function requestEnvelope<T>(
 ): Promise<PveEnvelope<T>> {
   const encoded = encodeParams(params)
   const hasBody = method === 'POST' || method === 'PUT'
-  const url = apiUrl(path, hasBody ? undefined : encoded)
+  const url = apiUrl(path, hasBody ? undefined : encoded, options.instance)
 
   const headers: Record<string, string> = { Accept: 'application/json', ...options.headers }
   if (method !== 'GET') {

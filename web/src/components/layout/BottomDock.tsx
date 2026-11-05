@@ -25,6 +25,7 @@ export function DockPortal({ children }: { children: ReactNode }) {
  * Its height is published as --dock-h so <main> can pad for it.
  */
 export function BottomDock({ children }: { children: ReactNode }) {
+  const desktop = useIsDesktop()
   const [slot, setSlot] = useState<HTMLDivElement | null>(null)
   const measured = useRef<HTMLDivElement>(null)
 
@@ -49,7 +50,7 @@ export function BottomDock({ children }: { children: ReactNode }) {
         <TaskToast className="pointer-events-auto w-full max-w-md lg:max-w-none" />
         <div ref={measured} className="flex w-full flex-col items-center gap-2.5 lg:hidden">
           <div ref={setSlot} className="w-full max-w-md empty:hidden *:pointer-events-auto" />
-          <BottomNav />
+          {!desktop && <BottomNav />}
         </div>
       </div>
     </DockSlotContext>

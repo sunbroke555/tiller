@@ -88,14 +88,15 @@ export default function SummaryTab({ node, type, vmid, guest }: GuestTabProps) {
   return (
     <div className="grid gap-(--section-gap)">
       <StatTiles guest={guest} status={status.data} rrd={rrd.data} />
-      <div className="grid items-start gap-(--section-gap) lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] xl:grid-cols-[minmax(0,1fr)_24rem]">
-        <div className="grid min-w-0 gap-(--row-gap) *:min-w-0 lg:order-2">
-          <StatusCard
-            guest={guest}
-            status={status.data}
-            config={config.data}
-            agentResponds={type === 'qemu' && running && agentEnabled ? (ips.isSuccess ? true : ips.isError ? false : undefined) : undefined}
-          />
+      <GuestCharts node={node} type={type} vmid={vmid} />
+      <div className="grid min-w-0 gap-(--row-gap) *:min-w-0">
+        <StatusCard
+          guest={guest}
+          status={status.data}
+          config={config.data}
+          agentResponds={type === 'qemu' && running && agentEnabled ? (ips.isSuccess ? true : ips.isError ? false : undefined) : undefined}
+        />
+        <div className="grid gap-(--row-gap) lg:grid-cols-3">
           <NetworkCard
             type={type}
             running={running}
@@ -107,9 +108,6 @@ export default function SummaryTab({ node, type, vmid, guest }: GuestTabProps) {
             hostname={hostname.data}
           />
           {side}
-        </div>
-        <div className="min-w-0 lg:order-1">
-          <GuestCharts node={node} type={type} vmid={vmid} />
         </div>
       </div>
       {host}

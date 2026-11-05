@@ -21,8 +21,8 @@ export function instanceBase(s: InstanceScope | null = scope): string {
   return s ? `/i/${s.id}/${s.version}` : ''
 }
 
-export function instanceApiBase(): string {
-  return scope ? `/api/instances/${scope.id}/${scope.version}` : ''
+export function instanceApiBase(selected: InstanceScope | null = scope): string {
+  return selected ? `/api/instances/${selected.id}/${selected.version}` : ''
 }
 
 export function instanceStorageKey(key: string): string {

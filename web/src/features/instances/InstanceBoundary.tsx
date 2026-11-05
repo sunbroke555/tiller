@@ -1,7 +1,7 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 
 import { getInstanceScope } from '@/api/instance-scope'
-import { useInstances } from '@/api/instances'
+import { rememberInstance, useInstances } from '@/api/instances'
 import { Button } from '@/components/ui/button'
 
 /** Refuse stale/deleted scopes before mounting any PVE queries or actions. */
@@ -15,6 +15,9 @@ function ScopedBoundary({ children }: { children: ReactNode }) {
   const scope = getInstanceScope()!
   const catalog = useInstances()
   const valid = catalog.data?.instances.some((i) => i.id === scope.id && i.version === scope.version)
+  useEffect(() => {
+    if (valid) rememberInstance(scope)
+  }, [valid, scope])
   if (valid) return children
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">

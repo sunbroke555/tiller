@@ -1,7 +1,8 @@
 import { Link } from 'react-router'
 import { BookOpen, Building2, Keyboard, LogOut, Palette, Server, ShieldCheck, UserRound } from 'lucide-react'
 
-import { logout } from '@/api/auth'
+import { logoutLocal } from '@/api/local-auth'
+import { toast } from 'sonner'
 import { useSession } from '@/api/useSession'
 import { Button } from '@/components/ui/button'
 import {
@@ -46,7 +47,7 @@ export function UserMenu({ variant = 'icon', className }: { variant?: 'icon' | '
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium">{name}</span>
-              <span className="block truncate text-xs text-muted-foreground">@{realm}</span>
+              <span className="block truncate text-xs text-muted-foreground">{realm ? `@${realm}` : 'Tiller 管理员'}</span>
             </span>
           </button>
         )}
@@ -58,9 +59,9 @@ export function UserMenu({ variant = 'icon', className }: { variant?: 'icon' | '
           <Link to="/instances"><Server /> 实例管理</Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild className="pointer-coarse:min-h-11">
-          <Link to="/account">
-            <ShieldCheck /> 账户与安全
-          </Link>
+          <a href="/account">
+            <ShieldCheck /> 管理员账户
+          </a>
         </DropdownMenuItem>
         <DropdownMenuItem asChild className="pointer-coarse:min-h-11">
           <Link to="/settings/appearance">
@@ -82,7 +83,7 @@ export function UserMenu({ variant = 'icon', className }: { variant?: 'icon' | '
           </a>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onSelect={() => logout()} className="pointer-coarse:min-h-11">
+        <DropdownMenuItem variant="destructive" onSelect={() => void logoutLocal().catch((e: Error) => toast.error(e.message))} className="pointer-coarse:min-h-11">
           <LogOut /> 退出登录
         </DropdownMenuItem>
       </DropdownMenuContent>

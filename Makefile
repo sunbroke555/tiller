@@ -1,5 +1,5 @@
-# Tiller build entry points. Heavy targets run on the test server:
-#   rt -- make test      rt -- make server
+# Tiller build entry points:
+#   make server      make test
 SHELL := /bin/bash
 .DEFAULT_GOAL := server
 
@@ -8,7 +8,7 @@ NPM ?= npm
 BIN := server/tiller
 GOFLAGS_BUILD := -trimpath -ldflags "-s -w"
 
-.PHONY: deps docs-deps docs docs-dev test-docs web server test test-go test-web typecheck dev e2e e2e-area e2e-smoke e2e-visual e2e-deps e2e-server e2e-stop clean
+.PHONY: deps docs-deps docs docs-dev test-docs web server test test-go test-smart test-web typecheck dev e2e e2e-area e2e-smoke e2e-visual e2e-deps e2e-server e2e-stop clean
 
 # Reinstall web dependencies only when the lockfile changes.
 web/node_modules/.package-lock.json: web/package-lock.json web/package.json
@@ -45,7 +45,10 @@ server: web
 	@echo "built $(BIN)"
 
 ## test: Go tests, Vitest and the TypeScript type check
-test: test-go test-web typecheck
+test: test-go test-smart test-web typecheck
+
+test-smart:
+	cd server && python3 -m unittest hardware_smart_test
 
 test-go:
 	cd server && $(GO) vet ./... && $(GO) vet -tags dev ./... && $(GO) test -count=1 ./...
@@ -57,7 +60,7 @@ typecheck: deps
 	cd web && $(NPM) run typecheck
 
 ## dev: Go server (dev build, proxies /api2 to PVE_URL) + Vite with HMR on :5173
-## Example: PVE_URL=https://<lab>:8006 PVE_INSECURE_TLS=1 make dev
+## Open http://localhost:5173 and configure your PVE connection in the UI.
 dev: deps docs
 	mkdir -p web/dist
 	rm -rf web/dist/docs
@@ -69,8 +72,8 @@ dev: deps docs
 
 ## End-to-end tests against the lab (Playwright, see e2e/playwright.config.ts).
 ## Every target starts Tiller on $(PORT) (building it if sources changed), runs
-## Playwright and stops the server again even when tests fail. Needs lab.env:
-##   rt -- bash -lc 'set -a; . ~/.config/pve-web/lab.env; set +a; make e2e-area AREA=lxc-config PORT=8106'
+## Playwright and stops the server again even when tests fail.
+## Required lab environment and fixtures: see docs/LAB.md.
 ##
 ##   e2e         everything, desktop + phone (after a phase merge)
 ##   e2e-area    one area's specs, desktop: AREA=<id from docs/feature-map.json>
@@ -80,7 +83,7 @@ dev: deps docs
 ## SPEC is relative to e2e/ (empty = all); extra Playwright flags in E2E_ARGS,
 ## e.g. E2E_ARGS="--project=desktop -g 快照". E2E_WORKERS (default 2) sets the
 ## parallel spec files. Use a PORT of your own (8101–8199) so parallel runs on
-## the test server do not collide.
+## the same host do not collide.
 PORT ?= 8101
 SPEC ?=
 E2E_ARGS ?=
@@ -92,7 +95,7 @@ e2e-deps: e2e/node_modules/.package-lock.json
 	cd e2e && npx playwright install chromium
 
 e2e: e2e-deps
-	@test -n "$$PVE_LAB_URL" || { echo "PVE_LAB_URL 未设置：set -a; . ~/.config/pve-web/lab.env; set +a"; exit 2; }
+	@test -n "$$PVE_LAB_URL" || { echo "PVE_LAB_URL 未设置：请先配置实验环境，见 docs/LAB.md"; exit 2; }
 	@trap '$(CURDIR)/scripts/e2e-server.sh stop $(PORT)' EXIT; \
 	$(CURDIR)/scripts/e2e-server.sh start $(PORT) && \
 	cd e2e && SECONDS=0 && rc=0 && \
@@ -110,7 +113,7 @@ e2e-smoke:
 e2e-visual:
 	@E2E_SCREENSHOTS=1 $(MAKE) --no-print-directory e2e SPEC="$(or $(SPEC),visual.spec)"
 
-## e2e-server / e2e-stop: keep an instance running on $(PORT) to look at it (http://192.168.0.32:$(PORT))
+## e2e-server / e2e-stop: keep an instance running on $(PORT) to look at it (http://localhost:$(PORT))
 e2e-server:
 	$(CURDIR)/scripts/e2e-server.sh start $(PORT)
 e2e-stop:

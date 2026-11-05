@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Plus, RefreshCw, Trash2 } from 'lucide-react'
 
 import { usePermissions } from '@/api/permissions'
-import { useSession } from '@/api/useSession'
+import { usePveIdentity } from '@/api/instances'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -20,12 +20,12 @@ export interface DiskPermissions {
 
 export function useDiskPermissions(): DiskPermissions {
   const perms = usePermissions()
-  const session = useSession()
+  const pveUser = usePveIdentity()
   const modify = perms.can({ privs: 'Sys.Modify', path: '/' })
   return {
     modify,
     storage: perms.can({ privs: 'Datastore.Allocate', path: '/storage' }),
-    wipe: session?.username === 'root@pam',
+    wipe: pveUser === 'root@pam',
   }
 }
 

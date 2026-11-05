@@ -3,6 +3,8 @@ import { useId, useMemo, useRef, useState, type PointerEvent } from 'react'
 import type { StorageRrdPoint, StorageRrdTimeframe } from '@/api/storage-browser'
 import { formatBytes, formatPercent } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { METRIC_TEXT, usageTone } from '@/lib/metric-status'
+import { CAPACITY_HEADROOM, capacityAxisMax } from '@/components/charts/rrd'
 
 const W = 1000
 const H = 200
@@ -32,12 +34,13 @@ export function formatRrdTime(epoch: number, timeframe: StorageRrdTimeframe, det
 interface Series {
   points: { time: number; used?: number; total?: number }[]
   max: number
+  plotMax: number
   usedPath: string
   areaPath: string
   totalPath: string
 }
 
-/** SVG paths of used (line + area) and total (line) on a 0..max(total) scale. */
+/** SVG paths with a capacity line and proportional headroom above real values. */
 export function buildUsageSeries(raw: readonly StorageRrdPoint[]): Series | null {
   const points = raw
     .filter((p) => Number.isFinite(p.time))
@@ -48,9 +51,11 @@ export function buildUsageSeries(raw: readonly StorageRrdPoint[]): Series | null
     }))
   const values = points.flatMap((p) => [p.used, p.total]).filter((v): v is number => v !== undefined)
   if (points.length < 2 || values.length === 0) return null
-  const max = Math.max(...values) || 1
+  const capacity = capacityAxisMax(points.map((p) => p.total), points.map((p) => p.used))
+  const max = capacity ?? (Math.max(0, ...values) || 1)
+  const plotMax = max * (capacity ? 1 + CAPACITY_HEADROOM : 1)
   const x = (i: number) => (i / (points.length - 1)) * W
-  const y = (v: number) => H - (v / max) * (H - 4) - 2
+  const y = (v: number) => H * (1 - v / plotMax)
 
   const line = (key: 'used' | 'total') => {
     let d = ''
@@ -83,7 +88,7 @@ export function buildUsageSeries(raw: readonly StorageRrdPoint[]): Series | null
   })
   if (start !== null) area += `L${x(last).toFixed(1)},${H}L${x(start).toFixed(1)},${H}Z`
 
-  return { points, max, usedPath: line('used'), areaPath: area, totalPath: line('total') }
+  return { points, max, plotMax, usedPath: line('used'), areaPath: area, totalPath: line('total') }
 }
 
 interface UsageChartProps {
@@ -106,7 +111,7 @@ export function UsageChart({ data, timeframe, className }: UsageChartProps) {
       </div>
     )
   }
-  const { points, max } = series
+  const { points, max, plotMax } = series
   const n = points.length
 
   const onPointer = (e: PointerEvent<HTMLDivElement>) => {
@@ -136,7 +141,7 @@ export function UsageChart({ data, timeframe, className }: UsageChartProps) {
           <div
             key={f}
             className="pointer-events-none absolute inset-x-0 border-t border-dashed border-border/80"
-            style={{ top: `${(1 - f) * 100}%` }}
+            style={{ top: `${(1 - max * f / plotMax) * 100}%` }}
           >
             <span className="absolute right-0 -translate-y-full pb-0.5 text-[10px] text-muted-foreground tabular">
               {f === 0 ? '0' : formatBytes(max * f)}
@@ -152,19 +157,19 @@ export function UsageChart({ data, timeframe, className }: UsageChartProps) {
           </defs>
           <path d={series.areaPath} fill={`url(#${id}-fill)`} />
           <path
-            d={series.totalPath}
-            fill="none"
-            stroke="var(--muted-foreground)"
-            strokeWidth={1.25}
-            strokeDasharray="5 5"
-            vectorEffect="non-scaling-stroke"
-          />
-          <path
             d={series.usedPath}
             fill="none"
             stroke="var(--chart-1)"
             strokeWidth={2}
             strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+          <path
+            d={series.totalPath}
+            fill="none"
+            stroke="var(--muted-foreground)"
+            strokeWidth={1.5}
+            strokeDasharray="5 5"
             vectorEffect="non-scaling-stroke"
           />
         </svg>
@@ -174,7 +179,7 @@ export function UsageChart({ data, timeframe, className }: UsageChartProps) {
             {hp.used !== undefined && (
               <div
                 className="pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-(--chart-1)"
-                style={{ left: `${hx}%`, top: `${(1 - hp.used / max) * 100}%` }}
+                style={{ left: `${hx}%`, top: `${(1 - hp.used / plotMax) * 100}%` }}
               />
             )}
             <div
@@ -194,7 +199,7 @@ export function UsageChart({ data, timeframe, className }: UsageChartProps) {
                 总量 <b className="ml-auto pl-2 font-medium tabular">{formatBytes(hp.total)}</b>
               </span>
               {hp.used !== undefined && hp.total ? (
-                <span className="text-right text-muted-foreground tabular">{formatPercent(hp.used / hp.total)}</span>
+                <span className={cn('text-right text-muted-foreground tabular', METRIC_TEXT[usageTone(hp.used / hp.total)])}>{formatPercent(hp.used / hp.total)}</span>
               ) : null}
             </div>
           </>

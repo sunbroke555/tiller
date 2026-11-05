@@ -79,7 +79,8 @@ import {
   type HwRow,
   type HwSection,
 } from './model'
-import { ConfigRow, ConfigSection, ConfigSkeleton, PendingBanner, type RowAction } from './ui'
+import { ConfigRow, ConfigSection, ConfigSkeleton, type RowAction } from './ui'
+import { PendingChangesBanner } from './PendingChangesBanner'
 
 const HW_ICON: Record<HwKind, LucideIcon> = {
   arch: Layers,
@@ -304,9 +305,8 @@ function HardwareView() {
           添加硬件
         </Button>
       </div>
-      <PendingBanner
-        count={pendingCount}
-        running={running}
+      <PendingChangesBanner
+        rows={pendingRows}
         onRevertAll={() =>
           open((p) => (
             <ConfirmDialog

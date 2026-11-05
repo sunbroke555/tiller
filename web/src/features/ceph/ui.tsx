@@ -5,7 +5,7 @@ import { CircleAlert, CircleCheck, CircleHelp, Info, RefreshCw, TriangleAlert } 
 
 import { GlassCard } from '@/components/GlassCard'
 import { Button } from '@/components/ui/button'
-import { useSession } from '@/api/useSession'
+import { usePveIdentity } from '@/api/instances'
 import { usePermissions } from '@/api/permissions'
 import { cn } from '@/lib/utils'
 
@@ -180,10 +180,10 @@ export interface CephAccess {
 
 export function useCephAccess(): CephAccess {
   const perms = usePermissions()
-  const session = useSession()
+  const pveUser = usePveIdentity()
   return {
     canModify: perms.can({ privs: 'Sys.Modify', path: '/' }),
-    isRoot: session?.username === 'root@pam',
+    isRoot: pveUser === 'root@pam',
     canAddStorage: perms.can({ privs: 'Datastore.Allocate', path: '/storage' }),
   }
 }

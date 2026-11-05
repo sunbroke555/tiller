@@ -7,6 +7,7 @@ import { splitTags } from '@/lib/tags'
 import { instanceStorageKey } from '@/api/instance-scope'
 
 export type TreeGrouping = 'node' | 'pool' | 'tag'
+export type TreeGuestType = 'all' | 'qemu' | 'lxc'
 
 /**
  * Whether a tree row would render the same: it shows status, VMID, name, tags
@@ -28,22 +29,26 @@ export function sameTreeGuest(a: GuestResource, b: GuestResource): boolean {
 
 export interface TreePrefs {
   group: TreeGrouping
+  view: 'current' | 'all'
+  guestType: TreeGuestType
   showStorage: boolean
   showTemplates: boolean
-  /** Collapsed group keys per grouping ("node:pve", "pool:web", "tag:prod"). */
+  /** Instance roots and groups, qualified by connection id/version. */
   collapsed: Record<string, boolean>
 }
 
-export const DEFAULT_TREE_PREFS: TreePrefs = { group: 'node', showStorage: true, showTemplates: true, collapsed: {} }
+export const DEFAULT_TREE_PREFS: TreePrefs = { group: 'node', view: 'current', guestType: 'all', showStorage: true, showTemplates: true, collapsed: {} }
 
-const PREFS_KEY = instanceStorageKey('tiller:resource-tree')
+export const TREE_PREFS_KEY = 'tiller:resource-tree'
 
 export function loadTreePrefs(): TreePrefs {
   try {
-    const raw = JSON.parse(localStorage.getItem(PREFS_KEY) ?? 'null') as Partial<TreePrefs> | null
+    const raw = JSON.parse(localStorage.getItem(TREE_PREFS_KEY) ?? localStorage.getItem(instanceStorageKey(TREE_PREFS_KEY)) ?? 'null') as Partial<TreePrefs> | null
     if (!raw || typeof raw !== 'object') return { ...DEFAULT_TREE_PREFS }
     return {
       group: raw.group === 'pool' || raw.group === 'tag' ? raw.group : 'node',
+      view: raw.view === 'all' ? 'all' : 'current',
+      guestType: raw.guestType === 'qemu' || raw.guestType === 'lxc' ? raw.guestType : 'all',
       showStorage: raw.showStorage !== false,
       showTemplates: raw.showTemplates !== false,
       collapsed: raw.collapsed && typeof raw.collapsed === 'object' ? raw.collapsed : {},
@@ -55,7 +60,7 @@ export function loadTreePrefs(): TreePrefs {
 
 export function saveTreePrefs(prefs: TreePrefs): void {
   try {
-    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs))
+    localStorage.setItem(TREE_PREFS_KEY, JSON.stringify(prefs))
   } catch {
     // ignore
   }
@@ -91,11 +96,11 @@ const byStorage = (a: StorageResource, b: StorageResource) => a.storage.localeCo
  * Build the groups for the sidebar tree. While searching, groups without a
  * match disappear (a node whose own name matches keeps all its children).
  */
-export function buildTree(resources: readonly ClusterResource[], prefs: Pick<TreePrefs, 'group' | 'showStorage' | 'showTemplates'>, search = ''): TreeGroup[] {
+export function buildTree(resources: readonly ClusterResource[], prefs: Pick<TreePrefs, 'group' | 'showStorage' | 'showTemplates'> & { guestType?: TreeGuestType }, search = ''): TreeGroup[] {
   const words = search.trim().toLowerCase().split(/\s+/).filter(Boolean)
   const searching = words.length > 0
-  const guests = resources.filter(isGuest).filter((g) => prefs.showTemplates || g.template !== 1)
-  const storages = prefs.showStorage ? resources.filter(isStorage) : []
+  const guests = resources.filter(isGuest).filter((g) => (prefs.showTemplates || g.template !== 1) && (!prefs.guestType || prefs.guestType === 'all' || g.type === prefs.guestType))
+  const storages = prefs.showStorage && (!prefs.guestType || prefs.guestType === 'all') ? resources.filter(isStorage) : []
   const nodes = resources.filter(isNode).sort((a, b) => a.node.localeCompare(b.node))
 
   if (prefs.group === 'node') {
@@ -105,6 +110,7 @@ export function buildTree(resources: readonly ClusterResource[], prefs: Pick<Tre
       const gs = guests.filter((g) => g.node === node.node && (nodeHit || guestMatches(g, words))).sort(byVmid)
       const ss = storages.filter((s) => s.node === node.node && (nodeHit || storageMatches(s, words))).sort(byStorage)
       if (searching && !nodeHit && gs.length === 0 && ss.length === 0) continue
+      if (prefs.guestType && prefs.guestType !== 'all' && !nodeHit && gs.length === 0) continue
       groups.push({ key: `node:${node.node}`, kind: 'node', label: node.node, node, guests: gs, storages: ss })
     }
     return groups

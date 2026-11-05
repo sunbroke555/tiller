@@ -30,6 +30,7 @@ import {
   latestValue,
   maxValue,
   niceMax,
+  rowsAllZero,
   rowsEmpty,
   rrdTicks,
   type RrdCfValue,
@@ -59,8 +60,14 @@ export interface RrdChartProps<T extends { time: number }> {
   timeframe: RrdTimeframe
   loading?: boolean
   error?: ReactNode
+  /** Explain a missing metric instead of the generic empty state. */
+  emptyMessage?: ReactNode
+  /** Optional annotation when every series has data and all recorded values are zero. */
+  zeroMessage?: ReactNode
   /** Fixed Y maximum (e.g. 100 for percent); default: rounded data maximum. */
   yMax?: number
+  /** Extra fraction above the maximum; ticks still describe the unpadded range. */
+  headroom?: number
   /** Stack the area series (e.g. used + cache). */
   stacked?: boolean
   /** Chart height in px (plot + axes). */
@@ -88,6 +95,27 @@ function TooltipBridge({ active, label, onActive }: TooltipBridgeProps) {
   return null
 }
 
+interface AxisTickProps {
+  x?: number
+  y?: number
+  payload?: { value: number }
+  index?: number
+  visibleTicksCount?: number
+}
+
+// Axis labels are short, single-line numbers. Native SVG text avoids
+// Recharts' hidden DOM span and synchronous layout for every measured label.
+function TimeAxisTick({ x, y, payload, index, visibleTicksCount, timeframe }: AxisTickProps & { timeframe: RrdTimeframe }) {
+  if (!payload) return null
+  const anchor = index === 0 ? 'start' : index === (visibleTicksCount ?? 0) - 1 ? 'end' : 'middle'
+  return <text x={x} y={y} dy="0.71em" textAnchor={anchor} fontSize={10} fill="var(--muted-foreground)">{formatRrdTick(payload.value, timeframe)}</text>
+}
+
+function ValueAxisTick({ x, y, payload, unit }: AxisTickProps & { unit: RrdUnit }) {
+  if (!payload) return null
+  return <text x={x} y={y} dy="0.32em" textAnchor="end" fontSize={10} fill="var(--muted-foreground)">{formatRrdAxis(payload.value, unit)}</text>
+}
+
 function RrdChartInner<T extends { time: number }>({
   title,
   data,
@@ -96,7 +124,10 @@ function RrdChartInner<T extends { time: number }>({
   timeframe,
   loading,
   error,
+  emptyMessage = '暂无数据',
+  zeroMessage,
   yMax,
+  headroom = 0,
   stacked,
   height = 176,
   headerExtra,
@@ -108,6 +139,11 @@ function RrdChartInner<T extends { time: number }>({
   const onActive = useCallback((t: number | null) => setActiveTime(t), [])
 
   const rows = useMemo(() => buildRrdRows(data, series), [data, series])
+  const timeTicks = useMemo(() => {
+    if (rows.length < 2) return rows.map((row) => row.time)
+    const last = rows.length - 1
+    return [...new Set([0, 1, 2, 3].map((i) => rows[Math.round(last * i / 3)]!.time))]
+  }, [rows])
   const keys = useMemo(() => series.map((s) => s.key), [series])
   // Series without any value (e.g. ZFS ARC on a host without ZFS) stay out of legend and plot.
   const shown = useMemo(() => series.filter((s) => !rowsEmpty(rows, [s.key])), [rows, series])
@@ -119,6 +155,8 @@ function RrdChartInner<T extends { time: number }>({
     const m = Math.max(maxValue(rows, areaKeys, stacked), maxValue(rows, lineKeys))
     return niceMax(m * 1.08, unit)
   }, [rows, shown, stacked, unit, yMax])
+  const yTicks = useMemo(() => rrdTicks(domainMax), [domainMax])
+  const plotMax = domainMax * (1 + headroom)
 
   const activeRow: RrdRow | undefined = activeTime !== null ? rows.find((r) => r.time === activeTime) : undefined
   // Colour by position in `series`, so hiding an empty series does not shift the others.
@@ -160,7 +198,7 @@ function RrdChartInner<T extends { time: number }>({
           </div>
         ) : empty ? (
           <div className="flex h-full items-center justify-center rounded-xl bg-foreground/[0.03] text-xs text-muted-foreground paper:bg-secondary/50">
-            暂无数据
+            {emptyMessage}
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height }}>
@@ -178,27 +216,39 @@ function RrdChartInner<T extends { time: number }>({
                   </linearGradient>
                 ))}
               </defs>
-              <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 4" />
+              <CartesianGrid
+                vertical={false}
+                stroke="var(--border)"
+                strokeDasharray="3 4"
+                // The default grid measures axis labels even for hidden
+                // vertical lines. Our linear Y domain already gives every
+                // horizontal position without another layout pass.
+                horizontalCoordinatesGenerator={({ offset }) => yTicks.map((value) => offset.top + offset.height * (plotMax === 0 ? 0.5 : 1 - value / plotMax))}
+                verticalCoordinatesGenerator={() => []}
+              />
               <XAxis
                 dataKey="time"
                 type="number"
                 scale="time"
                 domain={['dataMin', 'dataMax']}
                 tickFormatter={(v: number) => formatRrdTick(v, timeframe)}
-                tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+                tick={<TimeAxisTick timeframe={timeframe} />}
                 tickLine={false}
                 axisLine={false}
-                minTickGap={28}
+                // A bounded tick count fits narrow cards without measuring
+                // every candidate label to decide which ones to hide.
+                ticks={timeTicks}
+                interval={0}
                 tickMargin={6}
                 height={22}
               />
               <YAxis
-                domain={[0, domainMax]}
+                domain={[0, plotMax]}
                 tickFormatter={(v: number) => formatRrdAxis(v, unit)}
-                tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+                tick={<ValueAxisTick unit={unit} />}
                 tickLine={false}
                 axisLine={false}
-                ticks={rrdTicks(domainMax)}
+                ticks={yTicks}
                 interval={0}
                 width={unit === 'bytesPerSecond' ? 50 : 40}
                 allowDataOverflow
@@ -243,6 +293,11 @@ function RrdChartInner<T extends { time: number }>({
               )}
             </ComposedChart>
           </ResponsiveContainer>
+        )}
+        {!loading && !error && zeroMessage && rowsAllZero(rows, keys) && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-12 text-center text-xs text-muted-foreground">
+            {zeroMessage}
+          </div>
         )}
       </div>
     </>

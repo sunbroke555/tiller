@@ -137,7 +137,7 @@ describe('login', () => {
 
   it('counts a stored session without the browser-session marker as logged out', () => {
     setSession({ username: 'root@pam', csrfToken: 'c', ticketIssuedAt: Date.now() })
-    document.cookie = 'tiller-session=; Path=/; Max-Age=0'
+    document.cookie = 'tiller-admin-session=; Path=/; Max-Age=0'
     resetSessionCache()
     expect(getSession()).toBeNull()
   })

@@ -142,7 +142,7 @@ export interface NodeVersion {
 
 export const nodeKeys = {
   status: (node: string) => [...queryKeys.node(node), 'status'] as const,
-  rrd: (node: string, timeframe: RrdTimeframe, cf: RrdCf) => [...queryKeys.node(node), 'rrddata', timeframe, cf] as const,
+  rrd: (node: string, timeframe: RrdTimeframe, cf: RrdCf) => queryKeys.nodeRrd(node, timeframe, cf),
   config: (node: string) => [...queryKeys.node(node), 'config'] as const,
   services: (node: string) => [...queryKeys.node(node), 'services'] as const,
   aptVersions: (node: string) => [...queryKeys.node(node), 'apt', 'versions'] as const,

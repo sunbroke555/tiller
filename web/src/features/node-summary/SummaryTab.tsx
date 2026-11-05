@@ -5,6 +5,7 @@ import { useNodeStatus } from '@/api/node-summary'
 import { EmptyState } from '@/components/EmptyState'
 import { GlassCard } from '@/components/GlassCard'
 import type { NodeTabProps } from '@/features/node/types'
+import { HardwareOverview } from '@/features/node-hardware/HardwareOverview'
 import { errorMessage } from '@/lib/errors'
 
 import { NodeCharts } from './NodeCharts'
@@ -13,7 +14,7 @@ import { PackageVersionsDialog } from './PackageVersionsDialog'
 import { RepoSubscriptionCard, ResourceCard, SystemInfoCard } from './StatusCards'
 import { SystemReportDialog } from './SystemReportDialog'
 
-/** Node summary: live status, system info, repository/subscription, notes and history charts. */
+/** Node summary: live status, hardware and history charts, then repository/subscription and notes. */
 export default function SummaryTab({ node, resource }: NodeTabProps) {
   const online = resource.status === 'online'
   const status = useNodeStatus(node, { enabled: online })
@@ -47,10 +48,13 @@ export default function SummaryTab({ node, resource }: NodeTabProps) {
           onPackages={() => setDialog('packages')}
           onReport={() => setDialog('report')}
         />
+      </div>
+      <HardwareOverview node={node} />
+      <NodeCharts node={node} />
+      <div className="grid gap-(--row-gap) lg:grid-cols-3">
         <RepoSubscriptionCard node={node} />
         <NotesCard node={node} className="lg:col-span-2" />
       </div>
-      <NodeCharts node={node} />
       <PackageVersionsDialog node={node} open={dialog === 'packages'} onOpenChange={(o) => !o && setDialog(null)} />
       <SystemReportDialog node={node} open={dialog === 'report'} onOpenChange={(o) => !o && setDialog(null)} />
     </div>

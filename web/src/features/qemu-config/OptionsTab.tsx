@@ -60,7 +60,8 @@ import {
 } from './editors/options'
 import { splitPending } from './model'
 import { OPTION_GROUP_LABEL, optionRows, type OptionKey, type OptionRow } from './options-model'
-import { ConfigRow, ConfigSection, ConfigSkeleton, PendingBanner, type RowAction } from './ui'
+import { ConfigRow, ConfigSection, ConfigSkeleton, type RowAction } from './ui'
+import { PendingChangesBanner } from './PendingChangesBanner'
 
 const ICON: Record<OptionKey, LucideIcon> = {
   name: Tag,
@@ -125,7 +126,7 @@ export default function OptionsTab({ node, vmid, guest }: GuestTabProps) {
 }
 
 function OptionsView() {
-  const { state, guest, can, isRoot, running } = useQemuConfig()
+  const { state, guest, can, isRoot } = useQemuConfig()
   const rows = useMemo(() => optionRows(state, guest.name), [state, guest.name])
   const { show, host } = useDialogHost()
   const revert = useRevert()
@@ -174,9 +175,8 @@ function OptionsView() {
 
   return (
     <div className="grid gap-5">
-      <PendingBanner
-        count={pendingRows.length}
-        running={running}
+      <PendingChangesBanner
+        rows={pendingRows}
         onRevertAll={() =>
           show((p) => (
             <ConfirmDialog

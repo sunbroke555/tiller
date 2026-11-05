@@ -15,8 +15,6 @@ import {
 
 import { useNodeDns, useNodeHosts, useNodeOptions, useNodeTime, type NodeTimeSample } from '@/api/node-system'
 import { usePermissions } from '@/api/permissions'
-import { GlassCard } from '@/components/GlassCard'
-import { SectionHeader } from '@/components/PageHeader'
 import { ErrorState } from '@/components/QueryState'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -34,6 +32,7 @@ import {
   parseWakeOnLan,
 } from './model'
 import { Row, Section, SectionState } from './ui'
+import { HardwareSettings } from '@/features/node-hardware/HardwareSettings'
 
 type DialogId = 'dns' | 'hosts' | 'timezone' | 'delay' | 'balloon' | 'wol' | 'location'
 
@@ -61,49 +60,46 @@ export default function SystemTab({ node }: NodeTabProps) {
           只读：修改这些设置需要节点的 Sys.Modify 权限。
         </p>
       )}
-      <div className="grid gap-(--section-gap) lg:grid-cols-2 lg:items-start">
-        <div className="grid min-w-0 gap-(--section-gap)">
-          <Section id="node-time" title="时间">
-            {time.data ? (
-              <TimeRows sample={time.data} onEdit={canModify ? edit('timezone') : undefined} />
-            ) : (
-              <SectionState query={time} title="无法读取时间" />
-            )}
-          </Section>
+      <div className="grid min-w-0 items-stretch gap-4 xl:grid-cols-2">
+        <Section id="node-time" title="时间">
+          {time.data ? (
+            <TimeRows sample={time.data} onEdit={canModify ? edit('timezone') : undefined} />
+          ) : (
+            <SectionState query={time} title="无法读取时间" />
+          )}
+        </Section>
 
-          <Section
-            id="node-dns"
-            title="DNS"
-            action={canModify && dns.data && <EditButton label="编辑 DNS" onClick={edit('dns')} />}
-          >
-            {dns.data ? (
-              <>
-                <Row
-                  icon={Search}
-                  label="搜索域"
-                  value={dns.data.search || '未设置'}
-                  muted={!dns.data.search}
-                  onEdit={canModify ? edit('dns') : undefined}
-                />
-                {(['dns1', 'dns2', 'dns3'] as const).map((k, i) =>
-                  dns.data[k] || i === 0 ? (
-                    <Row
-                      key={k}
-                      icon={Server}
-                      label={`DNS 服务器 ${i + 1}`}
-                      value={<span className="tabular">{dns.data[k] || '未设置'}</span>}
-                      muted={!dns.data[k]}
-                      onEdit={canModify ? edit('dns') : undefined}
-                    />
-                  ) : null,
-                )}
-              </>
-            ) : (
-              <SectionState query={dns} rows={3} title="无法读取 DNS 设置" />
-            )}
-          </Section>
-        </div>
-
+        <Section
+          id="node-dns"
+          title="DNS"
+          action={canModify && dns.data && <EditButton label="编辑 DNS" onClick={edit('dns')} />}
+        >
+          {dns.data ? (
+            <>
+              <Row
+                icon={Search}
+                label="搜索域"
+                value={dns.data.search || '未设置'}
+                muted={!dns.data.search}
+                onEdit={canModify ? edit('dns') : undefined}
+              />
+              {(['dns1', 'dns2', 'dns3'] as const).map((k, i) =>
+                dns.data[k] || i === 0 ? (
+                  <Row
+                    key={k}
+                    icon={Server}
+                    label={`DNS 服务器 ${i + 1}`}
+                    value={<span className="tabular">{dns.data[k] || '未设置'}</span>}
+                    muted={!dns.data[k]}
+                    onEdit={canModify ? edit('dns') : undefined}
+                  />
+                ) : null,
+              )}
+            </>
+          ) : (
+            <SectionState query={dns} rows={3} title="无法读取 DNS 设置" />
+          )}
+        </Section>
         <Section id="node-options" title="节点选项">
           {config.data ? (
             <OptionRows config={config.data} edit={canModify ? edit : undefined} />
@@ -111,10 +107,11 @@ export default function SystemTab({ node }: NodeTabProps) {
             <SectionState query={config} rows={4} title="无法读取节点选项" />
           )}
         </Section>
+
+        <HostsSection node={node} hosts={hosts} onEdit={canModify ? edit('hosts') : undefined} />
       </div>
 
-      <HostsSection node={node} hosts={hosts} onEdit={canModify ? edit('hosts') : undefined} />
-
+      <HardwareSettings node={node} />
       <DnsDialog {...dialogProps('dns')} dns={dns.data} />
       <TimezoneDialog {...dialogProps('timezone')} timezone={time.data?.timezone} />
       <HostsDialog {...dialogProps('hosts')} hosts={hosts.data} />
@@ -167,19 +164,19 @@ function TimeRows({ sample, onEdit }: { sample: NodeTimeSample; onEdit?: () => v
         icon={Clock}
         label="节点时间"
         value={
-          <span className="font-mono text-sm text-foreground tabular" aria-live="off" data-testid="node-localtime">
-            {formatClock(sample.localtime + elapsed)}
+          <span aria-live="off" className="block">
+            <span className="block font-mono text-[13px] text-foreground tabular" data-testid="node-localtime">
+              {formatClock(sample.localtime + elapsed)}
+            </span>
+            <span className="mt-1 block text-xs text-muted-foreground tabular">UTC {formatClock(sample.time + elapsed)}</span>
           </span>
         }
         detail={
-          <>
-            <span className="tabular">UTC {formatClock(sample.time + elapsed)}</span>
-            {skew !== null && (
-              <span className="mt-0.5 block text-warning-strong">
-                比本设备时钟{skew > 0 ? '快' : '慢'} {Math.abs(skew)} 秒，请检查节点的时间同步（chrony）。
-              </span>
-            )}
-          </>
+          skew !== null && (
+            <span className="block text-warning-strong">
+              比本设备时钟{skew > 0 ? '快' : '慢'} {Math.abs(skew)} 秒，请检查节点的时间同步（chrony）。
+            </span>
+          )
         }
       />
     </>
@@ -270,46 +267,41 @@ function HostsSection({
   const check = hosts.data ? checkHosts(text, node) : null
   const lines = text.replace(/\n$/, '').split('\n')
   return (
-    <section aria-labelledby="node-hosts-heading" className="min-w-0">
-      <SectionHeader
-        title={
-          <span id="node-hosts-heading">
-            Hosts <span className="font-normal text-faint">/etc/hosts{check ? ` · ${check.entries.length} 条记录` : ''}</span>
-          </span>
-        }
-        className="mb-2.5 min-h-9"
-      >
-        {onEdit && hosts.data && <EditButton label="编辑 Hosts" onClick={onEdit} />}
-      </SectionHeader>
-      <GlassCard flush className="overflow-hidden">
-        {hosts.isPending ? (
-          <div className="grid gap-2 p-(--card-p)" aria-busy="true" aria-label="加载中">
-            {[70, 55, 80, 40].map((w) => (
-              <Skeleton key={w} className="h-4" style={{ width: `${w}%` }} />
+    <Section
+      id="node-hosts"
+      title="Hosts"
+      description={<span className="font-mono">/etc/hosts<span className="font-sans">{check ? ` · ${check.entries.length} 条记录` : ''}</span></span>}
+      action={onEdit && hosts.data && <EditButton label="编辑 Hosts" onClick={onEdit} />}
+    >
+      {hosts.isPending ? (
+        <div className="grid gap-2 p-(--card-p)" aria-busy="true" aria-label="加载中">
+          {[70, 55, 80, 40].map((w) => (
+            <Skeleton key={w} className="h-4" style={{ width: `${w}%` }} />
+          ))}
+        </div>
+      ) : hosts.isError && !hosts.data ? (
+        <ErrorState compact title="无法读取 /etc/hosts" error={hosts.error} onRetry={() => void hosts.refetch()} />
+      ) : (
+        <>
+          {check?.missingNode && (
+            <p role="alert" className="border-b border-border/70 bg-destructive/10 px-(--card-p) py-2.5 text-sm text-destructive">
+              没有指向本节点 {node} 的条目，集群通信可能受影响。
+            </p>
+          )}
+          <pre
+            aria-label="hosts 文件内容"
+            tabIndex={0}
+            className="max-h-80 overflow-auto overscroll-contain py-3 font-mono text-xs leading-6 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+          >
+            {lines.map((line, i) => (
+              <div key={i} className={cn('flex min-h-6 w-max min-w-full pr-(--card-p)', /^\s*#/.test(line) && 'text-muted-foreground')}>
+                  <span aria-hidden className="mr-3 w-10 shrink-0 pr-2 text-right text-faint select-none">{i + 1}</span>
+                <span className="whitespace-pre">{line}</span>
+              </div>
             ))}
-          </div>
-        ) : hosts.isError && !hosts.data ? (
-          <ErrorState compact title="无法读取 /etc/hosts" error={hosts.error} onRetry={() => void hosts.refetch()} />
-        ) : (
-          <>
-            {check?.missingNode && (
-              <p role="alert" className="border-b border-border/70 bg-destructive/10 px-(--card-p) py-2.5 text-sm text-destructive">
-                没有指向本节点 {node} 的条目，集群通信可能受影响。
-              </p>
-            )}
-            <pre
-              aria-label="hosts 文件内容"
-              className="max-h-96 overflow-auto overscroll-contain px-(--card-p) py-3 font-mono text-[13px] leading-relaxed"
-            >
-              {lines.map((line, i) => (
-                <div key={i} className={cn('min-h-[1lh] whitespace-pre', /^\s*#/.test(line) && 'text-faint')}>
-                  {line}
-                </div>
-              ))}
-            </pre>
-          </>
-        )}
-      </GlassCard>
-    </section>
+          </pre>
+        </>
+      )}
+    </Section>
   )
 }

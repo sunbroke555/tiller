@@ -17,10 +17,10 @@
 文档源码在 [doc/index.md](doc/index.md)，包含安装配置、首次登录、客户机、存储与备份、控制台、节点与数据中心、权限及常见问题。`docs/` 仍存放开发资料，不会发布到用户文档站。
 
 ```sh
-rt -- make docs          # 只构建文档 → doc/.vitepress/dist
-rt -- make docs-dev      # 文档热更新：http://192.168.0.32:5174/docs/
-rt -- make server        # 构建并内嵌管理界面 + 文档
-rt -- make test-docs     # 桌面 / 手机文档测试，不连接 PVE
+make docs          # 只构建文档 → doc/.vitepress/dist
+make docs-dev      # 文档热更新：http://localhost:5174/docs/
+make server        # 构建并内嵌管理界面 + 文档
+make test-docs     # 桌面 / 手机文档测试，不连接 PVE
 ```
 
 `make dev` 会预先构建文档，并通过 Vite 转发 `/docs/` 到 Go 服务。编辑文档时可单独使用 `make docs-dev` 获得热更新。
@@ -30,6 +30,8 @@ rt -- make test-docs     # 桌面 / 手机文档测试，不连接 PVE
 ### Docker 部署
 
 仓库的 GitHub Actions 自动构建 `linux/amd64` 和 `linux/arm64` 镜像并发布到 `ghcr.io/sunbroke555/tiller`。`latest` 跟随 `main`，`v1.2.3` 等 Git 标签生成 `1.2.3` 和 `1.2` 镜像标签。
+
+完整操作见 [Docker 部署教程](doc/guide/docker.md)，包括 Compose 配置、访问方式、首次登录、更新、备份恢复和从源码构建镜像。
 
 使用仓库的 [compose.yaml](compose.yaml)，在同目录创建不入库的 `.env`：
 
@@ -42,58 +44,76 @@ PVE_TLS_FINGERPRINT=替换为完整的SHA256证书指纹
 docker compose up -d
 ```
 
+支持独立 Tiller 管理员的版本可以不创建 `.env`，首次登录后从页面添加 PVE。直接使用 PVE 账号登录的旧版镜像需要预设上面的连接信息；以实际镜像版本的登录页为准。
+
 默认端口只发布到宿主机的 `127.0.0.1:8080`，供同机 HTTPS 反向代理访问。浏览器通过代理的 HTTPS 地址使用 Tiller，文档位于 `/docs/`。代理在其他容器或主机上时，按实际拓扑调整端口 / 网络和 `TRUSTED_PROXIES`。连接元数据保存在 `tiller-data` 数据卷中。
 
-更新镜像：`docker compose pull && docker compose up -d`。首次发布后，仓库所有者需要在 GitHub 的包设置中确认镜像可见性；公开包可匿名拉取，私有包需要登录 GHCR。
+更新镜像：`docker compose pull && docker compose up -d`。镜像公开，无需登录 GHCR 即可拉取；更新前请按教程备份数据卷。
 
 ### 从源码运行
 
-需要 Go 1.25+、Node 22.12+（推荐 Node 26 / npm 11）、make。
-
-登录要传 PVE 密码、两步验证码和 ticket，**对外提供服务时一定要用 HTTPS**：让 Tiller 自己带证书，或者放在 TLS 反向代理后面。
+需要 Git、Go 1.25+、Node.js 22.12+（含 npm）、make 和 Bash。
 
 ```sh
-make server                      # 构建前端并编译 server/tiller（内嵌前端）
-PVE_URL=https://192.168.0.6:8006 \
-PVE_TLS_FINGERPRINT=4F:04:C3:...:6E:17 \
+git clone https://github.com/sunbroke555/tiller.git
+cd tiller
+make server
+```
+
+构建自动下载依赖，产物为 `server/tiller`，已内嵌管理界面和文档。默认生成当前操作系统和处理器架构的程序；运行主机无需安装 Go 或 Node.js，构建时无需连接 PVE。
+
+登录和添加连接会传输管理员密码、PVE 密码或 API Token，**对外提供服务时一定要用 HTTPS**：让 Tiller 自己带证书，或者放在 TLS 反向代理后面。
+
+将下面的 PVE 地址、证书指纹和 HTTPS 证书路径替换为自己的配置：
+
+```sh
+PVE_URL=https://pve.example.internal:8006 \
+PVE_TLS_FINGERPRINT='<PVE 证书的完整 SHA-256 指纹>' \
 TLS_CERT_FILE=/etc/tiller/cert.pem \
 TLS_KEY_FILE=/etc/tiller/key.pem \
 LISTEN=:8443 \
 ./server/tiller
 ```
 
-浏览器打开 `https://<主机>:8443`，用 PVE 账号登录（支持 TOTP / 恢复码两步验证）。
+浏览器打开 `https://<主机>:8443`，首次设置 Tiller 管理员用户名和密码，再添加各 PVE 的账号密码或 API Token。
 
 - 用 Caddy / nginx 等做 TLS 时，让 Tiller 只听本机（`LISTEN=127.0.0.1:8080`），并把代理地址写进 `TRUSTED_PROXIES`，这样登录限速和日志看到的是真实客户端地址。
-- 不带证书又监听非本机地址时，Tiller 仍会启动（局域网实验用），但启动日志会醒目警告：密码和 ticket 以明文在网络上传输。
-
-> 本仓库约定：重负载命令（安装依赖、构建、测试、dev server）在测试服务器上跑：
-> `rt -- make test`、`rt -- make server`。
+- 不带证书又监听非本机地址时，Tiller 仍会启动（局域网实验用），但启动日志会醒目警告：管理员密码、PVE 密码和 API Token 以明文在网络上传输。
 
 ### 配置（环境变量）
 
 | 变量 | 说明 |
 | --- | --- |
-| `PVE_URL` | PVE 地址，只写协议、主机、端口，默认 `https://127.0.0.1:8006`（直接跑在 PVE 主机上时可省略） |
+| `PVE_URL` | 可选的初始连接地址；首次启动时导入为待配置凭据的实例，不设置时全部从页面添加 |
+| `PVE_NAME` | 初始导入连接的名称，默认「默认 PVE」 |
+| `TILLER_AUTH_FILE` | 管理员密码哈希文件，默认 `tiller-auth.json`；同路径的 `.key` 文件用于加密实例凭据 |
+| `TILLER_INSTANCES_FILE` | 页面管理的附加实例配置文件，默认工作目录下的 `tiller-instances.json`；目录需要可写，容器中应放在持久化卷内 |
 | `LISTEN` | 监听地址，默认 `:8080` |
 | `PVE_TLS_FINGERPRINT` | 固定信任 PVE 叶子证书的 SHA-256 指纹（冒号分隔或纯十六进制）。在 PVE 上用 `pvenode cert info` 或界面的“证书”查看 |
 | `PVE_INSECURE_TLS=1` | 不校验 PVE 证书，仅限实验环境。与指纹二选一 |
 | `PVE_CA_FILE` | 用指定 CA（如 `/etc/pve/pve-root-ca.pem` 的副本）校验 PVE 证书 |
 | `TLS_CERT_FILE` / `TLS_KEY_FILE` | 让 Tiller 自己提供 HTTPS（推荐）。手机安装 PWA（离线外壳、主屏图标）也需要 HTTPS |
-| `PVE_ALLOW_HTTP=1` | 允许 `PVE_URL` 用明文 `http://` 连非本机地址（默认只接受 https，或 http 连本机） |
 | `ALLOW_FROM` | 只允许这些客户端访问（逗号分隔的 IP / 网段，如 `192.168.0.0/24,10.8.0.5`；本机地址总是允许）。Tiller 在 PVE 前面时，pveproxy 自己的 `ALLOW_FROM` 只能看到 Tiller 的地址 |
 | `TRUSTED_PROXIES` | Tiller 前面的反向代理地址（IP / 网段）；只信任它们带来的 `X-Forwarded-For` |
 | `WEB_DIR` | 从磁盘目录提供前端而不是内嵌版本（调试用） |
 
-服务端无状态：不保存任何凭据，只在浏览器和 PVE 之间转发。
+### 管理员登录与多实例导航
 
-安全相关的行为：
+首次打开页面设置 Tiller 管理员用户名和密码，无通用默认密码。后续只需登录 Tiller，一次查看和管理全部实例；「管理员账户」支持修改密码，改密会撤销所有已登录会话。
 
-- 登录 ticket 由 Tiller 写进 `PVEAuthCookie`：HttpOnly、SameSite=Strict、只发往 `/api2/`、关闭浏览器即失效（会话 cookie），前端 JavaScript 读不到；续签时由服务端从 cookie 里取出 ticket。不带 `X-Tiller-Ticket: cookie` 请求头的普通 API 客户端照常拿到 JSON 里的 ticket。
-- 登录失败会按客户端地址和用户名逐步限速（同一地址连续 5 次、同一用户连续 10 次后开始等待，最长 15 / 5 分钟），并记录日志 `login failed client=… user=…`（不记密码和 ticket），可以接 fail2ban。
-- 转发给 PVE 的请求带 `X-Forwarded-For: <客户端地址>`。想在 pveproxy 的访问日志里看到真实地址，在 PVE 的 `/etc/default/pveproxy` 设置 `PROXY_REAL_IP_HEADER="X-Forwarded-For"` 和 `PROXY_REAL_IP_ALLOW_FROM="<Tiller 的地址>"`。注意 pveproxy 的 `ALLOW_FROM` 和认证失败日志仍只看到 Tiller 的地址，所以访问控制请用上面的 `ALLOW_FROM`。
-- 只转发 `/api2/json/`（含 websocket）；PVE 的 `/api2/html`、`/api2/extjs` 等格式不会出现在 Tiller 的源上，转发的响应都带 `Content-Security-Policy: default-src 'none'; sandbox`。
-- 连不上 PVE 时，返回给浏览器的错误不含 PVE 的地址和证书细节，细节只写进服务端日志。
+在「管理实例」中添加 PVE 地址和证书设置，默认使用 PVE 账号密码及认证域，也可选择 API Token。账号密码保存前会验证登录，后台自动维护会话；需要交互式两步验证的 PVE 账户请选择 Token。登录后直接进入上次使用的实例，首次使用进入第一个已配置凭据的实例。电脑侧边栏按「实例 → 节点 → 资源」展示所有 PVE，支持跨实例过滤及按资源池、标签分组。连接异常只在对应分支提示；同名节点和 VMID 按实例区分。点击资源进入对应实例的详情和控制台，手机通过顶部实例选择器切换。
+
+最多保存 64 个连接，同一集群只添加一次。所有连接可在页面编辑或删除；删除不会操作 PVE 资源。PVE 用户及 API Token 的权限由 PVE 控制，Tiller 管理员账户不会绕过它。
+
+服务端保存管理员密码哈希，以及加密的 PVE 密码或 Token Secret；不会向浏览器返回这些凭据。备份 `TILLER_AUTH_FILE`、同路径 `.key` 及 `TILLER_INSTANCES_FILE` 三个文件；一个数据目录由一个进程写入。Compose 已把它们放在 `tiller-data` 数据卷中。详情见[首次设置](doc/guide/first-run.md)和[多实例连接](doc/guide/configuration.md#多实例连接)。
+
+安全相关行为：
+
+- 所有实例目录与 PVE API 都需要 Tiller 管理员会话。会话 Cookie 为 HttpOnly、SameSite=Strict，写请求校验 CSRF，WebSocket 校验 Origin。会话最长 8 小时，重启需重新登录。
+- 管理员密码采用随机盐与 PBKDF2-HMAC-SHA256（600,000 次迭代）；PVE 密码及 Token Secret 使用 AES-256-GCM 加密并绑定实例及连接版本。配置与密钥文件权限为 `0600`，API 不返回保存的凭据。
+- 登录失败限速并记录客户端地址，不记录密码、Cookie 或 Token。退出登录和修改密码也会关闭对应会话的活动控制台。
+- 代理只向选中 PVE 注入它自己的票据/PVE CSRF 或 API Token，剥离浏览器 Cookie 和管理员 CSRF。更换连接目标、证书、认证方式或凭据时轮换 URL 版本，旧链接不会改为访问新目标。
+- 只转发 JSON API（含 WebSocket），API 响应设置隔离 CSP。`ALLOW_FROM` 限制客户端范围，`TRUSTED_PROXIES` 指定可信反向代理。
 
 ## 开发
 
@@ -103,52 +123,30 @@ LISTEN=:8443 \
 - [Documentation](.github/workflows/docs.yml)：文档变更合并到 `main` 时，自动发布 GitHub Pages。仓库的 Settings → Pages → Build and deployment 选择 **GitHub Actions**。也可以在 Actions 中手动运行该工作流。
 - 文档默认构建在 `/docs/` 供 Tiller 内嵌；Pages 工作流自动设置站点子路径和项目主页入口。仅发布 `doc/`，开发用的 `docs/` 不进入文档站。
 
-GitHub Actions 只负责构建和发布，不重复运行 Go 单元测试、Vitest、Playwright 或独立的静态检查；前端构建仍包含 TypeScript 编译检查。发布前通过 `rt -- make test`、`rt -- make test-docs` 及相应的 PVE 端到端测试在测试服务器完成验证。工作流不需要连接 PVE，也不需要上传实验环境的密码或 SSH 密钥。
+GitHub Actions 只负责构建和发布，不重复运行 Go 单元测试、Vitest、Playwright 或独立的静态检查；前端构建仍包含 TypeScript 编译检查。发布前运行 `make test`、`make test-docs` 及相应功能的端到端测试。工作流不需要连接 PVE，也不需要上传实验环境的密码或 SSH 密钥。
 
 ### 本地开发命令
 
 ```sh
 make dev       # Go 服务（-tags dev，前端读 web/dist）+ Vite dev server（:5173，HMR，/api2 代理到 :8080）
-make test      # go vet + go test、vitest、tsc 类型检查
-make web       # 只构建前端到 web/dist
+make test      # go vet + go test、Python 单元测试、Vitest、TypeScript 类型检查
+make web       # 构建管理界面和文档到 web/dist
 make clean
 ```
 
-`make dev` 需要设置 `PVE_URL` 等变量，例如 `PVE_URL=https://<实验机>:8006 PVE_INSECURE_TLS=1 make dev`，然后访问 `http://<主机>:5173`。
-写操作只对实验集群（192.168.0.5 上的 3 节点嵌套 PVE，见 docs/LAB.md）做，连接信息在测试服务器 `~/.config/pve-web/lab.env`。
+`make dev` 启动后访问 `http://localhost:5173`，在页面完成管理员设置并添加 PVE 连接。需要操作 PVE 的开发验证应使用独立的实验环境。
 
-端到端测试在 `e2e/`（Playwright，headless 跑在测试服务器上，对接实验机）。每个 make 目标都会按需构建、在 `PORT` 上启动 Tiller、跑测试，最后无论成败都停掉服务器。按改动大小选测试层级：
+### 测试
 
-| 什么时候 | 跑什么 | 大约用时 |
-|---|---|---|
-| 每次改动 | `rt -- make test`（go vet/test、vitest、tsc） | 1 分钟 |
-| 改某个功能区 | `make e2e-area AREA=<area id>`：这个区的 spec，只跑桌面布局 | 1–4 分钟 |
-| 想快速确认整体能用 | `make e2e-smoke`：登录、概览、客户机概要、控制台、存储列表、任务，两种布局 | 半分钟 |
-| 一个阶段合并之后 | `make e2e`：全部 spec，桌面 + 手机，跑一次 | 约 8–9 分钟 |
-| 阶段结束、有人要求时 | `make e2e-visual`：截图 spec（`*.visual.spec.ts`，三套主题） | 较久 |
-
-```sh
-LAB='set -a; . ~/.config/pve-web/lab.env; set +a'
-rt -- bash -lc "$LAB; make e2e-area AREA=lxc-config PORT=8106"                       # 一个区（area id 见 docs/feature-map.md）
-rt -- bash -lc "$LAB; make e2e-smoke PORT=8101"                                      # 冒烟
-rt -- bash -lc "$LAB; make e2e PORT=8101"                                            # 全部
-rt -- bash -lc "$LAB; make e2e PORT=8101 SPEC=tests/tasks-logs.spec.ts E2E_ARGS='-g 集群日志'"   # 单个 spec / 单个测试
-rt --back e2e/playwright-report --back e2e/test-results -- bash -lc "$LAB; make e2e-area AREA=console PORT=8103"  # 取回报告和失败时的 trace
-rt --back e2e/test-results -- bash -lc "$LAB; make e2e-visual PORT=8120 SPEC=tests/walkthrough.visual.spec.ts"  # 视觉巡检截图
-```
-
-- **两个项目**：`desktop` 跑全部测试；`mobile`（iPhone 尺寸）只检查布局和交互（底部导航、操作坞、底部弹层、表单打开），不写实验机。带 `@lab` 标签的测试会改实验机（客户机、配置、存储、用户、服务）或很慢，只在桌面跑；`@desktop` / `@mobile` 是只属于一种布局的界面；`@smoke` 是冒烟子集。手机测试需要状态时用 `page.route()` 模拟；它发出的写请求会让测试失败。
-- **并行**：2 个 worker（`E2E_WORKERS` 可改），spec 文件之间并行，同一文件内按顺序。各区用自己的 VMID 段（3000–3999），只操作自己创建的 `e2e-*` 对象，共享的示例客户机（100、101、200、9000）只读。
-- **超时**：单个测试 90 秒，单个操作（点击等）20 秒，卡住会很快失败；已知慢的测试自己用 `test.setTimeout()` 放宽。
-- **截图不进仓库**：视觉 spec 只在 `E2E_SCREENSHOTS=1`（`make e2e-visual`）时运行，图片写到 `e2e/test-results/`，用 `rt --back` 取回本机查看；`docs/screenshots/` 已在 `.gitignore` 里。
-
-固件（已登录的 `page`、实验机 API 助手 `pve`、`cleanup`）见 `e2e/fixtures.ts`。各功能区的分工、共享契约和端口分配见 [docs/CONTRIBUTING-AREAS.md](docs/CONTRIBUTING-AREAS.md)。
+- `make test`：Go、前端和 SMART 采集器的单元测试及静态检查，需要 Python 3，无需连接 PVE。
+- `make test-docs`：使用 Playwright 检查文档的桌面和手机布局、导航及搜索，无需连接 PVE；首次运行会安装 Chromium，系统还需具备它的运行依赖。
+- PVE 端到端测试需要专门准备实验集群、测试账号及样例资源。维护者的环境配置见 [docs/LAB.md](docs/LAB.md)，功能区测试流程见 [docs/CONTRIBUTING-AREAS.md](docs/CONTRIBUTING-AREAS.md)。
 
 ## 目录
 
 ```
 server/            Go 服务：config.go 配置、proxy.go 反代、static.go 前端托管、main.go 入口
-web/src/api/       client.ts（请求、CSRF、表单编码、PveApiError、401 处理）、auth.ts（登录、两步验证、续签）、
+web/src/api/       client.ts（请求、CSRF、表单编码、PveApiError、401 处理）、local-auth.ts（管理员设置、登录、改密）、
                    session.ts（登录态）、types.ts、queries.ts（TanStack Query hooks）、tasks.ts（UPID、任务状态与日志）、
                    <area>.ts（各功能区自己的端点）
 web/src/components/form/   表单原语（FormDialog、FormField、SizeInput、StorageSelect、VmidInput…）

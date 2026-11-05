@@ -169,9 +169,16 @@ func NewProxy(target *url.URL, transport http.RoundTripper, logger *slog.Logger,
 			// fingerprint) go to the log only: anyone, logged in or not,
 			// can trigger this answer.
 			msg := "无法连接 PVE，请稍后重试；持续出现请联系管理员查看 Tiller 日志"
+			var authErr *connectionAuthError
+			if errors.As(err, &authErr) {
+				msg = authErr.message
+			}
 			var fpErr *FingerprintMismatchError
 			if errors.As(err, &fpErr) {
 				msg = "无法连接 PVE：证书指纹不匹配，请联系管理员检查 PVE_TLS_FINGERPRINT"
+				if scopeOf(r).cookieName != authCookieName {
+					msg = "无法连接 PVE：证书指纹不匹配，请联系管理员检查此实例的证书设置"
+				}
 			}
 			logger.Warn("proxy error", "method", r.Method, "path", r.URL.Path, "err", err)
 			writePVEError(w, http.StatusBadGateway, msg)
