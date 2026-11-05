@@ -33,6 +33,8 @@ export interface ReplicationJob {
   rate?: number
   comment?: string
   disable?: PveBool
+  /** Don't freeze/thaw the guest's filesystems during a run (libpve-guest-common-perl ≥ 6.0.6). */
+  'skip-freeze-fs'?: PveBool
   /** Node the guest lived on when the job was last checked. */
   source?: string
   /** Set after DELETE until the runner has cleaned up. */

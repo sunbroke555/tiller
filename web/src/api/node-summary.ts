@@ -491,71 +491,222 @@ export interface JournalChunk {
   structured: boolean
 }
 
-interface StructuredRecord {
-  ty?: string
-  c?: string
-  h?: string
-  ids?: string[]
-  names?: string[]
-  id?: string
-  msg?: string
-  p?: number
-  pid?: number
-  t?: number
-}
-
 let lineSeq = 0
 
+type JournalRecord = Record<string, unknown>
+
+/** First present (non-null) value among `keys`. */
+function pick(r: JournalRecord, keys: readonly string[]): unknown {
+  for (const k of keys) {
+    const v = r[k]
+    if (v !== undefined && v !== null) return v
+  }
+  return undefined
+}
+
+function asString(v: unknown): string | undefined {
+  if (typeof v === 'string') return v
+  if (typeof v === 'number' && Number.isFinite(v)) return String(v)
+  return undefined
+}
+
+function asInt(v: unknown): number | undefined {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && /^\d+$/.test(v.trim()) ? Number(v) : NaN
+  return Number.isFinite(n) ? n : undefined
+}
+
+function asStringList(v: unknown): string[] | undefined {
+  if (Array.isArray(v)) return v.map(asString).filter((x): x is string => !!x)
+  if (typeof v === 'string') return v.split(/[\s,]+/).filter(Boolean)
+  return undefined
+}
+
+const PRIORITY_NAMES: Record<string, number> = {
+  emerg: 0,
+  panic: 0,
+  alert: 1,
+  crit: 2,
+  err: 3,
+  error: 3,
+  warning: 4,
+  warn: 4,
+  notice: 5,
+  info: 6,
+  debug: 7,
+}
+
+/** Syslog priority from a number, "3" or a name ("err", "warning" …); undefined when unknown. */
+export function journalPriority(v: unknown): number | undefined {
+  const n = asInt(v)
+  if (n !== undefined) return n >= 0 && n <= 7 ? n : undefined
+  if (typeof v === 'string') return PRIORITY_NAMES[v.trim().toLowerCase()]
+  return undefined
+}
+
+export type JournalPriorityTone = 'critical' | 'error' | 'warning' | 'notice' | 'debug'
+
+/** Colour class of a priority: 0–2 critical, 3 error, 4 warning, 5 notice, 7 debug; info (6) and unknown plain. */
+export function journalPriorityTone(p: number | undefined): JournalPriorityTone | undefined {
+  if (p === undefined) return undefined
+  if (p <= 2) return 'critical'
+  if (p === 3) return 'error'
+  if (p === 4) return 'warning'
+  if (p === 5) return 'notice'
+  if (p === 7) return 'debug'
+  return undefined
+}
+
 /**
- * Parse GET /nodes/{node}/journal. Plain text: first and last element are
- * cursors, the rest rendered lines. Structured: typed records (cursor, host,
- * identifiers, units, reboot) and entries {t, id, pid, p, msg}.
+ * Timestamp → microseconds since the epoch. The structured journal uses
+ * microseconds; seconds / milliseconds and ISO strings are accepted too.
  */
-export function parseJournal(data: readonly unknown[]): JournalChunk {
-  if (data.length > 0 && typeof data[0] === 'object' && data[0] !== null) {
-    const out: JournalChunk = { lines: [], structured: true }
-    for (const raw of data as StructuredRecord[]) {
-      switch (raw.ty) {
-        case 'cursor':
-          if (out.firstCursor === undefined) out.firstCursor = raw.c
-          out.lastCursor = raw.c
-          break
-        case 'host':
-          out.host = raw.h
-          break
-        case 'identifiers':
-          out.identifiers = raw.ids ?? []
-          break
-        case 'units':
-          out.units = raw.names ?? []
-          break
-        case 'reboot':
-          out.lines.push({ key: `r${lineSeq++}`, time: raw.t, message: '-- 重新启动 --', reboot: true })
-          break
-        default:
-          out.lines.push({
-            key: `s${lineSeq++}`,
-            time: raw.t,
-            identifier: raw.id,
-            pid: raw.pid,
-            priority: raw.p,
-            message: raw.msg ?? '',
-          })
-      }
+export function journalMicros(v: unknown): number | undefined {
+  if (typeof v === 'string' && !/^\d+(\.\d+)?$/.test(v.trim())) {
+    const ms = Date.parse(v)
+    return Number.isFinite(ms) ? ms * 1000 : undefined
+  }
+  const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : NaN
+  if (!Number.isFinite(n) || n <= 0) return undefined
+  if (n < 1e11) return Math.round(n * 1e6) // seconds
+  if (n < 1e14) return Math.round(n * 1e3) // milliseconds
+  return Math.round(n)
+}
+
+const TYPE_KEYS = ['ty', 'type', 'record', 'kind'] as const
+const CURSOR_KEYS = ['c', 'cursor', '__CURSOR'] as const
+const HOST_KEYS = ['h', 'host', 'hostname', '_HOSTNAME'] as const
+const TIME_KEYS = ['t', 'time', 'timestamp', 'ts', 'realtime', '__REALTIME_TIMESTAMP'] as const
+const IDENT_KEYS = ['id', 'ident', 'identifier', 'SYSLOG_IDENTIFIER', 'syslog_identifier', 'tag'] as const
+const UNIT_KEYS = ['u', 'unit', '_SYSTEMD_UNIT'] as const
+const MSG_KEYS = ['msg', 'message', 'MESSAGE', 'm'] as const
+const PRIO_KEYS = ['p', 'prio', 'priority', 'PRIORITY'] as const
+const PID_KEYS = ['pid', 'PID', '_PID', 'SYSLOG_PID'] as const
+/** List records: identifiers (ids / identifiers / values), units (names / units / values). */
+const IDENTIFIER_LIST_KEYS = ['ids', 'identifiers', 'values', 'names', 'list', 'items'] as const
+const UNIT_LIST_KEYS = ['names', 'units', 'values', 'ids', 'list', 'items'] as const
+
+const isCursorString = (s: string) => /^s=[0-9a-f]+;/.test(s)
+
+/**
+ * Parse GET /nodes/{node}/journal.
+ *
+ * Plain text: first and last element are cursors, the rest rendered lines.
+ *
+ * Structured (`structured=1`, pve-manager ≥ 9.2.4): one object per entry
+ * ({t, id, pid, p, msg} or the long names timestamp / identifier / priority /
+ * message) plus typed records (cursor, host, identifiers, units, reboot). The
+ * schema does not describe the shape, so field names are matched loosely,
+ * missing fields are tolerated, cursors may come as records, on entries or as
+ * bare strings, and a top-level object with an entry list is accepted too.
+ *
+ * `structuredRequested`: the request carried structured=1 and was accepted,
+ * which proves the filters work even when the answer is empty.
+ */
+export function parseJournal(data: unknown, structuredRequested = false): JournalChunk {
+  let items: readonly unknown[] = []
+  let envelope: JournalRecord | undefined
+  if (Array.isArray(data)) {
+    items = data
+  } else if (data && typeof data === 'object') {
+    envelope = data as JournalRecord
+    const list = pick(envelope, ['entries', 'lines', 'records', 'data'])
+    items = Array.isArray(list) ? list : []
+  }
+
+  const hasObjects = !!envelope || items.some((x) => typeof x === 'object' && x !== null)
+  if (!hasObjects) {
+    const strings = items.filter((x): x is string => typeof x === 'string')
+    if (strings.length === 0) return { lines: [], structured: structuredRequested }
+    const firstCursor = strings[0]
+    const lastCursor = strings.length > 1 ? strings[strings.length - 1] : strings[0]
+    const body = strings.slice(1, -1)
+    return {
+      lines: body.map((t) => ({ key: `p${lineSeq++}`, message: t, text: t, reboot: /^-- (Reboot|Boot) /.test(t) })),
+      firstCursor,
+      lastCursor,
+      structured: structuredRequested,
     }
-    return out
   }
-  const strings = data.filter((x): x is string => typeof x === 'string')
-  if (strings.length === 0) return { lines: [], structured: false }
-  const firstCursor = strings[0]
-  const lastCursor = strings.length > 1 ? strings[strings.length - 1] : strings[0]
-  const body = strings.slice(1, -1)
-  return {
-    lines: body.map((t) => ({ key: `p${lineSeq++}`, message: t, text: t, reboot: /^-- (Reboot|Boot) /.test(t) })),
-    firstCursor,
-    lastCursor,
-    structured: false,
+
+  const out: JournalChunk = { lines: [], structured: true }
+  const cursor = (c: unknown) => {
+    const v = asString(c)
+    if (!v) return
+    if (out.firstCursor === undefined) out.firstCursor = v
+    out.lastCursor = v
   }
+  const lists = (r: JournalRecord) => {
+    const ids = asStringList(r.identifiers)
+    if (ids) out.identifiers = ids
+    const units = asStringList(r.units)
+    if (units) out.units = units
+  }
+  if (envelope) {
+    cursor(pick(envelope, ['firstCursor', 'first_cursor', 'startcursor']))
+    const h = asString(pick(envelope, HOST_KEYS))
+    if (h) out.host = h
+    lists(envelope)
+  }
+
+  for (const raw of items) {
+    if (typeof raw === 'string') {
+      if (isCursorString(raw)) cursor(raw)
+      else out.lines.push({ key: `p${lineSeq++}`, message: raw, text: raw, reboot: /^-- (Reboot|Boot) /.test(raw) })
+      continue
+    }
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue
+    const r = raw as JournalRecord
+    const type = asString(pick(r, TYPE_KEYS))?.toLowerCase()
+    switch (type) {
+      case 'cursor':
+        cursor(pick(r, [...CURSOR_KEYS, 'value']))
+        continue
+      case 'host':
+      case 'hostname': {
+        const h = asString(pick(r, [...HOST_KEYS, 'value', 'name']))
+        if (h) out.host = h
+        continue
+      }
+      case 'identifiers':
+      case 'identifier-list':
+        out.identifiers = asStringList(pick(r, IDENTIFIER_LIST_KEYS)) ?? []
+        continue
+      case 'units':
+      case 'unit-list':
+        out.units = asStringList(pick(r, UNIT_LIST_KEYS)) ?? []
+        continue
+      case 'reboot':
+      case 'boot':
+        out.lines.push({ key: `r${lineSeq++}`, time: journalMicros(pick(r, TIME_KEYS)), message: '-- 重新启动 --', reboot: true })
+        continue
+    }
+    const message = pick(r, MSG_KEYS)
+    if (message === undefined && (Array.isArray(r.identifiers) || Array.isArray(r.units))) {
+      // Untyped list record: { identifiers: [...] } / { units: [...] }.
+      lists(r)
+      continue
+    }
+    const c = pick(r, CURSOR_KEYS)
+    if (c !== undefined) cursor(c)
+    if (!out.host) {
+      const h = asString(pick(r, HOST_KEYS))
+      if (h) out.host = h
+    }
+    // A record of an unknown type without a message is metadata we don't know.
+    if (message === undefined && type !== undefined) continue
+    if (message === undefined && pick(r, TIME_KEYS) === undefined) continue
+    const unit = asString(pick(r, UNIT_KEYS))
+    out.lines.push({
+      key: `s${lineSeq++}`,
+      time: journalMicros(pick(r, TIME_KEYS)),
+      identifier: asString(pick(r, IDENT_KEYS)) ?? unit?.replace(/\.service$/, ''),
+      pid: asInt(pick(r, PID_KEYS)),
+      priority: journalPriority(pick(r, PRIO_KEYS)),
+      message: asString(message) ?? (message === undefined ? '' : JSON.stringify(message)),
+    })
+  }
+  if (envelope) cursor(pick(envelope, ['lastCursor', 'last_cursor', 'endcursor', 'cursor']))
+  return out
 }
 
 export interface JournalFilters {
@@ -621,25 +772,36 @@ function isUnknownParamError(e: unknown): boolean {
 }
 
 /**
- * Read the journal. Tries the structured format first (priority colours,
- * filters); falls back to plain lines on older PVE and remembers that.
+ * How to ask for the journal given the node's version support: true =
+ * structured, false = plain text only (old PVE rejects the new parameters
+ * with 400), undefined = version unknown: try structured, fall back once.
+ */
+export function journalStructuredHint(support: 'supported' | 'unsupported' | 'unknown'): boolean | undefined {
+  return support === 'supported' ? true : support === 'unsupported' ? false : undefined
+}
+
+/**
+ * Read the journal. `opts.structured` comes from the version check
+ * (journalStructuredHint); when it is undefined the structured format is
+ * tried first and a 400 for the unknown parameter falls back to plain lines,
+ * remembered per node.
  */
 export async function fetchJournal(
   node: string,
   req: JournalRequest,
   filters: JournalFilters = {},
-  opts: { withLists?: boolean; signal?: AbortSignal } = {},
+  opts: { withLists?: boolean; signal?: AbortSignal; structured?: boolean } = {},
 ): Promise<JournalChunk> {
   const path = p`/nodes/${node}/journal`
-  const structured = structuredSupport.get(node) ?? true
+  const structured = opts.structured === false ? false : (structuredSupport.get(node) ?? true)
   try {
-    const data = await get<unknown[]>(path, journalParams(req, filters, structured, opts.withLists), { signal: opts.signal })
+    const data = await get<unknown>(path, journalParams(req, filters, structured, opts.withLists), { signal: opts.signal })
     if (structured) structuredSupport.set(node, true)
-    return parseJournal(data ?? [])
+    return parseJournal(data ?? [], structured)
   } catch (e) {
     if (structured && isUnknownParamError(e)) {
       structuredSupport.set(node, false)
-      const data = await get<unknown[]>(path, journalParams(req, filters, false), { signal: opts.signal })
+      const data = await get<unknown>(path, journalParams(req, filters, false), { signal: opts.signal })
       return parseJournal(data ?? [])
     }
     throw e

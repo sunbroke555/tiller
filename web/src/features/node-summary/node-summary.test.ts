@@ -6,7 +6,11 @@ import {
   fetchJournal,
   formatPackageVersions,
   journalLineText,
+  journalMicros,
   journalParams,
+  journalPriority,
+  journalPriorityTone,
+  journalStructuredHint,
   journalSupportsStructured,
   kernelLabel,
   managerVersion,
@@ -194,6 +198,89 @@ describe('journal', () => {
     expect(journalLineText(chunk.lines[2]!, 'pve')).toMatch(/ pve kernel: EXT4-fs error$/)
   })
 
+  it('parses long field names, string priorities and missing fields', () => {
+    const chunk = parseJournal([
+      { type: 'cursor', cursor: C1 },
+      { type: 'identifiers', values: ['pvedaemon', 'kernel'] },
+      { type: 'units', units: ['pveproxy.service'] },
+      { timestamp: 1793477254103986, identifier: 'pvedaemon', priority: '4', pid: '1234', message: 'auth failure' },
+      { timestamp: '1793477254', unit: 'cron.service', priority: 'err', message: 'job failed' },
+      { message: 'no time, no identifier' },
+      { type: 'something-new', value: 42 },
+      { identifier: 'x', timestamp: 1793477254103986 },
+      { type: 'cursor', cursor: C2 },
+    ])
+    expect(chunk.structured).toBe(true)
+    expect([chunk.firstCursor, chunk.lastCursor]).toEqual([C1, C2])
+    expect(chunk.identifiers).toEqual(['pvedaemon', 'kernel'])
+    expect(chunk.units).toEqual(['pveproxy.service'])
+    expect(chunk.lines.map((l) => [l.identifier, l.pid, l.priority, l.message])).toEqual([
+      ['pvedaemon', 1234, 4, 'auth failure'],
+      ['cron', undefined, 3, 'job failed'],
+      [undefined, undefined, undefined, 'no time, no identifier'],
+      ['x', undefined, undefined, ''],
+    ])
+    expect(chunk.lines[1]!.time).toBe(1793477254_000000)
+  })
+
+  it('takes cursors from entries, untyped list records and a wrapping object', () => {
+    const fromEntries = parseJournal([
+      { __CURSOR: C1, SYSLOG_IDENTIFIER: 'sshd', PRIORITY: '6', MESSAGE: 'a', __REALTIME_TIMESTAMP: '1793477254103986', _HOSTNAME: 'pve1' },
+      { identifiers: ['sshd'], units: ['ssh.service'] },
+      { __CURSOR: C2, SYSLOG_IDENTIFIER: 'sshd', PRIORITY: 6, MESSAGE: 'b' },
+    ])
+    expect([fromEntries.firstCursor, fromEntries.lastCursor]).toEqual([C1, C2])
+    expect(fromEntries.host).toBe('pve1')
+    expect(fromEntries.identifiers).toEqual(['sshd'])
+    expect(fromEntries.units).toEqual(['ssh.service'])
+    expect(fromEntries.lines.map((l) => l.message)).toEqual(['a', 'b'])
+
+    const wrapped = parseJournal({ entries: [{ t: 1, id: 'a', msg: 'x' }], identifiers: ['a'], units: [], cursor: C2 })
+    expect(wrapped.structured).toBe(true)
+    expect(wrapped.lines).toHaveLength(1)
+    expect(wrapped.identifiers).toEqual(['a'])
+    expect(wrapped.units).toEqual([])
+    expect(wrapped.lastCursor).toBe(C2)
+
+    // Bare cursor strings around structured entries; other strings are text lines.
+    const mixed = parseJournal([C1, { id: 'a', msg: 'x' }, 'odd text', C2])
+    expect([mixed.firstCursor, mixed.lastCursor]).toEqual([C1, C2])
+    expect(mixed.lines.map((l) => l.text ?? l.message)).toEqual(['x', 'odd text'])
+  })
+
+  it('an accepted structured request counts as structured even when empty', () => {
+    expect(parseJournal([]).structured).toBe(false)
+    expect(parseJournal([], true).structured).toBe(true)
+    expect(parseJournal([C1, C2], true)).toMatchObject({ structured: true, lines: [] })
+  })
+
+  it('maps priorities and timestamps', () => {
+    expect([0, '3', 'warning', 'ERR', 'debug', 9, 'x', undefined].map(journalPriority)).toEqual([0, 3, 4, 3, 7, undefined, undefined, undefined])
+    expect([0, 1, 2, 3, 4, 5, 6, 7, undefined].map(journalPriorityTone)).toEqual([
+      'critical',
+      'critical',
+      'critical',
+      'error',
+      'warning',
+      'notice',
+      undefined,
+      'debug',
+      undefined,
+    ])
+    expect(journalMicros(1793477254)).toBe(1793477254_000000)
+    expect(journalMicros(1793477254103)).toBe(1793477254103_000)
+    expect(journalMicros(1793477254103986)).toBe(1793477254103986)
+    expect(journalMicros('2026-11-01T00:00:00Z')).toBe(Date.parse('2026-11-01T00:00:00Z') * 1000)
+    expect(journalMicros('soon')).toBeUndefined()
+    expect(journalMicros(undefined)).toBeUndefined()
+  })
+
+  it('picks the request format from the version check', () => {
+    expect(journalStructuredHint('supported')).toBe(true)
+    expect(journalStructuredHint('unsupported')).toBe(false)
+    expect(journalStructuredHint('unknown')).toBeUndefined()
+  })
+
   it('builds params like the official viewer', () => {
     expect(journalParams({ mode: 'tail', lastentries: 500 }, { priority: '3', service: 'pve*' }, false)).toEqual({ lastentries: 500 })
     expect(journalParams({ mode: 'tail', lastentries: 500 }, { priority: '3', service: ' pve* ' }, true, true)).toEqual({
@@ -250,6 +337,34 @@ describe('journal', () => {
       'lastentries=10',
       `startcursor=${encodeURIComponent(C2).replace(/%20/g, '+')}`,
     ])
+  })
+
+  it('never sends the new parameters when the version is known to lack them', async () => {
+    const calls: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        calls.push(new URL(url, 'http://x').searchParams.toString())
+        return new Response(JSON.stringify({ data: [C1, 'line', C2] }), { headers: { 'Content-Type': 'application/json' } })
+      }),
+    )
+    const chunk = await fetchJournal('pve1', { mode: 'tail', lastentries: 10 }, { priority: '3', unit: 'cron' }, { structured: false, withLists: true })
+    expect(chunk.structured).toBe(false)
+    expect(calls).toEqual(['lastentries=10'])
+  })
+
+  it('asks for structured entries and lists when supported', async () => {
+    const calls: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        calls.push(new URL(url, 'http://x').searchParams.toString())
+        return new Response(JSON.stringify({ data: [] }), { headers: { 'Content-Type': 'application/json' } })
+      }),
+    )
+    const chunk = await fetchJournal('pve2', { mode: 'tail', lastentries: 10 }, { unit: 'cron' }, { structured: true, withLists: true })
+    expect(chunk.structured).toBe(true)
+    expect(calls).toEqual(['lastentries=10&structured=1&identifiers=1&units=1&unit=cron'])
   })
 })
 

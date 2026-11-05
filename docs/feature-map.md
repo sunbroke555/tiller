@@ -287,7 +287,7 @@
 - **添加/编辑存储** · `storage-config/storage-add-edit` · P2
   - 用户操作：类型：Directory、LVM、LVM-Thin、BTRFS、NFS、SMB/CIFS、GlusterFS(已移除)、iSCSI、CephFS、RBD、ZFS over iSCSI、ZFS、Proxmox Backup Server、ESXi。通用：ID、节点、启用、内容类型、共享、备份保留（prune-backups）、最大受保护备份数、预分配、qcow2 快照为卷链（snapshot-as-volume-chain）。
   - API：`POST /storage`；`PUT /storage/{storage}`
-  - 要点：type=dir|lvm|lvmthin|btrfs|nfs|cifs|iscsi|iscsidirect|cephfs|rbd|zfs|zfspool|pbs|esxi；类型专属字段：path、vgname、thinpool、server、export、share、username/password/domain/smbversion、portal/target、monhost/keyring/krbd/pool/namespace/fs-name/data-pool、blocksize/iscsiprovider/lio_tpg/comstar_*、datastore/fingerprint/encryption-key/master-pubkey（PBS）、skip-cert-verification（ESXi）。PBS 加密密钥 encryption-key=autogen 时返回生成的密钥，需提示用户保存（官方 PBSKeyShow）。
+  - 要点：type=dir|lvm|lvmthin|btrfs|nfs|cifs|iscsi|iscsidirect|cephfs|rbd|zfs|zfspool|pbs|esxi；类型专属字段：path、vgname、thinpool、server、export、share、username/password/domain/smbversion、portal/target、monhost/keyring/krbd/pool/namespace/fs-name/data-pool、blocksize/iscsiprovider/lio_tpg/comstar_*、datastore/fingerprint/encryption-key/master-pubkey（PBS）、skip-cert-verification（ESXi）、on-volume-remove=discard=1（LVM，libpve-storage-perl ≥ 9.1.12，`storageOnVolumeRemove`）。PBS 加密密钥 encryption-key=autogen 时返回生成的密钥，需提示用户保存（官方 PBSKeyShow）。
 - **删除存储定义** · `storage-config/storage-remove` · P2
   - 用户操作：只删配置，不删数据。
   - API：`DELETE /storage/{storage}`
@@ -326,7 +326,7 @@
 - **复制任务** · `replication/repl-jobs` · P2
   - 用户操作：全部复制任务（客户机、源/目标节点、计划、限速、启用、注释），新增/编辑/删除（可 keep 目标、force）。
   - API：`GET /cluster/replication`；`POST /cluster/replication`；`GET /cluster/replication/{id}`；`PUT /cluster/replication/{id}`；`DELETE /cluster/replication/{id}`
-  - 要点：id=`<vmid>-<n>`，type=local，参数 target、schedule（默认 */15）、rate（MB/s）、comment、disable、remove_job。仅 ZFS 本地存储支持。
+  - 要点：id=`<vmid>-<n>`，type=local，参数 target、schedule（默认 */15）、rate（MB/s）、comment、disable、remove_job；skip-freeze-fs（libpve-guest-common-perl ≥ 6.0.6，`replicationSkipFreezeFs`）。仅 ZFS 本地存储支持。
 
 ### 2.8 Permissions：Users / API Tokens / Two Factor / Groups
 
@@ -558,7 +558,7 @@
 - **系统日志（journal）** · `node-summary/node-journal` · P1
   - 用户操作：实时查看 journal，按时间范围、优先级、服务/unit、仅内核过滤，向上翻页。
   - API：`GET /nodes/{node}/journal`；`GET /nodes/{node}/syslog`
-  - 要点：journal：since/until 或 startcursor/endcursor、lastentries；9.2 新增 priority、service（glob）、unit、kernel、structured（JSON 条目）、identifiers/units（筛选候选）。返回行数组，首尾是游标。需 Sys.Syslog。
+  - 要点：journal：since/until 或 startcursor/endcursor、lastentries；pve-manager ≥ 9.2.4 新增 priority、service（glob）、unit、kernel、structured（JSON 条目）、identifiers/units（筛选候选）。返回行数组，首尾是游标。需 Sys.Syslog。按 `PVE_FEATURES.journalFilters` 判断版本，旧版只发原参数。
 - **包版本** · `node-summary/package-versions` · P1
   - 用户操作：Summary 的 Package versions：列出 proxmox-ve 相关包及版本，可复制。
   - API：`GET /nodes/{node}/apt/versions`

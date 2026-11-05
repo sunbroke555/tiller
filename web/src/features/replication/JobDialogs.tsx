@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from 'react'
 
+import { usePveFeature } from '@/api/pve-features'
 import { useClusterResources } from '@/api/queries'
 import {
   createReplicationJob,
@@ -56,6 +57,9 @@ export function JobDialog({ open, onOpenChange, job, guest: fixedGuest, node }: 
   const canReplicate = useCanReplicate()
   const guests = useClusterResources({ select: (all) => all.filter(isGuest).sort((a, b) => a.vmid - b.vmid) })
   const nodeCount = useClusterResources({ select: (all) => all.filter((r) => r.type === 'node').length }).data ?? 0
+  const skipFreezeSupport = usePveFeature('replicationSkipFreezeFs')
+  // Older PVE rejects the key; a job that already carries it proves support.
+  const showSkipFreeze = skipFreezeSupport === 'supported' || current?.['skip-freeze-fs'] !== undefined
 
   const [form, setForm] = useState<JobForm>(() => emptyJobForm(fixedGuest))
   const [touched, setTouched] = useState(false)
@@ -159,6 +163,14 @@ export function JobDialog({ open, onOpenChange, job, guest: fixedGuest, node }: 
         checked={form.enabled}
         onCheckedChange={(v) => set('enabled', v)}
       />
+      {showSkipFreeze && (
+        <SwitchField
+          label="复制时不冻结文件系统"
+          description="默认在每次复制前冻结客户机文件系统、完成后解冻，保证副本一致。跳过后不暂停客户机 IO，但副本只有断电级（崩溃）一致性。"
+          checked={form.skipFreezeFs}
+          onCheckedChange={(v) => set('skipFreezeFs', v)}
+        />
+      )}
     </FormDialog>
   )
 }

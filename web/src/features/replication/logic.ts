@@ -203,10 +203,12 @@ export interface JobForm {
   rate: number | undefined
   comment: string
   enabled: boolean
+  /** skip-freeze-fs (newer PVE only; the control is hidden otherwise, so it stays false). */
+  skipFreezeFs: boolean
 }
 
 export function emptyJobForm(guest?: number): JobForm {
-  return { guest, target: undefined, schedule: '', rate: undefined, comment: '', enabled: true }
+  return { guest, target: undefined, schedule: '', rate: undefined, comment: '', enabled: true, skipFreezeFs: false }
 }
 
 export function jobToForm(job: ReplicationJob): JobForm {
@@ -217,6 +219,7 @@ export function jobToForm(job: ReplicationJob): JobForm {
     rate: job.rate,
     comment: job.comment ?? '',
     enabled: !job.disable,
+    skipFreezeFs: !!Number(job['skip-freeze-fs'] ?? 0),
   }
 }
 
@@ -230,13 +233,15 @@ export function validateJobForm(form: JobForm, isCreate: boolean): Partial<Recor
 }
 
 /** Values compared and sent; undefined = PVE default (left out / deleted). */
-function normalized(form: Pick<JobForm, 'schedule' | 'rate' | 'comment' | 'enabled'>) {
+function normalized(form: Pick<JobForm, 'schedule' | 'rate' | 'comment' | 'enabled' | 'skipFreezeFs'>) {
   const schedule = form.schedule.trim().replace(/\s+/g, ' ')
   return {
     schedule: schedule === '' || schedule === DEFAULT_SCHEDULE ? undefined : schedule,
     rate: form.rate === undefined || !Number.isFinite(form.rate) ? undefined : form.rate,
     comment: form.comment.trim() === '' ? undefined : form.comment.trim(),
     disable: form.enabled ? undefined : 1,
+    // Default 0: only ever sent when checked, so older PVE never sees the key.
+    'skip-freeze-fs': form.skipFreezeFs ? 1 : undefined,
   }
 }
 
@@ -255,6 +260,7 @@ export function createJobParams(form: JobForm, jobs: readonly Pick<ReplicationJo
     rate: v.rate,
     comment: v.comment,
     disable: v.disable,
+    'skip-freeze-fs': v['skip-freeze-fs'],
   }
 }
 
@@ -267,7 +273,7 @@ export function updateJobParams(job: ReplicationJob, form: JobForm): Params | nu
   const after = normalized(form)
   const params: Params = {}
   const remove: string[] = []
-  for (const key of ['schedule', 'rate', 'comment', 'disable'] as const) {
+  for (const key of ['schedule', 'rate', 'comment', 'disable', 'skip-freeze-fs'] as const) {
     if (before[key] === after[key]) continue
     if (after[key] === undefined) remove.push(key)
     else params[key] = after[key]

@@ -237,9 +237,16 @@ test.describe('node summary', () => {
     await expect(log).toContainText(pve.node)
   })
 
-  test('system log: structured journal with filters (PVE ≥ 9.2.x, mocked)', async ({ page, pve }) => {
+  test('system log: structured journal with filters (pve-manager ≥ 9.2.4, mocked)', async ({ page, pve }) => {
     const seen: URLSearchParams[] = []
     const now = Date.now() * 1000
+    // The page asks for the structured format only when the node's version has it.
+    await page.route(`**/api2/json/nodes/${pve.node}/apt/versions`, async (route) => {
+      const res = await route.fetch()
+      const body = (await res.json()) as { data: { Package: string; Version?: string }[] }
+      const data = body.data.map((p) => (p.Package === 'pve-manager' ? { ...p, Version: '9.2.4' } : p))
+      await route.fulfill({ response: res, json: { ...body, data } })
+    })
     await page.route(`**/api2/json/nodes/${pve.node}/journal?*`, async (route) => {
       const qs = new URL(route.request().url()).searchParams
       seen.push(qs)

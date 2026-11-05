@@ -7,6 +7,7 @@ import {
   fixedFields,
   formatHostPort,
   initialForm,
+  onVolumeRemoveValue,
   parseHostPort,
   pbsKeyError,
   retentionSummary,
@@ -14,6 +15,7 @@ import {
   toggleParams,
   updateParams,
   validateForm,
+  volumeRemoveDiscard,
   zfsBlocksizeError,
   type StorageForm,
 } from './model'
@@ -99,6 +101,17 @@ describe('create params per type', () => {
     const base = createParams(form('lvm', { storage: 'san', baseStorage: 'iscsi1', base: 'iscsi1:0.0.1.scsi-36', vgname: 'sanvg', shared: true }))
     expect(base).toMatchObject({ base: 'iscsi1:0.0.1.scsi-36', vgname: 'sanvg', shared: 1 })
     expect(createParams(form('lvm', { storage: 'x', vgname: 'v', base: 'stale' })).base).toBeUndefined()
+  })
+
+  it('lvm: on-volume-remove only when discard is switched on', () => {
+    expect(createParams(form('lvm', { storage: 'vg', vgname: 'data' }))).not.toHaveProperty('on-volume-remove')
+    expect(createParams(form('lvm', { storage: 'vg', vgname: 'data', discardOnRemove: true }))).toMatchObject({
+      'on-volume-remove': 'discard=1',
+    })
+    // Other types never carry it.
+    expect(createParams(form('lvmthin', { storage: 't', vgname: 'pve', thinpool: 'data', discardOnRemove: true }))).not.toHaveProperty(
+      'on-volume-remove',
+    )
   })
 
   it('lvmthin and zfspool', () => {
@@ -268,6 +281,25 @@ describe('update params', () => {
     expect(updateParams({ ...initialForm('lvm', l), snapshotChain: true }, l)).toEqual({ 'snapshot-as-volume-chain': '1' })
   })
 
+  it('lvm on-volume-remove: set, keep, delete; untouched on storages without it', () => {
+    const plain: StorageDef = { storage: 'v', type: 'lvm', vgname: 'v', content: 'images', digest: 'd' }
+    expect(initialForm('lvm', plain).discardOnRemove).toBe(false)
+    expect(updateParams(initialForm('lvm', plain), plain)).toBeNull()
+    expect(updateParams({ ...initialForm('lvm', plain), discardOnRemove: true }, plain)).toEqual({ 'on-volume-remove': 'discard=1', digest: 'd' })
+
+    const discarding: StorageDef = { ...plain, 'on-volume-remove': 'discard=1' }
+    expect(initialForm('lvm', discarding).discardOnRemove).toBe(true)
+    expect(updateParams(initialForm('lvm', discarding), discarding)).toBeNull()
+    expect(updateParams({ ...initialForm('lvm', discarding), discardOnRemove: false }, discarding)).toEqual({
+      delete: 'on-volume-remove',
+      digest: 'd',
+    })
+
+    const off: StorageDef = { ...plain, 'on-volume-remove': 'discard=0' }
+    expect(initialForm('lvm', off).discardOnRemove).toBe(false)
+    expect(updateParams({ ...initialForm('lvm', off), discardOnRemove: true }, off)).toMatchObject({ 'on-volume-remove': 'discard=1' })
+  })
+
   it('nfs: version change keeps other mount options', () => {
     const n: StorageDef = { storage: 'n', type: 'nfs', server: 's', export: '/e', content: 'images', options: 'soft,vers=3' }
     const f = initialForm('nfs', n)
@@ -404,6 +436,22 @@ describe('validation', () => {
 })
 
 describe('helpers', () => {
+  it('parses and builds on-volume-remove', () => {
+    expect(volumeRemoveDiscard(undefined)).toBe(false)
+    expect(volumeRemoveDiscard('discard=1')).toBe(true)
+    expect(volumeRemoveDiscard('discard=0')).toBe(false)
+    expect(volumeRemoveDiscard('garbage=,=')).toBe(false)
+    expect(onVolumeRemoveValue(false, undefined)).toBeNull()
+    expect(onVolumeRemoveValue(true, undefined)).toBe('discard=1')
+    expect(onVolumeRemoveValue(true, 'discard=1')).toBe('discard=1')
+    expect(onVolumeRemoveValue(true, 'discard=0')).toBe('discard=1')
+    expect(onVolumeRemoveValue(false, 'discard=1')).toBeNull()
+    expect(onVolumeRemoveValue(false, 'discard=0')).toBeNull()
+    // Unknown future options survive.
+    expect(onVolumeRemoveValue(false, 'discard=1,zero=1')).toBe('zero=1')
+    expect(onVolumeRemoveValue(true, 'zero=1')).toBe('zero=1,discard=1')
+  })
+
   it('host[:port]', () => {
     expect(parseHostPort('pbs.lan')).toEqual({ server: 'pbs.lan' })
     expect(parseHostPort('10.0.0.1:8007')).toEqual({ server: '10.0.0.1', port: 8007 })
