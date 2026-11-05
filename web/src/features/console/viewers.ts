@@ -128,6 +128,64 @@ export function opensSpiceByDefault(
   return !pickable(caps, requested, remembered) && datacenterViewer(datacenterDefault, caps) === 'spice'
 }
 
+// ------------------------------------------------- node shell vs identity
+
+/** The PVE identity Tiller connects as (see usePveAuth). */
+export interface ConsoleAuth {
+  identity: string | undefined
+  token: boolean
+}
+
+/**
+ * What PVE allows the node shell for this identity (checked on PVE 9.2.25):
+ * - vncshell and spiceshell refuse API tokens, even root@pam's ("value
+ *   'root@pam!…' does not look like a valid user name"), so neither noVNC
+ *   nor SPICE is offered then (`graphical`). Guest consoles (QEMU and LXC
+ *   vncproxy, QEMU spiceproxy) accept tokens.
+ * - termproxy logs in only root@pam directly (`login -f root`); any other
+ *   identity, root@pam's tokens included, gets the system's `login:` prompt.
+ *   `login` says why (null: a direct root shell, or a command like upgrade).
+ */
+export interface NodeShellLimits {
+  graphical: boolean
+  login: 'token' | 'user' | null
+}
+
+export function nodeShellLimits(target: ConsoleTarget, auth: ConsoleAuth | undefined): NodeShellLimits {
+  if (target.kind !== 'node' || !auth?.identity) return { graphical: true, login: null }
+  const login = target.cmd || auth.identity === 'root@pam' ? null : auth.token ? 'token' : 'user'
+  return { graphical: !auth.token, login }
+}
+
+/** The viewers (and SPICE) PVE lets this identity use. */
+export function allowedCapabilities(caps: ConsoleCapabilities, limits: NodeShellLimits): ConsoleCapabilities {
+  return limits.graphical ? caps : { ...caps, viewers: caps.viewers.filter((v) => v !== 'novnc'), spice: false }
+}
+
+/**
+ * The viewer to open: the one picked in this session, else chooseViewer().
+ * When PVE would refuse what was asked for (noVNC picked, requested or
+ * remembered, or the datacenter default html5 or vv), the node shell opens
+ * in xterm.js with `refused` set, so the console can say why.
+ */
+export function resolveViewer(opts: {
+  target: ConsoleTarget
+  caps: ConsoleCapabilities
+  config?: GuestConsoleConfig | undefined
+  limits: NodeShellLimits
+  picked?: ConsoleViewer | null | undefined
+  requested?: string | null | undefined
+  remembered?: string | null | undefined
+  datacenterDefault?: string | null | undefined
+}): { viewer: ConsoleViewer; refused: boolean } {
+  const { target, caps, config, limits, picked, requested, remembered, datacenterDefault } = opts
+  const wanted =
+    picked && caps.viewers.includes(picked) ? picked : chooseViewer(target, caps, config, requested, remembered, datacenterDefault)
+  if (limits.graphical) return { viewer: wanted, refused: false }
+  const spiceWanted = !picked && opensSpiceByDefault(caps, requested, remembered, datacenterDefault)
+  return { viewer: wanted === 'novnc' ? 'xterm' : wanted, refused: wanted === 'novnc' || spiceWanted }
+}
+
 // ------------------------------------------------------------ preferences
 
 const VIEWER_PREF_KEY = 'tiller:console-viewer'

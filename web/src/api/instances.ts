@@ -67,12 +67,29 @@ export function switchInstance(instance: InstanceScope) {
   window.location.assign(instanceUrl(instance))
 }
 
-export function usePveIdentity(): string | undefined {
+/** How Tiller signs in to the current instance's PVE. */
+export interface PveAuth {
+  /** The instance catalog has loaded (or failed): `identity` is final. */
+  loaded: boolean
+  /** user@realm (password) or user@realm!token (API token); undefined without credentials. */
+  identity: string | undefined
+  /** Tiller uses an API token: PVE refuses some root-only paths for tokens, even root@pam's. */
+  token: boolean
+}
+
+export function usePveAuth(): PveAuth {
   const scope = getInstanceScope()
-  const { data } = useInstances()
+  const { data, isFetched, isError } = useInstances()
   const instance = data?.instances.find((i) => i.id === scope?.id && i.version === scope?.version)
-  if (!instance?.hasCredential) return undefined
-  return instance.authMode === 'password' ? `${instance.username}@${instance.realm}` : instance.tokenId
+  const loaded = isFetched || isError
+  if (!instance?.hasCredential) return { loaded, identity: undefined, token: false }
+  return instance.authMode === 'password'
+    ? { loaded, identity: `${instance.username}@${instance.realm}`, token: false }
+    : { loaded, identity: instance.tokenId, token: true }
+}
+
+export function usePveIdentity(): string | undefined {
+  return usePveAuth().identity
 }
 
 export async function saveInstance(input: Pick<PveInstance, 'name' | 'url' | 'fingerprint' | 'insecureTLS'> & { authMode: 'password' | 'token'; username?: string; realm?: string; password?: string; tokenId?: string; tokenSecret?: string }, existing?: PveInstance): Promise<PveInstance> {

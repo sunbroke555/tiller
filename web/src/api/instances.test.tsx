@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
-import { LAST_INSTANCE_KEY, instancesKey, preferredInstance, rememberInstance, useInstances, usePveIdentity, type PveInstance } from './instances'
+import { LAST_INSTANCE_KEY, instancesKey, preferredInstance, rememberInstance, useInstances, usePveAuth, usePveIdentity, type PveInstance } from './instances'
 import { setSession } from './session'
 
 vi.mock('./instance-scope', async (original) => ({
@@ -77,5 +77,17 @@ it('does not use a different connection revision as the current PVE identity', a
   const { result, unmount } = renderHook(usePveIdentity, { wrapper })
   await waitFor(() => expect(client.isFetching()).toBe(0))
   expect(result.current).toBeUndefined()
+  unmount(); client.clear()
+})
+
+it('tells the console whether the instance signs in with an API token', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ canManage: true, instances: [
+    { id: 'chosen', version: 'current', authMode: 'token', tokenId: 'root@pam!tiller', hasCredential: true },
+  ] }))))
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  const { result, unmount } = renderHook(usePveAuth, { wrapper })
+  expect(result.current.loaded).toBe(false)
+  await waitFor(() => expect(result.current).toEqual({ loaded: true, identity: 'root@pam!tiller', token: true }))
   unmount(); client.clear()
 })

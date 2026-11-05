@@ -12,6 +12,7 @@ import {
   Ellipsis,
   Expand,
   ExternalLink,
+  Info,
   Keyboard,
   LoaderCircle,
   Maximize2,
@@ -40,6 +41,7 @@ import {
   type ConsoleTarget,
   type ConsoleViewer,
 } from '@/api/console'
+import { usePveAuth } from '@/api/instances'
 import { queryKeys } from '@/api/queries'
 import { useClusterOptions } from '@/api/shell'
 import { AmbientBackground } from '@/components/AmbientBackground'
@@ -69,7 +71,16 @@ import { PasteDialog } from './PasteDialog'
 import { SendKeyDialog } from './SendKeyDialog'
 import { PHASE_LABEL, type ConsoleSessionHandle, type ConsoleState, type VncScaleMode } from './session'
 import { SpiceDialog } from './SpiceDialog'
-import { chooseViewer, consoleCapabilities, opensSpiceByDefault, rememberViewer, rememberedViewer } from './viewers'
+import {
+  allowedCapabilities,
+  consoleCapabilities,
+  nodeShellLimits,
+  opensSpiceByDefault,
+  rememberViewer,
+  rememberedViewer,
+  resolveViewer,
+  type NodeShellLimits,
+} from './viewers'
 
 // Each viewer is its own chunk: xterm.js or noVNC load only when used.
 const XtermSession = lazy(() => import('./XtermSession'))
@@ -147,19 +158,30 @@ export function ConsoleScreen({ target, variant, title, backTo, requestedViewer,
   const optionsQ = useClusterOptions()
   const dcConsole = typeof optionsQ.data?.console === 'string' ? optionsQ.data.console : null
   const optionsReady = optionsQ.isFetched || optionsQ.isError
+  // The node shell depends on the PVE identity (API token or not): wait for it too.
+  const auth = usePveAuth()
   const ready =
-    optionsReady && (!isGuest || ((statusQ.isFetched || statusQ.isError) && (configQ.isFetched || configQ.isError)))
+    optionsReady &&
+    (isGuest ? (statusQ.isFetched || statusQ.isError) && (configQ.isFetched || configQ.isError) : auth.loaded)
   const guestStatus = statusQ.data
   const template = guestStatus?.template === 1
   const running = !isGuest || statusForbidden || guestStatus?.status === 'running'
-  const caps = consoleCapabilities(target, guestStatus, configQ.data)
+  const allCaps = consoleCapabilities(target, guestStatus, configQ.data)
+  const limits = nodeShellLimits(target, auth)
+  const caps = allowedCapabilities(allCaps, limits)
 
   // ------------------------------------------------------------ viewer
   const [pickedViewer, setPickedViewer] = useState<ConsoleViewer | null>(null)
-  const viewer: ConsoleViewer =
-    pickedViewer && caps.viewers.includes(pickedViewer)
-      ? pickedViewer
-      : chooseViewer(target, caps, configQ.data, requestedViewer, rememberedViewer(target.kind), dcConsole)
+  const { viewer, refused } = resolveViewer({
+    target,
+    caps: allCaps,
+    config: configQ.data,
+    limits,
+    picked: pickedViewer,
+    requested: requestedViewer,
+    remembered: rememberedViewer(target.kind),
+    datacenterDefault: dcConsole,
+  })
   const mode = viewer === 'novnc' ? 'vnc' : 'terminal'
   const pickViewer = (v: ConsoleViewer) => {
     setPickedViewer(v)
@@ -533,6 +555,7 @@ export function ConsoleScreen({ target, variant, title, backTo, requestedViewer,
   )
 
   const status = <StatusPill phase={canConnect ? state.phase : null} guestStatus={isGuest ? guestStatus?.status : undefined} />
+  const shellNote = ready && (refused || limits.login) ? <NodeShellNote limits={limits} refused={refused} /> : null
 
   if (page) {
     return (
@@ -607,6 +630,7 @@ export function ConsoleScreen({ target, variant, title, backTo, requestedViewer,
           )}
           {menu}
         </header>
+        {shellNote && !compact && <div className="relative z-10 shrink-0 px-3 pb-2 sm:px-4">{shellNote}</div>}
         <main className={cn('relative z-10 min-h-0 flex-1', compact ? 'px-0' : 'px-2 pb-2 sm:px-3 sm:pb-3')}>{surface}</main>
         {keyBar && (
           <div
@@ -643,6 +667,7 @@ export function ConsoleScreen({ target, variant, title, backTo, requestedViewer,
           </Button>
           {menu}
         </div>
+        {shellNote && <div className="border-b border-border/60 px-3 py-2">{shellNote}</div>}
         <div
           className={cn(
             'relative',
@@ -724,6 +749,20 @@ function ViewerSwitch({
         )
       })}
     </div>
+  )
+}
+
+/** Why the node shell asks for a login, or why it is not noVNC / SPICE: PVE's rules for this identity. */
+function NodeShellNote({ limits, refused }: { limits: NodeShellLimits; refused: boolean }) {
+  return (
+    <p role="note" aria-label="Shell 提示" className="flex items-start gap-2 text-xs text-muted-foreground">
+      <Info className="mt-px size-3.5 shrink-0" aria-hidden />
+      <span>
+        {refused && 'PVE 的节点 VNC 和 SPICE Shell 不接受 API Token，已改用终端。'}
+        {limits.login &&
+          `${limits.login === 'token' ? '使用 API Token 时' : '使用非 root@pam 账号时'}，PVE 会先要求系统登录（login:）；要直接进入 root Shell，请用 root@pam 密码连接实例。`}
+      </span>
+    </p>
   )
 }
 

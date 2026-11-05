@@ -32,13 +32,16 @@ import { describeConsoleError } from './session'
 import { authMessage, inputMessage, parseHandshake, resizeMessage, utf8Length } from './termproto'
 import { withAlpha, xtermTheme } from './termTheme'
 import {
+  allowedCapabilities,
   chooseViewer,
   clampFontSize,
   clampZoom,
   consoleCapabilities,
   datacenterViewer,
   defaultViewer,
+  nodeShellLimits,
   opensSpiceByDefault,
+  resolveViewer,
   serialDisplay,
   serialPorts,
   vgaIsSpice,
@@ -247,6 +250,52 @@ describe('viewers', () => {
     expect(opensSpiceByDefault(spiceVm, null, 'novnc', 'vv')).toBe(false)
     expect(opensSpiceByDefault(plainVm, null, null, 'vv')).toBe(false)
     expect(opensSpiceByDefault(ctCaps, null, null, 'html5')).toBe(false)
+  })
+
+  it('keeps the node shell within what PVE allows the identity', () => {
+    const token = { identity: 'root@pam!tiller', token: true }
+    const root = { identity: 'root@pam', token: false }
+    const user = { identity: 'ops@pve', token: false }
+    expect(nodeShellLimits(node, token)).toEqual({ graphical: false, login: 'token' })
+    expect(nodeShellLimits(node, root)).toEqual({ graphical: true, login: null })
+    expect(nodeShellLimits(node, user)).toEqual({ graphical: true, login: 'user' })
+    // Unknown identity: no limits. Commands (upgrade) are no login shell.
+    expect(nodeShellLimits(node, { identity: undefined, token: false })).toEqual({ graphical: true, login: null })
+    expect(nodeShellLimits({ ...node, cmd: 'upgrade' }, token)).toEqual({ graphical: false, login: null })
+    // Guest consoles accept tokens (QEMU and LXC vncproxy).
+    expect(nodeShellLimits(vm, token)).toEqual({ graphical: true, login: null })
+    expect(nodeShellLimits(ct, token)).toEqual({ graphical: true, login: null })
+
+    const caps = consoleCapabilities(node)
+    expect(allowedCapabilities(caps, nodeShellLimits(node, token))).toEqual({ viewers: ['xterm'], spice: false })
+    expect(allowedCapabilities(caps, nodeShellLimits(node, root))).toBe(caps)
+  })
+
+  it('falls back to xterm.js when PVE refuses the node VNC shell', () => {
+    const caps = consoleCapabilities(node)
+    const token = nodeShellLimits(node, { identity: 'root@pam!tiller', token: true })
+    const root = nodeShellLimits(node, { identity: 'root@pam', token: false })
+    const resolve = (limits: typeof token, o: { picked?: 'novnc' | 'xterm'; requested?: string; remembered?: string; dc?: string }) =>
+      resolveViewer({ target: node, caps, limits, picked: o.picked, requested: o.requested, remembered: o.remembered, datacenterDefault: o.dc })
+    expect(resolve(token, { dc: 'html5' })).toEqual({ viewer: 'xterm', refused: true })
+    expect(resolve(token, { remembered: 'novnc' })).toEqual({ viewer: 'xterm', refused: true })
+    expect(resolve(token, { requested: 'novnc' })).toEqual({ viewer: 'xterm', refused: true })
+    expect(resolve(token, { picked: 'novnc' })).toEqual({ viewer: 'xterm', refused: true })
+    expect(resolve(token, {})).toEqual({ viewer: 'xterm', refused: false })
+    expect(resolve(token, { dc: 'xtermjs' })).toEqual({ viewer: 'xterm', refused: false })
+    // SPICE (spiceshell) is refused as well: a vv default says so, unless a viewer was asked for.
+    expect(resolve(token, { dc: 'vv' })).toEqual({ viewer: 'xterm', refused: true })
+    expect(resolve(token, { dc: 'vv', remembered: 'xterm' })).toEqual({ viewer: 'xterm', refused: false })
+    expect(resolve(root, { dc: 'vv' })).toEqual({ viewer: 'xterm', refused: false })
+    expect(resolve(root, { dc: 'html5' })).toEqual({ viewer: 'novnc', refused: false })
+    expect(resolve(root, { picked: 'novnc', remembered: 'xterm' })).toEqual({ viewer: 'novnc', refused: false })
+    expect(resolve(root, { picked: 'xterm', dc: 'html5' })).toEqual({ viewer: 'xterm', refused: false })
+    // Guests keep their viewers under a token.
+    const ctToken = nodeShellLimits(ct, { identity: 'root@pam!tiller', token: true })
+    expect(resolveViewer({ target: ct, caps: consoleCapabilities(ct), limits: ctToken, datacenterDefault: 'html5' })).toEqual({
+      viewer: 'novnc',
+      refused: false,
+    })
   })
 
   it('clamps font size and zoom', () => {
