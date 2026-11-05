@@ -1,10 +1,11 @@
 // Monitors, managers and metadata servers: list, create, destroy,
 // start / stop / restart (official PVE.node.CephMonMgrList,
-// PVE.node.CephServiceController, PVE.CephCreateService).
+// PVE.node.CephServiceController, PVE.CephCreateService), and the cluster-wide
+// rolling restart of one type (pve-manager ≥ 9.2.5).
 
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Ellipsis, Play, Plus, RotateCw, Square, Trash2 } from 'lucide-react'
+import { Ellipsis, ListRestart, Play, Plus, RotateCw, Square, Trash2 } from 'lucide-react'
 
 import {
   cephKeys,
@@ -19,6 +20,7 @@ import {
   type CephMgr,
   type CephMon,
 } from '@/api/ceph'
+import { usePveFeature } from '@/api/pve-features'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { FieldInput, FormDialog, FormField, NodeSelect, SwitchField } from '@/components/form'
 import { ErrorState, LoadingRows } from '@/components/QueryState'
@@ -28,6 +30,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { cn } from '@/lib/utils'
 
 import { parseCephVersion, SERVICE_ID_RE, SERVICE_LABEL, type ServiceType } from './model'
+import { RollingRestartDialog } from './RollingRestartDialog'
 import { Chip, RefreshButton, Section, useCephAccess, type Tone } from './ui'
 
 type AnyService = (CephMon | CephMgr | CephMds) & { quorum?: number; rank?: number }
@@ -81,7 +84,7 @@ function toRows(type: ServiceType, list: AnyService[] | undefined): Row[] {
     .sort((a, b) => a.host.localeCompare(b.host) || a.name.localeCompare(b.name))
 }
 
-type Dialog = { kind: 'create'; type: ServiceType } | { kind: 'stop' | 'destroy'; row: Row } | null
+type Dialog = { kind: 'create' | 'rolling'; type: ServiceType } | { kind: 'stop' | 'destroy'; row: Row } | null
 
 /** All three lists; `host` limits them to one node (node page tab). */
 export function ServicesView({ apiNode, host, types = ['mon', 'mgr', 'mds'] }: { apiNode: string; host?: string; types?: ServiceType[] }) {
@@ -89,6 +92,8 @@ export function ServicesView({ apiNode, host, types = ['mon', 'mgr', 'mds'] }: {
   const mgrs = useCephMgrs(apiNode)
   const mds = useCephMds(apiNode)
   const access = useCephAccess()
+  // Cluster-wide, so only on the datacenter page (not the node tab).
+  const rollingRestart = usePveFeature('cephRestartBulk') === 'supported' && access.canModify && !host
   const [dialog, setDialog] = useState<Dialog>(null)
   const [shown, setShown] = useState<Dialog>(null)
   if (dialog && dialog !== shown) setShown(dialog)
@@ -116,6 +121,20 @@ export function ServicesView({ apiNode, host, types = ['mon', 'mgr', 'mds'] }: {
             actions={
               <>
                 <RefreshButton onClick={() => void q.refetch()} busy={q.isFetching} />
+                {rollingRestart && rows.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setDialog({ kind: 'rolling', type })}
+                    className="pointer-coarse:h-10"
+                    aria-label={`滚动重启所有${SERVICE_LABEL[type]}`}
+                    title="逐个重启，等待集群恢复健康后再重启下一个"
+                    data-testid={`ceph-${type}-rolling-restart`}
+                  >
+                    <ListRestart />
+                    <span className="hidden sm:inline">滚动重启</span>
+                  </Button>
+                )}
                 {access.canModify && (
                   <Button size="sm" variant="outline" onClick={() => setDialog({ kind: 'create', type })} className="pointer-coarse:h-10">
                     <Plus /> 创建
@@ -185,8 +204,13 @@ export function ServicesView({ apiNode, host, types = ['mon', 'mgr', 'mds'] }: {
       />
       <ServiceConfirm
         action={shown?.kind === 'destroy' ? 'destroy' : 'stop'}
-        row={shown && shown.kind !== 'create' ? shown.row : null}
+        row={shown && (shown.kind === 'stop' || shown.kind === 'destroy') ? shown.row : null}
         open={dialog?.kind === 'stop' || dialog?.kind === 'destroy'}
+        onOpenChange={(o) => !o && setDialog(null)}
+      />
+      <RollingRestartDialog
+        target={shown?.kind === 'rolling' ? { kind: 'cluster', type: shown.type } : null}
+        open={dialog?.kind === 'rolling'}
         onOpenChange={(o) => !o && setDialog(null)}
       />
     </div>

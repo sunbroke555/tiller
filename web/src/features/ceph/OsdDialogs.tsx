@@ -31,6 +31,7 @@ import { DASH, formatBytes, formatPercent } from '@/lib/format'
 import { cephUsageTone, CEPH_USAGE_HINT, METRIC_TEXT } from '@/lib/metric-status'
 
 import {
+  FLAG_DESCRIPTION,
   FLAG_LABEL,
   HEALING_FLAGS,
   crushDeviceClasses,
@@ -161,6 +162,9 @@ export function CreateOsdDialog({ apiNode, defaultNode, open, onOpenChange }: Di
 }
 
 // ------------------------------------------------------------------- flags
+// The list is whatever GET /cluster/ceph/flags returns: PVE only reports the
+// flags it can set, so `noautoscale` appears exactly when the node supports it
+// (pve-manager ≥ 9.2.23) and never needs a separate version check.
 
 export function FlagsDialog({ open, onOpenChange }: DialogProps) {
   const flags = useCephFlags(open)
@@ -201,7 +205,7 @@ export function FlagsDialog({ open, onOpenChange }: DialogProps) {
                   {FLAG_LABEL[f.name] && <span className="ml-1.5 text-muted-foreground">{FLAG_LABEL[f.name]}</span>}
                 </span>
               }
-              description={f.description}
+              description={FLAG_DESCRIPTION[f.name] ?? f.description}
               checked={values[f.name] ?? false}
               onCheckedChange={(v) => {
                 setTouched(true)
